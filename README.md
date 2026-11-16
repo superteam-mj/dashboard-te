@@ -1,92 +1,59 @@
-# Dashboard Penjualan Tenaga Listrik (TUL III-09)
+# Dashboard TE — UP3 Mamuju
 
-Dashboard web interaktif dari file Excel Laporan III-09 (Lampiran 1), di-host gratis di GitHub Pages.
+Website dashboard (GitHub Pages) dengan dua menu:
+- **Transaksi Energi** — Laporan TUL III-09 (penjualan tenaga listrik)
+- **Pengendalian Susut › Laporan Susut** — sheet Excel laporan susut ditampilkan sebagai tabel
 
-## Struktur
+Data **otomatis** diperbarui: file Excel di Google Drive → GitHub Actions (tiap 30 menit) → Supabase → website.
+Pengunjung harus **login** (akun dibuat admin di Supabase).
+
 ```
-build_data.py              Excel -> docs/data/data.json
-build_susut.py             Pengendalian Susut/Laporan Susut/*.xlsx -> docs/data/susut.json
-Transaksi Energi/309/      File Excel sumber (TIDAK di-upload ke GitHub)
-  UP/<tahun>/...           level UP3
-  KABUPATEN/<tahun>/...    level Kabupaten (otomatis muncul di dashboard bila ada file)
-  UPI/<tahun>/...          level UPI
-docs/                      Website (root GitHub Pages)
-  index.html, assets/, data/data.json
+Google Drive (folder Excel)
+   │  sync_drive.py — jalan di GitHub Actions, hanya memproses file yang berubah
+   ▼
+Supabase (tabel tul_data, susut_reports, susut_sheets) + Auth
+   ▼
+docs/  (GitHub Pages): halaman login → dashboard
 ```
 
-Format file yang dikenali:
-- **UP**: `Laporan_III_09_{NORMAL|LPB}_LAPORAN1_YYYYMM*.xlsx`
-- **UPI (ditampilkan sebagai ULP)**: `Laporan_III_09_TOTAL_LAPORAN1_YYYYMM_<kode>.xlsx` — satu file per ULP.
-  Nama ULP dibaca otomatis dari isi file; bisa juga diatur manual di `unit_names.json`
-  (contoh: `{"32910": "ULP MANAKARRA"}`). Script mengecek jumlah semua ULP = UP3 setiap bulan.
-- **KABUPATEN**: `TUL_III_09_KAB_<NAMA>_YYYYMM_TOTAL_YYYYMMDD.xlsx`
+## Berkas penting
+| Berkas | Fungsi |
+|---|---|
+| `sync_drive.py` | Drive → build → Supabase (dipanggil Actions) |
+| `build_data.py` | Excel TUL III-09 → JSON (validasi total & cek silang) |
+| `build_susut.py` | Excel Laporan Susut → JSON (sel gabungan, warna, format angka) |
+| `supabase/schema.sql` | Tabel + aturan keamanan (RLS: hanya yang login boleh baca) |
+| `.github/workflows/sync.yml` | Jadwal sinkron tiap 30 menit + tombol jalankan manual |
+| `docs/assets/config.js` | URL & kunci *publishable* Supabase (aman terlihat publik) |
 
-Detail untuk UP: file `Laporan_III_09_NORMAL_LAPORAN1_YYYYMM*.xlsx` (pascabayar) dan
-`Laporan_III_09_LPB_LAPORAN1_YYYYMM*.xlsx` (prabayar). **Total = Normal + LPB** (dihitung otomatis,
-sudah dicek sama persis dengan file TOTAL). Jika ada beberapa file untuk bulan yang sama
-(mis. berakhiran `_04_Nov_2026_22-33-36`), yang dipakai adalah yang **terbaru**.
-Untuk KABUPATEN/UPI: satu subfolder per unit/kabupaten bila nama unit di sel B3 sama.
-
-## Update bulanan — lewat tombol di website (disarankan)
-1. Buka **https://teup3mamuju-droid.github.io/dashboard-te/?admin** sekali saja di browser Anda.
-   Tombol **Perbarui data** akan muncul (dan tetap muncul di browser itu). Pengunjung biasa tidak melihatnya.
-2. Simpan file Excel baru ke folder `Transaksi Energi/309/...` seperti biasa.
-3. Klik **Perbarui data → Pilih folder…** → pilih folder `309`.
-   Browser membaca & memvalidasi semua file (logika sama dengan `build_data.py`, file tidak di-upload).
-4. Periksa ringkasan & peringatan; dashboard menampilkan **pratinjau**.
-5. Klik **Publikasikan**. Pertama kali diminta **token GitHub**:
-   github.com → Settings → Developer settings → *Fine-grained tokens* → Generate new token →
-   Repository access: *Only select repositories* → `dashboard-te` → Permissions: *Contents: Read and write*.
-   Token disimpan hanya di browser tersebut.
-6. Website ter-update untuk semua orang dalam ±1–2 menit.
-
-Untuk menyembunyikan tombol lagi: buka `...?admin=0`.
-
-> Jika setelah itu Anda ingin memakai cara script di bawah, jalankan `git pull` dulu
-> karena data terbaru sudah dikirim langsung ke GitHub oleh tombol tadi.
-
-## Update bulanan — lewat script (alternatif)
-1. Simpan file Excel baru ke `Transaksi Energi/309/UP/2026/` (atau folder level lain).
-2. Jalankan:
-   ```
-   python build_data.py
-   ```
-   Pastikan muncul `Validasi: semua total cocok dengan baris JUMLAH.`
-3. Upload perubahan:
-   ```
-   git add docs/data/data.json
-   git commit -m "Data bulan <bulan>"
-   git push
-   ```
-   Website otomatis ter-update dalam 1–2 menit.
-
-## Lihat di komputer sendiri
+## Struktur folder Drive
+Folder induk (ID-nya disimpan di secret `DRIVE_ROOT_ID`) meniru struktur proyek:
 ```
-python -m http.server 8000 -d docs
+<folder induk>/
+  Transaksi Energi/309/UP|UPI|KABUPATEN/<tahun>/*.xlsx
+  Pengendalian Susut/Laporan Susut/*.xlsx
 ```
-lalu buka http://localhost:8000
+Format nama file TUL III-09 yang dikenali ada di docstring `build_data.py`.
+Cukup simpan/ganti file di Drive; dalam ±30 menit website ikut berubah.
 
-## Setup GitHub Pages (sekali saja)
-1. `gh auth login` (atau buat repo lewat github.com).
-2. `gh repo create dashboard-te --public --source . --push`
-3. Di GitHub: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `/docs`** → Save.
-4. Alamat website: `https://<username>.github.io/dashboard-te/`
+## Pemeliharaan harian
+- **Update data:** simpan Excel ke Drive. Selesai.
+- **Paksa sinkron sekarang:** GitHub → Actions → *Sinkron Drive ke Supabase* → *Run workflow*
+  (centang *force* untuk memproses ulang semua file).
+- **Cek hasil:** log Actions menampilkan jumlah file, peringatan validasi, dan kegagalan.
+  Status terakhir juga tersimpan di tabel `sync_state`.
+- **Tambah/hapus pengguna:** Supabase → Authentication → Users.
+- Sinkron terjadwal GitHub dihentikan otomatis jika repo tidak ada aktivitas 60 hari;
+  jalankan workflow sekali secara manual untuk mengaktifkannya lagi.
 
-> Catatan: repo & website publik — siapa pun bisa melihat data agregat di `data.json`.
-> File Excel mentah tidak ikut di-upload (lihat `.gitignore`).
+## Uji lokal (tanpa Drive/Supabase)
+```
+pip install -r requirements.txt
+python sync_drive.py --local-root . --dry-run --force
+python build_data.py --out hasil/data.json
+python build_susut.py --out hasil/susut.json
+```
+(Excel di `Transaksi Energi/` dan `Pengendalian Susut/` tidak di-upload ke GitHub — lihat `.gitignore`.)
 
-## Fitur
-- Filter Level / Unit / Tahun / Bulan / Jenis (Total, Pascabayar, Prabayar); link URL menyimpan filter (bisa dibagikan).
-- Kartu KPI (pelanggan, daya, kWh, pendapatan, Rp/kWh) + perubahan vs bulan lalu + kumulatif + sparkline.
-- Tren bulanan (klik batang untuk pilih bulan), komposisi golongan (klik untuk menyaring semua grafik),
-  porsi pascabayar vs prabayar, 10 tarif terbesar, tabel detail (urut, cari, buka/tutup golongan, unduh CSV).
-- Mode terang/gelap, tampilan responsif untuk HP.
-
-## Pengendalian Susut › Laporan Susut
-Menu **Pengendalian Susut** di website menampilkan file Excel di folder
-`Pengendalian Susut/Laporan Susut/` (satu file = satu laporan, satu sheet = satu tab; tampilan mengikuti Excel:
-sel gabungan, warna, huruf tebal, format angka). Update:
-1. Ganti/simpan file Excel di `Pengendalian Susut/Laporan Susut/`.
-2. `python build_susut.py`
-3. `git pull`, lalu `git add docs/data/susut.json`, `git commit`, `git push`.
-(Tombol "Perbarui data" di website baru untuk data Transaksi Energi.)
+## Setup awal (sekali saja)
+Lihat `SETUP.md`.

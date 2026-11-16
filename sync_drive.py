@@ -1,0 +1,267 @@
+"""Sinkronisasi otomatis: Google Drive (Excel)  ->  Supabase.
+
+Dijalankan terjadwal oleh GitHub Actions (.github/workflows/sync.yml).
+Folder Drive (DRIVE_ROOT_ID) harus meniru struktur proyek:
+    <root>/Transaksi Energi/309/{UP,UPI,KABUPATEN}/<tahun>/*.xlsx
+    <root>/Pengendalian Susut/Laporan Susut/*.xlsx
+
+Per kumpulan data (Transaksi Energi, Laporan Susut) skrip membandingkan checksum file
+di Drive dengan yang tercatat di tabel sync_state; hanya yang berubah yang diproses ulang.
+
+Variabel lingkungan:
+    GDRIVE_SERVICE_ACCOUNT_JSON   isi kunci JSON service account (read-only ke folder)
+    DRIVE_ROOT_ID                 ID folder Drive induk
+    SUPABASE_URL                  mis. https://xxxx.supabase.co
+    SUPABASE_SERVICE_KEY          kunci service_role / secret (RAHASIA)
+
+Uji lokal tanpa Drive/Supabase:
+    python sync_drive.py --local-root . --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+import build_data
+import build_susut
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+FOLDER = "application/vnd.google-apps.folder"
+TOP = {
+    "tul": ("Transaksi Energi", "309"),
+    "susut": ("Pengendalian Susut", "Laporan Susut"),
+}
+
+
+# ---------------------------------------------------------------- Drive
+class Drive:
+    def __init__(self, sa_json: str):
+        from google.auth.transport.requests import AuthorizedSession
+        from google.oauth2 import service_account
+
+        creds = service_account.Credentials.from_service_account_info(
+            json.loads(sa_json), scopes=["https://www.googleapis.com/auth/drive.readonly"])
+        self.s = AuthorizedSession(creds)
+
+    def children(self, folder_id):
+        out, token = [], None
+        while True:
+            params = {
+                "q": f"'{folder_id}' in parents and trashed=false",
+                "fields": "nextPageToken, files(id,name,mimeType,md5Checksum,modifiedTime)",
+                "pageSize": 1000, "supportsAllDrives": "true", "includeItemsFromAllDrives": "true",
+            }
+            if token:
+                params["pageToken"] = token
+            r = self.s.get("https://www.googleapis.com/drive/v3/files", params=params, timeout=60)
+            r.raise_for_status()
+            j = r.json()
+            out += j.get("files", [])
+            token = j.get("nextPageToken")
+            if not token:
+                return out
+
+    def find_child(self, folder_id, name):
+        want = name.strip().lower()
+        for f in self.children(folder_id):
+            if f["mimeType"] == FOLDER and f["name"].strip().lower() == want:
+                return f["id"]
+        return None
+
+    def walk(self, folder_id, rel=()):
+        """Hasilkan (path_relatif_tuple, info) untuk semua .xlsx di bawah folder."""
+        for f in self.children(folder_id):
+            if f["mimeType"] == FOLDER:
+                yield from self.walk(f["id"], rel + (f["name"],))
+            elif f["name"].lower().endswith(".xlsx") and not f["name"].startswith("~$"):
+                yield rel + (f["name"],), f
+
+    def download(self, file_id, dest: Path):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        r = self.s.get(f"https://www.googleapis.com/drive/v3/files/{file_id}",
+                       params={"alt": "media", "supportsAllDrives": "true"}, stream=True, timeout=300)
+        r.raise_for_status()
+        with open(dest, "wb") as fh:
+            for chunk in r.iter_content(1 << 20):
+                fh.write(chunk)
+
+
+# ---------------------------------------------------------------- Supabase (REST)
+class Supa:
+    def __init__(self, url, key, dry=False):
+        import requests
+        self.base = url.rstrip("/").removesuffix("/rest/v1") + "/rest/v1"
+        self.h = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        self.dry, self.r = dry, requests
+
+    def _do(self, method, path, **kw):
+        if self.dry:
+            print(f"  [dry-run] {method} {path}")
+            return None
+        r = self.r.request(method, self.base + path, headers={**self.h, **kw.pop("headers", {})}, timeout=120, **kw)
+        if not r.ok:
+            raise RuntimeError(f"Supabase {method} {path}: {r.status_code} {r.text[:300]}")
+        return r
+
+    def upsert(self, table, rows, conflict):
+        return self._do("POST", f"/{table}?on_conflict={conflict}", data=json.dumps(rows, ensure_ascii=False).encode("utf8"),
+                        headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+
+    def select(self, table, query=""):
+        if self.dry:
+            return []
+        return self._do("GET", f"/{table}?{query}").json()
+
+    def delete(self, table, query):
+        return self._do("DELETE", f"/{table}?{query}", headers={"Prefer": "return=minimal"})
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# ---------------------------------------------------------------- kumpulan data
+def manifest_of(files):
+    """files: dict path_str -> md5/ukuran  -> manifest yang stabil"""
+    return dict(sorted(files.items()))
+
+
+def publish_tul(sb: Supa, src: Path, work: Path):
+    out = work / "data.json"
+    build_data.main(src, out)
+    data = json.loads(out.read_text(encoding="utf8"))
+    sb.upsert("tul_data", [{"id": "main", "data": data, "generated_at": data["generated_at"]}], "id")
+    return list(build_data.LAST_WARNINGS)
+
+
+def publish_susut(sb: Supa, src: Path, work: Path):
+    out = work / "susut.json"
+    build_susut.main(src, out)
+    data = json.loads(out.read_text(encoding="utf8"))
+    keep = []
+    for rep in data["reports"]:
+        keep.append(rep["file"])
+        sheets = rep["sheets"]
+        sb.upsert("susut_reports", [{
+            "file": rep["file"], "title": rep["title"], "modified": rep["modified"],
+            "sheets": [s["name"] for s in sheets], "updated_at": now(),
+        }], "file")
+        for i, sh in enumerate(sheets):
+            sb.upsert("susut_sheets", [{"file": rep["file"], "idx": i, "name": sh["name"], "data": sh}], "file,idx")
+        from urllib.parse import quote
+        sb.delete("susut_sheets", f"file=eq.{quote(rep['file'])}&idx=gte.{len(sheets)}")
+    for row in sb.select("susut_reports", "select=file"):
+        if row["file"] not in keep:
+            from urllib.parse import quote
+            sb.delete("susut_reports", f"file=eq.{quote(row['file'])}")  # sheets ikut terhapus (cascade)
+    return []
+
+
+def _ci_dir(parent: Path, name: str) -> Path:
+    """Subfolder dengan nama yang sama tanpa peduli huruf besar/kecil (Drive vs Linux)."""
+    if parent.exists():
+        for d in parent.iterdir():
+            if d.is_dir() and d.name.strip().lower() == name.strip().lower():
+                return d
+    return parent / name
+
+
+PUBLISH = {"tul": publish_tul, "susut": publish_susut}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
+    ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
+    ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
+    ap.add_argument("--only", choices=["tul", "susut"], help="hanya satu kumpulan data")
+    a = ap.parse_args()
+
+    sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
+    if not a.dry_run:
+        for v in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY"):
+            if not os.environ.get(v):
+                sys.exit(f"Variabel {v} belum diisi")
+
+    work = Path(tempfile.mkdtemp(prefix="dashte_"))
+    failures = []
+    try:
+        drive, root_id = None, None
+        if not a.local_root:
+            for v in ("GDRIVE_SERVICE_ACCOUNT_JSON", "DRIVE_ROOT_ID"):
+                if not os.environ.get(v):
+                    sys.exit(f"Variabel {v} belum diisi")
+            drive, root_id = Drive(os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"]), os.environ["DRIVE_ROOT_ID"]
+
+        state = {r["key"]: r["value"] for r in sb.select("sync_state", "select=key,value")}
+
+        for name, (top, sub) in TOP.items():
+            if a.only and a.only != name:
+                continue
+            print(f"\n=== {top} ===")
+            # 1) daftar file + penanda perubahan
+            listing = {}  # path_str -> (penanda, sumber)
+            if a.local_root:
+                base = a.local_root / top
+                for p in sorted(base.rglob("*.xlsx")) if base.exists() else []:
+                    if p.name.startswith("~$"):
+                        continue
+                    h = hashlib.md5(p.read_bytes()).hexdigest()
+                    listing["/".join(p.relative_to(a.local_root).parts)] = (h, p)
+            else:
+                top_id = drive.find_child(root_id, top)
+                if not top_id:
+                    print(f"  Folder '{top}' tidak ditemukan di Drive — dilewati.")
+                    failures.append(f"folder '{top}' tidak ada di Drive")
+                    continue
+                for rel, f in drive.walk(top_id, (top,)):
+                    listing["/".join(rel)] = (f.get("md5Checksum") or f["modifiedTime"], f["id"])
+            if not listing:
+                print("  Tidak ada file .xlsx — dilewati.")
+                continue
+            manifest = manifest_of({k: v[0] for k, v in listing.items()})
+            if not a.force and state.get(f"manifest_{name}", {}).get("files") == manifest:
+                print(f"  {len(listing)} file, tidak ada perubahan.")
+                continue
+            print(f"  {len(listing)} file, ada perubahan -> memproses.")
+
+            # 2) siapkan salinan lokal dengan struktur folder yang sama
+            tree = work / name
+            if tree.exists():
+                shutil.rmtree(tree)
+            for path_str, (_, ref) in listing.items():
+                dest = tree.joinpath(*path_str.split("/"))
+                if a.local_root:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(ref, dest)
+                else:
+                    drive.download(ref, dest)
+            src = _ci_dir(_ci_dir(tree, top), sub)
+
+            # 3) bangun & kirim
+            try:
+                warns = PUBLISH[name](sb, src, work / name)
+                state_row = {"files": manifest, "warnings": warns, "synced_at": now(), "ok": True}
+                sb.upsert("sync_state", [{"key": f"manifest_{name}", "value": state_row, "updated_at": now()}], "key")
+                print(f"  Selesai. Peringatan: {len(warns)}")
+            except Exception as e:  # satu menu gagal tidak menghentikan menu lain
+                print(f"  GAGAL: {e}")
+                failures.append(f"{top}: {e}")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+    if failures:
+        print("\nAda kegagalan:\n  - " + "\n  - ".join(failures))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
