@@ -27,8 +27,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt
+      - name: Pasang pustaka
+        if: hashFiles('sync_drive.py') != ''
+        run: pip install -r requirements.txt
       - name: Sinkron
+        if: hashFiles('sync_drive.py') != ''
         env:
           GDRIVE_BRIDGE_URL: ${{ secrets.GDRIVE_BRIDGE_URL }}
           GDRIVE_BRIDGE_TOKEN: ${{ secrets.GDRIVE_BRIDGE_TOKEN }}
