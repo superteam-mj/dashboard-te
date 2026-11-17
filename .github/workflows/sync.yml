@@ -1,0 +1,40 @@
+name: Sinkron Drive ke Supabase
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # tiap 30 menit (waktu UTC)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Proses ulang semua file walau tidak ada perubahan"
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-drive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Pasang pustaka
+        if: hashFiles('sync_drive.py') != ''
+        run: pip install -r requirements.txt
+      - name: Sinkron
+        if: hashFiles('sync_drive.py') != ''
+        env:
+          GDRIVE_BRIDGE_URL: ${{ secrets.GDRIVE_BRIDGE_URL }}
+          GDRIVE_BRIDGE_TOKEN: ${{ secrets.GDRIVE_BRIDGE_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python sync_drive.py ${{ inputs.force && '--force' || '' }}
