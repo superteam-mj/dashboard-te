@@ -251,10 +251,10 @@ def build_file(path):
     }
 
 
-def main():
-    files = sorted(p for p in SRC.glob("*.xlsx") if not p.name.startswith("~$"))
+def main(src=SRC, out=OUT):
+    files = sorted(p for p in Path(src).glob("*.xlsx") if not p.name.startswith("~$"))
     if not files:
-        sys.exit(f"Tidak ada file Excel di {SRC}")
+        sys.exit(f"Tidak ada file Excel di {src}")
     reports = []
     for p in files:
         print(p.name)
@@ -264,10 +264,16 @@ def main():
         "path": ["Pengendalian Susut", "Laporan Susut"],
         "reports": reports,
     }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf8")
-    print(f"Tulis {OUT} ({OUT.stat().st_size / 1e6:.2f} MB)")
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf8")
+    print(f"Tulis {out} ({out.stat().st_size / 1e6:.2f} MB)")
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="Excel Laporan Susut -> JSON")
+    ap.add_argument("--src", type=Path, default=SRC, help="folder berisi file .xlsx laporan susut")
+    ap.add_argument("--out", type=Path, default=OUT, help="berkas JSON keluaran")
+    a = ap.parse_args()
+    main(a.src, a.out)

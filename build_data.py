@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "Transaksi Energi" / "309"
 OUT = ROOT / "docs" / "data" / "data.json"
 NAMES_FILE = ROOT / "unit_names.json"
+LAST_WARNINGS: list = []  # peringatan validasi dari main() terakhir (dibaca sync_drive.py)
 LEVELS = ["UP", "UPI", "KABUPATEN"]
 CODE_UNIT_LEVELS = {"UPI"}  # level yang unitnya dibedakan oleh kode di nama file
 
@@ -175,7 +176,7 @@ def stamp_a(m, path: Path) -> datetime:
     return datetime.fromtimestamp(path.stat().st_mtime)
 
 
-def main() -> int:
+def main(src: Path = SRC, out_path: Path = OUT) -> int:
     names = {}
     if NAMES_FILE.exists():
         names = {k: v for k, v in json.loads(NAMES_FILE.read_text(encoding="utf-8")).items() if not k.startswith("_")}
@@ -184,7 +185,7 @@ def main() -> int:
     all_warns, unknown = [], []
 
     for level in LEVELS:
-        folder = SRC / level
+        folder = src / level
         lv = out["levels"][level] = {}
         if not folder.exists():
             continue
@@ -203,7 +204,7 @@ def main() -> int:
                 st, fmt = datetime.strptime(mb.group("stamp"), "%Y%m%d"), "B"
             else:
                 if "LAPORAN2" not in p.name:
-                    unknown.append(str(p.relative_to(ROOT)))
+                    unknown.append(str(p.relative_to(src)))
                 continue
             if key[1] not in ("NORMAL", "LPB", "TOTAL"):
                 continue
@@ -272,9 +273,10 @@ def main() -> int:
             if abs(up_c - kid_c) > 0.5:
                 all_warns.append(f"Cek silang {mk}: pelanggan {up_name} {up_c:,.0f} != jumlah {len(kids)} unit UPI {kid_c:,.0f}")
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"\nTersimpan: {OUT.relative_to(ROOT)} ({OUT.stat().st_size / 1024:.1f} KB)")
+    LAST_WARNINGS[:] = all_warns + [f"File tidak dikenali: {u}" for u in unknown]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"\nTersimpan: {out_path} ({out_path.stat().st_size / 1024:.1f} KB)")
     if unknown:
         print(f"\n{len(unknown)} file tidak dikenali (dilewati):")
         for u in unknown:
@@ -292,4 +294,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+    ap = argparse.ArgumentParser(description="Excel TUL III-09 -> JSON")
+    ap.add_argument("--src", type=Path, default=SRC, help="folder 309 (berisi UP/UPI/KABUPATEN)")
+    ap.add_argument("--out", type=Path, default=OUT, help="berkas JSON keluaran")
+    a = ap.parse_args()
+    sys.exit(main(a.src, a.out))

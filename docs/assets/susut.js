@@ -1,5 +1,5 @@
 /* Pengendalian Susut > Laporan Susut: menampilkan sheet Excel sebagai tabel.
-   Data: data/susut.json (dibuat oleh build_susut.py). Navigasi lewat hash: #susut/<sheet>  */
+   Data: tabel Supabase susut_reports & susut_sheets (diisi otomatis oleh sync_drive.py). Navigasi lewat hash: #susut/<sheet>  */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -15,14 +15,30 @@
     document.title = v === 'susut' ? 'Laporan Susut — Dashboard TE' : 'Dashboard Penjualan Listrik';
   }
 
+  const sheetCache = new Map();
   function load() {
     if (DATA) return Promise.resolve(DATA);
     if (!loading) {
-      loading = fetch('data/susut.json', { cache: 'no-cache' })
-        .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then((d) => (DATA = d));
+      loading = DashAuth.ready
+        .then(() => DashAuth.sb.from('susut_reports').select('file,title,modified,sheets').order('file'))
+        .then(({ data, error }) => {
+          if (error) throw new Error(error.message);
+          if (!data.length) throw new Error('belum ada laporan');
+          return (DATA = { path: ['Pengendalian Susut', 'Laporan Susut'], reports: data });
+        });
+      loading.catch(() => { loading = null; });
     }
     return loading;
+  }
+
+  async function loadSheet(file, idx) {
+    const key = file + '|' + idx;
+    if (!sheetCache.has(key)) {
+      const { data, error } = await DashAuth.sb.from('susut_sheets').select('data').eq('file', file).eq('idx', idx).maybeSingle();
+      if (error || !data) throw new Error(error ? error.message : 'sheet tidak ditemukan');
+      sheetCache.set(key, data.data);
+    }
+    return sheetCache.get(key);
   }
 
   function cssFor(st, i) {
@@ -70,19 +86,27 @@
     return h + '</tbody>';
   }
 
-  function renderSheet() {
+  let renderTok = 0;
+  async function renderSheet() {
     const rep = DATA.reports[S.rep];
-    const sh = rep.sheets[S.sheet];
+    const tok = ++renderTok;
     $('sTabs').innerHTML = rep.sheets
-      .map((s, i) => `<button type="button" role="tab" aria-selected="${i === S.sheet}" data-i="${i}">${esc(s.name)}</button>`).join('');
+      .map((n, i) => `<button type="button" role="tab" aria-selected="${i === S.sheet}" data-i="${i}">${esc(n)}</button>`).join('');
+    const active = $('sTabs').querySelector('[aria-selected="true"]');
+    if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    $('sMeta').textContent = 'Memuat sheet…';
+    let sh;
+    try { sh = await loadSheet(rep.file, S.sheet); } catch (e) {
+      if (tok === renderTok) $('sMeta').textContent = 'Gagal memuat sheet: ' + e.message;
+      return;
+    }
+    if (tok !== renderTok) return;  // pengguna sudah pindah tab
     $('sStyle').textContent = sh.styles.map(cssFor).join('');
     const t = $('sTbl');
     t.innerHTML = tableHtml(sh);
     t.style.width = TOTAL + 'px';
     $('sWrap').scrollTo(0, 0);
     $('sMeta').textContent = `Sheet ${S.sheet + 1} dari ${rep.sheets.length} · ${sh.rows.length} baris`;
-    const active = $('sTabs').querySelector('[aria-selected="true"]');
-    if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   function renderHead() {
@@ -100,7 +124,7 @@
     const rep = DATA.reports[S.rep];
     const parts = ['susut'];
     if (DATA.reports.length > 1) parts.push(encodeURIComponent(rep.file));
-    parts.push(encodeURIComponent(rep.sheets[S.sheet].name));
+    parts.push(encodeURIComponent(rep.sheets[S.sheet]));
     history.replaceState(null, '', '#' + parts.join('/'));
   }
 
@@ -113,7 +137,7 @@
       if (i >= 0) S.rep = i;
       rest = rest.slice(1);
     }
-    const j = DATA.reports[S.rep].sheets.findIndex((s) => s.name === rest[0]);
+    const j = DATA.reports[S.rep].sheets.indexOf(rest[0]);
     S.sheet = j >= 0 ? j : 0;
   }
 
@@ -123,7 +147,7 @@
     try {
       await load();
     } catch (e) {
-      $('sMsg').textContent = 'Laporan susut belum tersedia (data/susut.json tidak dapat dimuat).';
+      $('sMsg').textContent = 'Laporan susut belum tersedia (' + e.message + ').';
       return;
     }
     $('sMsg').hidden = true;
