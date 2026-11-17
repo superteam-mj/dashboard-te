@@ -584,12 +584,105 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  // ---------- Data Pengusahaan + bagikan WhatsApp ----------
+  const AMBANG_TR_TM_KVA = 200; // <= 200 kVA = TR, di atasnya TM
+  function maxKva(daya) {
+    let max = null;
+    for (const m of String(daya).matchAll(/([\d.]+)\s*(k?va)/gi)) {
+      const n = parseFloat(m[1].replace(/\./g, ''));
+      if (isNaN(n)) continue;
+      const kva = m[2].toLowerCase() === 'kva' ? n : n / 1000;
+      if (max === null || kva > max) max = kva;
+    }
+    return max;
+  }
+  // "> 200 kVA" (tanpa "s.d") berarti semua pelanggan di atas 200 kVA -> TM; "6.600 VA s.d 200 kVA" -> TR.
+  function isTM(tarif) {
+    const i = tarif.indexOf('/');
+    const daya = i < 0 ? '' : tarif.slice(i + 1).replace(/\s+I$/, '').trim();
+    if (!daya) return false;
+    const openEnded = /^\s*>/.test(daya) && !/s\.?\s*d\.?/i.test(daya);
+    const m = maxKva(daya);
+    if (m === null) return false;
+    return openEnded ? m >= AMBANG_TR_TM_KVA : m > AMBANG_TR_TM_KVA;
+  }
+  const sumField = (rows, f) => Object.values(rows).reduce((a, r) => a + r[F[f]], 0);
+
+  function pengusahaan() {
+    const u = unitData(), mon = u && S.ym && u.months[S.ym];
+    if (!mon) return null;
+    const split = !!(mon.NORMAL && mon.LPB);
+    const tot = rowsFor(S.ym, 'TOTAL');
+    const yt = ytd('TOTAL', null);
+    let tr = 0, tm = 0;
+    for (const [t, r] of Object.entries(tot)) (isTM(t) ? (tm += r[F.c]) : (tr += r[F.c]));
+    const kwhKum = yt[F.kwh], rpKum = yt[F.rp];
+    return {
+      unit: S.unit, bulan: ymLabel(S.ym), split,
+      pasca: split ? sumField(rowsFor(S.ym, 'NORMAL'), 'c') : null,
+      pra: split ? sumField(rowsFor(S.ym, 'LPB'), 'c') : null,
+      dayaKva: sumField(tot, 'va') / 1000,
+      mwhKini: sumField(tot, 'kwh') / 1000, mwhKum: kwhKum / 1000,
+      rpKini: sumField(tot, 'rp'), rpKum,
+      bpp: kwhKum ? rpKum / kwhKum : 0,
+      tr, tm,
+    };
+  }
+
+  function pengusahaanText(p) {
+    const L = (k, v) => `${k} : ${v}`;
+    const lines = [`*DATA PENGUSAHAAN* — ${p.bulan}`, p.unit, '', '*TRANSAKSI ENERGI*'];
+    if (p.split) lines.push(L('Pelanggan Pascabayar', fmt(p.pasca)), L('Pelanggan Prabayar', fmt(p.pra)));
+    lines.push(
+      L('Daya Tersambung (kVA)', fmt(p.dayaKva)),
+      L('Penjualan (MWh)', `${fmt(p.mwhKini, 3)} (Kini)  ${fmt(p.mwhKum, 3)} (Kum)`),
+      L('Pendapatan (Rp)', `${fmt(p.rpKini)} (Kini)  ${fmt(p.rpKum)} (Kum)`),
+      L('BPP (Rp/kWh)', fmt(p.bpp, 2)),
+      L('Pelanggan TR', fmt(p.tr)),
+      L('Pelanggan TM', fmt(p.tm)),
+    );
+    return lines.join('\n');
+  }
+
+  function renderPng() {
+    const p = pengusahaan();
+    $('cardPng').hidden = !p;
+    if (!p) { S.pngText = ''; return; }
+    S.pngText = pengusahaanText(p);
+    $('pngHint').textContent = `${p.unit} · ${p.bulan}`;
+    const row = (k, v, sub) => `<div class="png-row"><span class="k">${k}</span><span class="v">${v}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
+    const two = (k, a, b) => `<div class="png-row png-2"><span class="k">${k}</span><span class="v">${a}<em>Kini</em></span><span class="v">${b}<em>Kum</em></span></div>`;
+    $('pngBody').innerHTML =
+      `<div class="png-col"><h3>Pelanggan &amp; daya</h3>` +
+      (p.split ? row('Pelanggan Pascabayar', fmt(p.pasca)) + row('Pelanggan Prabayar', fmt(p.pra)) : '') +
+      row('Pelanggan TR', fmt(p.tr), '≤ 200 kVA') + row('Pelanggan TM', fmt(p.tm), '> 200 kVA') +
+      row('Daya Tersambung', fmt(p.dayaKva), 'kVA') + `</div>` +
+      `<div class="png-col"><h3>Penjualan &amp; pendapatan</h3>` +
+      two('Penjualan (MWh)', fmt(p.mwhKini, 3), fmt(p.mwhKum, 3)) +
+      two('Pendapatan (Rp)', fmt(p.rpKini), fmt(p.rpKum)) +
+      row('BPP (Rp/kWh)', fmt(p.bpp, 2), 'kumulatif') + `</div>`;
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+    return Promise.resolve();
+  }
+  function flash(btn, msg) {
+    const old = btn.dataset.label || btn.textContent;
+    btn.dataset.label = old; btn.textContent = msg;
+    clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = old; }, 1600);
+  }
+
   // ---------- main ----------
   function render() {
     syncFilters();
     const u = unitData();
     if (!u || !S.ym) { $('kpis').innerHTML = '<div class="empty">Belum ada data</div>'; return; }
-    renderMeta(); renderKpis(); renderTrend(); renderCmp(); renderGol(); renderMix(); renderTop(); renderTable();
+    renderMeta(); renderKpis(); renderPng(); renderTrend(); renderCmp(); renderGol(); renderMix(); renderTop(); renderTable();
   }
 
   function bind() {
@@ -602,6 +695,8 @@
     $('q').oninput = (e) => { S.q = e.target.value; renderTable(); };
     $('hideZero').onchange = (e) => { S.hideZero = e.target.checked; renderTable(); };
     $('csvBtn').onclick = exportCsv;
+    $('waBtn').onclick = () => { if (S.pngText) window.open('https://wa.me/?text=' + encodeURIComponent(S.pngText), '_blank', 'noopener'); };
+    $('pngCopy').onclick = () => { if (S.pngText) copyText(S.pngText).then(() => flash($('pngCopy'), 'Tersalin ✓'), () => flash($('pngCopy'), 'Gagal menyalin')); };
     const onTbl = (e) => {
       const th = e.target.closest('th');
       if (th) {
