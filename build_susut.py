@@ -233,6 +233,108 @@ def build_sheet(ws, theme):
     }
 
 
+# ---------- ringkasan (dibaca dari sheet REKAP & SUSUT 2026) ----------
+MONTH_TOKENS = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOP", "DES"]
+MONTH_FULL = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"]
+
+
+def _norm(v):
+    return re.sub(r"\s+", " ", str(v if v is not None else "")).strip().upper()
+
+
+def _num(v):
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _round(v, d=4):
+    return None if v is None else round(v, d)
+
+
+def build_summary(wb):
+    """Ringkasan terstruktur untuk tampilan 'Ringkasan'. None bila sheet sumber tidak ada / formatnya berubah."""
+    try:
+        if "REKAP" not in wb.sheetnames or "SUSUT 2026" not in wb.sheetnames:
+            return None
+        ws = wb["REKAP"]
+        hdr = next(r for r in range(1, 40) if _norm(ws.cell(r, 3).value) == "UNIT")
+        heads = {c: _norm(ws.cell(hdr, c).value) for c in range(1, ws.max_column + 1)}
+        c_jan = next(c for c, h in heads.items() if h == "JAN")
+        mcols = list(range(c_jan, c_jan + 12))
+        assert [heads[c] for c in mcols] == MONTH_TOKENS, "kolom bulan REKAP tidak sesuai"
+        c_trg = next(c for c, h in heads.items() if h == "TRG")
+        c_kml = next(c for c, h in heads.items() if h == "KML")
+        c_gap = next(c for c, h in heads.items() if h == "GAP")
+
+        units, up3, r = [], None, hdr + 1
+        while r <= ws.max_row:
+            name = _norm(ws.cell(r, 3).value)
+            if not name:
+                r += 1
+                continue
+            if name.startswith("KUMULATIF") or name.startswith("TARGET") or name.startswith("REAL"):
+                break
+            row = {
+                "name": str(ws.cell(r, 3).value).strip(),
+                "bulanan": [_round(_num(ws.cell(r, c).value)) for c in mcols],
+                "kum": _round(_num(ws.cell(r, c_kml).value)),
+                "trg": _round(_num(ws.cell(r, c_trg).value)),
+                "gap": _round(_num(ws.cell(r, c_gap).value)),
+            }
+            if name.startswith("UP3"):
+                up3 = row
+            else:
+                units.append(row)
+            r += 1
+        assert up3, "baris UP3 tidak ditemukan"
+        kum_row = None
+        year = None
+        for rr in range(r, min(r + 6, ws.max_row + 1)):
+            lab = _norm(ws.cell(rr, 3).value)
+            if lab.startswith("KUMULATIF"):
+                kum_row = [_round(_num(ws.cell(rr, c).value)) for c in mcols]
+                m = re.search(r"(\d{4})", lab)
+                year = int(m.group(1)) if m else None
+        up3["kumulatif"] = kum_row or [None] * 12
+
+        last = max((i for i, v in enumerate(up3["bulanan"]) if v is not None), default=None)
+        if last is None:
+            return None
+
+        # --- kWh dari SUSUT 2026 ---
+        wk = wb["SUSUT 2026"]
+        mh = next(r for r in range(1, 15) for c in range(1, wk.max_column + 1) if _norm(wk.cell(r, c).value) == "JANUARI")
+        c0 = next(c for c in range(1, wk.max_column + 1) if _norm(wk.cell(mh, c).value) == "JANUARI")
+        kcols = [c0 + i for i in range(12)]
+        assert [_norm(wk.cell(mh, c).value) for c in kcols] == MONTH_FULL, "kolom bulan SUSUT 2026 tidak sesuai"
+
+        def find(label_part):
+            for rr in range(mh + 1, wk.max_row + 1):
+                lab = _norm(" ".join(str(wk.cell(rr, c).value) for c in range(1, 5) if wk.cell(rr, c).value is not None))
+                if label_part in lab:
+                    return [_round(_num(wk.cell(rr, c).value), 2) for c in kcols]
+            return [None] * 12
+
+        kwh = {
+            "terima": find("KWH TERIMA/BELI DISTRIBUSI"),
+            "netto": find("KWH NETTO DISTRIBUSI"),
+            "siap": find("KWH SIAP JUAL LOKO DISTRIBUSI"),
+            "jual": find("KWH JUAL KESELURUHAN"),
+            "susut": find("K1. KWH SUSUT JUAL"),
+        }
+        return {
+            "year": year,
+            "months": [m.capitalize() for m in MONTH_TOKENS],
+            "monthsFull": [m.capitalize() for m in MONTH_FULL],
+            "last": last,
+            "up3": up3,
+            "units": units,
+            "kwh": kwh,
+        }
+    except Exception as e:  # ringkasan opsional: jangan menggagalkan sinkron
+        print(f"  (ringkasan dilewati: {e})")
+        return None
+
+
 def build_file(path):
     wb = openpyxl.load_workbook(path, data_only=True)
     theme = theme_colors(wb)
@@ -243,9 +345,13 @@ def build_file(path):
         sh = build_sheet(ws, theme)
         sheets.append(sh)
         print(f"  {ws.title:14} {len(sh['rows']):4} baris x {len(sh['widths']):3} kolom")
+    summary = build_summary(wb)
+    if summary:
+        print(f"  Ringkasan: {len(summary['units'])} unit, bulan terakhir = {summary['months'][summary['last']]}")
     return {
         "file": path.name,
         "title": path.stem,
+        "summary": summary,
         "modified": dt.datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
         "sheets": sheets,
     }
