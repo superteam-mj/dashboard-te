@@ -8,9 +8,11 @@ Folder Drive (DRIVE_ROOT_ID) harus meniru struktur proyek:
 Per kumpulan data (Transaksi Energi, Laporan Susut) skrip membandingkan checksum file
 di Drive dengan yang tercatat di tabel sync_state; hanya yang berubah yang diproses ulang.
 
+Drive dibaca lewat jembatan Google Apps Script (apps_script/Code.gs) — tanpa Google Cloud.
+
 Variabel lingkungan:
-    GDRIVE_SERVICE_ACCOUNT_JSON   isi kunci JSON service account (read-only ke folder)
-    DRIVE_ROOT_ID                 ID folder Drive induk
+    GDRIVE_BRIDGE_URL             alamat web app Apps Script (…/exec)
+    GDRIVE_BRIDGE_TOKEN           token yang sama dengan di Code.gs
     SUPABASE_URL                  mis. https://xxxx.supabase.co
     SUPABASE_SERVICE_KEY          kunci service_role / secret (RAHASIA)
 
@@ -40,57 +42,37 @@ TOP = {
 }
 
 
-# ---------------------------------------------------------------- Drive
+# ---------------------------------------------------------------- Drive (via Apps Script)
 class Drive:
-    def __init__(self, sa_json: str):
-        from google.auth.transport.requests import AuthorizedSession
-        from google.oauth2 import service_account
+    def __init__(self, url: str, token: str):
+        import requests
+        self.url, self.token, self.r = url, token, requests
 
-        creds = service_account.Credentials.from_service_account_info(
-            json.loads(sa_json), scopes=["https://www.googleapis.com/auth/drive.readonly"])
-        self.s = AuthorizedSession(creds)
+    def _get(self, **params):
+        for attempt in range(3):
+            try:
+                r = self.r.get(self.url, params={"token": self.token, **params}, timeout=300)
+                r.raise_for_status()
+                j = r.json()
+                break
+            except (self.r.RequestException, ValueError) as e:
+                if attempt == 2:
+                    raise RuntimeError(f"jembatan Drive tidak bisa dihubungi: {e}")
+        if isinstance(j, dict) and j.get("error"):
+            raise RuntimeError(f"jembatan Drive: {j['error']}")
+        return j
 
-    def children(self, folder_id):
-        out, token = [], None
-        while True:
-            params = {
-                "q": f"'{folder_id}' in parents and trashed=false",
-                "fields": "nextPageToken, files(id,name,mimeType,md5Checksum,modifiedTime)",
-                "pageSize": 1000, "supportsAllDrives": "true", "includeItemsFromAllDrives": "true",
-            }
-            if token:
-                params["pageToken"] = token
-            r = self.s.get("https://www.googleapis.com/drive/v3/files", params=params, timeout=60)
-            r.raise_for_status()
-            j = r.json()
-            out += j.get("files", [])
-            token = j.get("nextPageToken")
-            if not token:
-                return out
-
-    def find_child(self, folder_id, name):
-        want = name.strip().lower()
-        for f in self.children(folder_id):
-            if f["mimeType"] == FOLDER and f["name"].strip().lower() == want:
-                return f["id"]
-        return None
-
-    def walk(self, folder_id, rel=()):
-        """Hasilkan (path_relatif_tuple, info) untuk semua .xlsx di bawah folder."""
-        for f in self.children(folder_id):
-            if f["mimeType"] == FOLDER:
-                yield from self.walk(f["id"], rel + (f["name"],))
-            elif f["name"].lower().endswith(".xlsx") and not f["name"].startswith("~$"):
-                yield rel + (f["name"],), f
+    def list_files(self):
+        """-> {path_str: (penanda, id)} untuk semua .xlsx di folder induk."""
+        out = {}
+        for f in self._get(action="list")["files"]:
+            out["/".join(f["path"])] = (f["mark"], f["id"])
+        return out
 
     def download(self, file_id, dest: Path):
+        import base64
         dest.parent.mkdir(parents=True, exist_ok=True)
-        r = self.s.get(f"https://www.googleapis.com/drive/v3/files/{file_id}",
-                       params={"alt": "media", "supportsAllDrives": "true"}, stream=True, timeout=300)
-        r.raise_for_status()
-        with open(dest, "wb") as fh:
-            for chunk in r.iter_content(1 << 20):
-                fh.write(chunk)
+        dest.write_bytes(base64.b64decode(self._get(action="get", id=file_id)["b64"]))
 
 
 # ---------------------------------------------------------------- Supabase (REST)
@@ -193,12 +175,17 @@ def main():
     work = Path(tempfile.mkdtemp(prefix="dashte_"))
     failures = []
     try:
-        drive, root_id = None, None
+        drive, all_remote = None, {}
         if not a.local_root:
-            for v in ("GDRIVE_SERVICE_ACCOUNT_JSON", "DRIVE_ROOT_ID"):
+            for v in ("GDRIVE_BRIDGE_URL", "GDRIVE_BRIDGE_TOKEN"):
                 if not os.environ.get(v):
                     sys.exit(f"Variabel {v} belum diisi")
-            drive, root_id = Drive(os.environ["GDRIVE_SERVICE_ACCOUNT_JSON"]), os.environ["DRIVE_ROOT_ID"]
+            drive = Drive(os.environ["GDRIVE_BRIDGE_URL"], os.environ["GDRIVE_BRIDGE_TOKEN"])
+            try:
+                all_remote = drive.list_files()
+            except RuntimeError as e:
+                sys.exit(f"GAGAL: {e}")
+            print(f"Drive: {len(all_remote)} file .xlsx ditemukan.")
 
         state = {r["key"]: r["value"] for r in sb.select("sync_state", "select=key,value")}
 
@@ -216,13 +203,12 @@ def main():
                     h = hashlib.md5(p.read_bytes()).hexdigest()
                     listing["/".join(p.relative_to(a.local_root).parts)] = (h, p)
             else:
-                top_id = drive.find_child(root_id, top)
-                if not top_id:
-                    print(f"  Folder '{top}' tidak ditemukan di Drive — dilewati.")
-                    failures.append(f"folder '{top}' tidak ada di Drive")
+                pre = top.strip().lower() + "/"
+                listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre)}
+                if not listing:
+                    print(f"  Folder '{top}' kosong / tidak ditemukan di Drive — dilewati.")
+                    failures.append(f"folder '{top}' kosong atau tidak ada di Drive")
                     continue
-                for rel, f in drive.walk(top_id, (top,)):
-                    listing["/".join(rel)] = (f.get("md5Checksum") or f["modifiedTime"], f["id"])
             if not listing:
                 print("  Tidak ada file .xlsx — dilewati.")
                 continue

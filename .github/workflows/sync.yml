@@ -30,8 +30,8 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Sinkron
         env:
-          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-          DRIVE_ROOT_ID: ${{ secrets.DRIVE_ROOT_ID }}
+          GDRIVE_BRIDGE_URL: ${{ secrets.GDRIVE_BRIDGE_URL }}
+          GDRIVE_BRIDGE_TOKEN: ${{ secrets.GDRIVE_BRIDGE_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python sync_drive.py ${{ inputs.force && '--force' || '' }}

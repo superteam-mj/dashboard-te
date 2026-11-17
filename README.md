@@ -9,7 +9,8 @@ Pengunjung harus **login** (akun dibuat admin di Supabase).
 
 ```
 Google Drive (folder Excel)
-   │  sync_drive.py — jalan di GitHub Actions, hanya memproses file yang berubah
+   │  jembatan Apps Script (apps_script/Code.gs) dibaca oleh sync_drive.py
+   │  — jalan di GitHub Actions, hanya memproses file yang berubah
    ▼
 Supabase (tabel tul_data, susut_reports, susut_sheets) + Auth
    ▼
@@ -20,6 +21,7 @@ docs/  (GitHub Pages): halaman login → dashboard
 | Berkas | Fungsi |
 |---|---|
 | `sync_drive.py` | Drive → build → Supabase (dipanggil Actions) |
+| `apps_script/Code.gs` | Jembatan Google Apps Script: daftar & unduh file Excel dari Drive (tanpa Google Cloud) |
 | `build_data.py` | Excel TUL III-09 → JSON (validasi total & cek silang) |
 | `build_susut.py` | Excel Laporan Susut → JSON (sel gabungan, warna, format angka) |
 | `supabase/schema.sql` | Tabel + aturan keamanan (RLS: hanya yang login boleh baca) |
@@ -27,7 +29,7 @@ docs/  (GitHub Pages): halaman login → dashboard
 | `docs/assets/config.js` | URL & kunci *publishable* Supabase (aman terlihat publik) |
 
 ## Struktur folder Drive
-Folder induk (ID-nya disimpan di secret `DRIVE_ROOT_ID`) meniru struktur proyek:
+Folder induk (ID-nya ditulis di `Code.gs` di Apps Script) meniru struktur proyek:
 ```
 <folder induk>/
   Transaksi Energi/309/UP|UPI|KABUPATEN/<tahun>/*.xlsx
