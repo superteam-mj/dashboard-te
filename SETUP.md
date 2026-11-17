@@ -4,8 +4,12 @@
 1. **Tabel & keamanan:** Supabase → *SQL Editor* → *New query* → tempel isi `supabase/schema.sql` → *Run*.
 2. **Matikan pendaftaran bebas** (penting!): *Authentication* → *Sign In / Providers* (atau *Settings*) →
    matikan **Allow new users to sign up**. Tanpa ini siapa pun bisa mendaftar dan membaca data.
-3. **Buat pengguna:** *Authentication* → *Users* → *Add user* → *Create new user*; isi email + kata sandi,
-   centang **Auto Confirm User**. Ulangi untuk setiap orang yang boleh melihat dashboard.
+3. **Buat pengguna (login memakai NAMA PENGGUNA, bukan email):** *Authentication* → *Users* →
+   *Add user* → *Create new user*. Isi **Email** = `<nama pengguna>@dashte.invalid` (huruf kecil, tanpa spasi;
+   contoh `budi@dashte.invalid`) dan **Password**, lalu centang **Auto Confirm User**.
+   Di website pengguna cukup mengetik `budi` + kata sandi; domain `@dashte.invalid` ditambahkan otomatis
+   (domain tiruan, tidak ada email yang terkirim). Akun lama berbentuk email asli tetap bisa login dengan mengetik emailnya.
+   Lupa kata sandi: admin mengganti di *Authentication → Users* (tidak ada reset lewat email).
 4. **Kunci rahasia:** *Project Settings* → *API Keys* → salin **Secret key** (`sb_secret_...`) atau
    *service_role* (tab Legacy). Jangan dikirim ke siapa pun; dipakai di langkah C.
 

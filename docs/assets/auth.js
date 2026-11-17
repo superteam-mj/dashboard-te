@@ -9,10 +9,18 @@
   const ready = new Promise((r) => (done = r));
   window.DashAuth = { sb, ready };
 
+  // "budi" -> "budi@dashte.invalid"; yang sudah berbentuk email dipakai apa adanya (akun lama).
+  const toEmail = (name) => {
+    const v = name.trim().toLowerCase();
+    return v.includes('@') ? v : `${v}@${cfg.userDomain}`;
+  };
+  const suffix = '@' + cfg.userDomain;
+  const toName = (email) => { const e = email || ''; return e.toLowerCase().endsWith(suffix) ? e.slice(0, -suffix.length) : e; };
+
   function enter(session) {
     $('login').hidden = true;
     document.body.classList.add('authed');
-    $('userMail').textContent = session.user.email || '';
+    $('userMail').textContent = toName(session.user.email);
     done(session);
   }
 
@@ -21,10 +29,10 @@
       e.preventDefault();
       const btn = $('loginBtn'), err = $('loginErr');
       err.textContent = ''; btn.disabled = true; btn.textContent = 'Masuk…';
-      const { data, error } = await sb.auth.signInWithPassword({ email: $('loginEmail').value.trim(), password: $('loginPass').value });
+      const { data, error } = await sb.auth.signInWithPassword({ email: toEmail($('loginEmail').value), password: $('loginPass').value });
       btn.disabled = false; btn.textContent = 'Masuk';
       if (error) {
-        err.textContent = /invalid login/i.test(error.message) ? 'Email atau kata sandi salah.' : 'Tidak dapat masuk: ' + error.message;
+        err.textContent = /invalid login/i.test(error.message) ? 'Nama pengguna atau kata sandi salah.' : 'Tidak dapat masuk: ' + error.message;
         return;
       }
       enter(data.session);

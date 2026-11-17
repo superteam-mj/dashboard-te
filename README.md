@@ -44,7 +44,8 @@ Cukup simpan/ganti file di Drive; dalam ±30 menit website ikut berubah.
   (centang *force* untuk memproses ulang semua file).
 - **Cek hasil:** log Actions menampilkan jumlah file, peringatan validasi, dan kegagalan.
   Status terakhir juga tersimpan di tabel `sync_state`.
-- **Tambah/hapus pengguna:** Supabase → Authentication → Users.
+- **Tambah/hapus pengguna:** Supabase → Authentication → Users → Add user dengan email `<nama>@dashte.invalid`
+  (pengguna login cukup dengan `<nama>` + kata sandi). Lupa sandi → admin ganti di halaman yang sama.
 - Sinkron terjadwal GitHub dihentikan otomatis jika repo tidak ada aktivitas 60 hari;
   jalankan workflow sekali secara manual untuk mengaktifkannya lagi.
 
