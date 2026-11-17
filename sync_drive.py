@@ -137,6 +137,12 @@ def publish_susut(sb: Supa, src: Path, work: Path):
         }], "file")
         for i, sh in enumerate(sheets):
             sb.upsert("susut_sheets", [{"file": rep["file"], "idx": i, "name": sh["name"], "data": sh}], "file,idx")
+        # ringkasan disimpan sebagai "sheet" khusus idx = -1 (tanpa perubahan skema database)
+        from urllib.parse import quote as _q
+        if rep.get("summary"):
+            sb.upsert("susut_sheets", [{"file": rep["file"], "idx": -1, "name": "__ringkasan__", "data": rep["summary"]}], "file,idx")
+        else:
+            sb.delete("susut_sheets", f"file=eq.{_q(rep['file'])}&idx=eq.-1")
         from urllib.parse import quote
         sb.delete("susut_sheets", f"file=eq.{quote(rep['file'])}&idx=gte.{len(sheets)}")
     for row in sb.select("susut_reports", "select=file"):
