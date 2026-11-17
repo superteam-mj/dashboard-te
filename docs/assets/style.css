@@ -211,6 +211,27 @@ main { animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 }
 .btn:hover { filter: brightness(1.07); transform: translateY(-1px); }
 
+/* ---------- Data Pengusahaan ---------- */
+.grid-png { margin-bottom: 18px; }
+.png-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 36px; padding: 4px 0 8px; }
+.png-col h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 650; margin-bottom: 4px; }
+.png-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 12px; padding: 9px 0; border-bottom: 1px dashed var(--grid); }
+.png-row:last-child { border-bottom: 0; }
+.png-row .k { color: var(--ink-2); font-weight: 550; }
+.png-row .v { font-weight: 700; font-size: 15px; text-align: right; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.png-row .s { grid-column: 2; text-align: right; color: var(--muted); font-size: 11.5px; margin-top: -2px; }
+.png-row.png-2 { grid-template-columns: 1fr auto auto; gap: 2px 22px; }
+.png-row .v em { display: block; font-style: normal; font-weight: 550; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.btn-wa {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 11px; border: 0; cursor: pointer;
+  background: #1fa855; color: #fff; font: inherit; font-weight: 650; box-shadow: 0 8px 18px -8px rgba(31, 168, 85, .75);
+  transition: transform .15s, filter .15s;
+}
+.btn-wa svg { width: 18px; height: 18px; fill: currentColor; }
+.btn-wa:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); }
+@media (max-width: 820px) { .png-body { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- Tabel ---------- */
 .table-wrap { overflow: auto; max-height: 640px; border-radius: 14px; border: 1px solid var(--border); margin-bottom: 8px; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
