@@ -6,6 +6,9 @@
   <title>Dashboard Penjualan Listrik</title>
   <meta name="description" content="Dashboard interaktif Laporan TUL III-09 Penjualan Tenaga Listrik">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%232a78d6' d='M13 2 4 14h7l-1 8 9-12h-7z'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="assets/style.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -169,15 +172,26 @@
   </main>
 
   <div class="login" id="login" hidden>
-    <form class="login-box" id="loginForm" autocomplete="on">
-      <div class="brand"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
-        <div><h1>Dashboard TE</h1><p class="sub">UP3 Mamuju · masuk untuk melihat data</p></div></div>
-      <label class="field"><span>Email</span><input type="email" id="loginEmail" required autocomplete="username"></label>
-      <label class="field"><span>Kata sandi</span><input type="password" id="loginPass" required autocomplete="current-password"></label>
-      <p class="login-err" id="loginErr" role="alert"></p>
-      <button class="btn-primary" id="loginBtn" type="submit">Masuk</button>
-      <p class="hint">Belum punya akun? Hubungi admin dashboard.</p>
-    </form>
+    <aside class="login-hero" aria-hidden="true">
+      <div class="logo"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>PLN UP3 Mamuju</div>
+      <div>
+        <h2>Pantau <em>penjualan</em> &amp; <em>susut</em> listrik, satu layar.</h2>
+        <p>Laporan TUL III-09 dan Laporan Susut Distribusi, diperbarui otomatis dari file Excel.</p>
+      </div>
+      <div class="pills"><span>Transaksi Energi</span><span>Pengendalian Susut</span><span>Update otomatis</span></div>
+    </aside>
+    <div class="login-side">
+      <form class="login-box" id="loginForm" autocomplete="on">
+        <div class="brand"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+          <div><h1>Dashboard TE</h1><p class="sub">UP3 Mamuju</p></div></div>
+        <p class="lead">Masuk untuk melihat data.</p>
+        <label class="field"><span>Email</span><input type="email" id="loginEmail" required autocomplete="username" placeholder="nama@contoh.id"></label>
+        <label class="field"><span>Kata sandi</span><input type="password" id="loginPass" required autocomplete="current-password" placeholder="••••••••"></label>
+        <p class="login-err" id="loginErr" role="alert"></p>
+        <button class="btn-primary" id="loginBtn" type="submit">Masuk</button>
+        <p class="hint">Belum punya akun? Hubungi admin dashboard.</p>
+      </form>
+    </div>
   </div>
 
   <div class="loading" id="loading">Memuat data…</div>

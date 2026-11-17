@@ -140,7 +140,7 @@
   function base() {
     return {
       animationDuration: 400,
-      textStyle: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', color: css('--ink-2') },
+      textStyle: { fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', color: css('--ink-2') },
       tooltip: {
         backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1,
         textStyle: { color: css('--ink'), fontSize: 12 }, extraCssText: 'border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.15);',
@@ -229,6 +229,14 @@
     $('meta').innerHTML = `<span class="period">${ymLabel(S.ym)}</span>${st}`;
   }
 
+  const KPI_ICON = {
+    c: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
+    va: 'M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.05.88-3.9 2.29-5.19L5.88 5.4A8.96 8.96 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z',
+    kwh: 'M7 2v11h3v9l7-12h-4l4-8z',
+    rp: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z',
+    rpkwhavg: 'M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z',
+  };
+
   function renderKpis() {
     const months = allMonths(), idx = months.indexOf(S.ym);
     const prev = idx > 0 ? months[idx - 1] : null;
@@ -254,7 +262,7 @@
       const v = d.v(cur);
       let delta = pv ? dl(v, d.v(pv), ymLabel(prev, true)) : '<span class="delta flat">— <span>tidak ada bulan sebelumnya</span></span>';
       if (lyA) delta += dl(v, d.v(lyA), ymLabel(ly, true) + ' ' + ly.slice(0, 4));
-      return `<div class="kpi"><div class="lbl">${d.lbl}</div>` +
+      return `<div class="kpi" style="--i:${i}"><div class="kpi-top"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${KPI_ICON[d.m]}"/></svg></span><div class="lbl">${d.lbl}</div></div>` +
         `<div class="val">${d.show(v)}<small>${d.unit}</small></div>${delta}` +
         `<div class="ytd">${d.ytd ? d.ytd(yt) : '&nbsp;'}</div>` +
         `<div class="spark" id="sp${i}" aria-hidden="true"></div></div>`;
@@ -368,7 +376,7 @@
     const total = items.reduce((s, x) => s + x.v, 0);
     const c = chart('chGol');
     c.setOption(Object.assign(base(), {
-      grid: { left: 4, right: 110, top: 4, bottom: 4, containLabel: true },
+      grid: { left: 16, right: 110, top: 4, bottom: 4, containLabel: true },
       xAxis: { type: 'value', show: false },
       yAxis: {
         type: 'category', data: items.map((x) => x.g), axisLine: axisLine(), axisTick: { show: false },
@@ -421,7 +429,7 @@
       label: { show: true, position: 'inside', color: '#fff', fontWeight: 600, fontSize: 11.5, formatter: (p) => (p.value >= 9 ? fmt(p.value, 1) + '%' : '') },
     });
     c.setOption(Object.assign(base(), {
-      grid: { left: 4, right: 16, top: 34, bottom: 4, containLabel: true },
+      grid: { left: 16, right: 16, top: 34, bottom: 4, containLabel: true },
       legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { color: css('--ink-2') } },
       xAxis: { type: 'value', max: 100, splitLine: splitLine(), axisLabel: axisLabel({ formatter: '{value}%' }) },
       yAxis: { type: 'category', inverse: true, data: ms.map((m) => names[m]), axisLine: axisLine(), axisTick: { show: false }, axisLabel: axisLabel({ color: css('--ink-2'), fontSize: 12 }) },
@@ -452,7 +460,7 @@
     c.resize();
     const accent = css('--s1');
     c.setOption(Object.assign(base(), {
-      grid: { left: 4, right: 120, top: 4, bottom: 4, containLabel: true },
+      grid: { left: 16, right: 120, top: 4, bottom: 4, containLabel: true },
       xAxis: { type: 'value', show: false },
       yAxis: { type: 'category', data: items.map((x) => x.n), axisLine: axisLine(), axisTick: { show: false }, axisLabel: axisLabel({ color: css('--ink-2'), fontSize: 12 }) },
       tooltip: Object.assign(base().tooltip, {
@@ -485,7 +493,7 @@
     $('topHint').textContent = `${METRIC[m].label} · ${ymLabel(S.ym)} · ${JENIS_NAME[S.jenis]}${S.gol ? ' · Golongan ' + GOL[S.gol].name : ''} · warna = golongan`;
     const c = chart('chTop');
     c.setOption(Object.assign(base(), {
-      grid: { left: 4, right: 120, top: 4, bottom: 4, containLabel: true },
+      grid: { left: 16, right: 120, top: 4, bottom: 4, containLabel: true },
       xAxis: { type: 'value', show: false },
       yAxis: { type: 'category', data: rows.map((x) => x.t), axisLine: axisLine(), axisTick: { show: false }, axisLabel: axisLabel({ color: css('--ink-2'), fontSize: 12 }) },
       tooltip: Object.assign(base().tooltip, {
@@ -634,6 +642,8 @@
   }
 
   DashAuth.ready
+    // tunggu huruf Inter siap (maks 1,5 dtk) agar label grafik diukur dengan huruf yang benar
+    .then(() => Promise.race([document.fonts ? Promise.all(['400 12px Inter', '500 12px Inter', '600 12px Inter', '700 12px Inter'].map((f) => document.fonts.load(f))) : null, new Promise((r) => setTimeout(r, 2500))]))
     .then(() => DashAuth.sb.from('tul_data').select('data').eq('id', 'main').maybeSingle())
     .then(({ data, error }) => {
       if (error) throw new Error(error.message);
