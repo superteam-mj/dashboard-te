@@ -18,6 +18,11 @@ on:
         description: "Proses ulang semua file walau tidak ada perubahan"
         type: boolean
         default: false
+      only:
+        description: "Hanya satu kumpulan data (kosong = semua)"
+        type: choice
+        options: ["", "tul", "susut", "billing"]
+        default: ""
 
 concurrency:
   group: sync-drive
@@ -29,7 +34,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,4 +51,4 @@ jobs:
           GDRIVE_BRIDGE_TOKEN: ${{ secrets.GDRIVE_BRIDGE_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python sync_drive.py ${{ inputs.force && '--force' || '' }}
+        run: python -u sync_drive.py ${{ inputs.force && '--force' || '' }} ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
