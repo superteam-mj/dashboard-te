@@ -1,8 +1,8 @@
 """Ringkasan Monitoring Billing dari Excel (satu baris = satu pelanggan, 92 kolom).
 
-Hanya AGREGAT yang disimpan (jumlah pelanggan, kWh, Rp, penanda kualitas baca).
-Nama, alamat, dan ID pelanggan TIDAK pernah keluar dari proses ini.
-Satu file = satu periode (kolom thblrek, mis. 202611).
+Ringkasan (agregat) disimpan di baris tul_data id='billing'. Daftar pelanggan per penanda kualitas
+(kWh nol, selisih > 50%, dst.) disimpan terpisah di tul_data id='bd:<periode>:<penanda>' agar bisa dilihat
+dan diunduh dari menu (hanya untuk pengguna yang login). Satu file = satu periode (kolom thblrek, mis. 202611).
 """
 from __future__ import annotations
 
@@ -18,7 +18,9 @@ ULP = {"32910": "ULP Manakarra", "32920": "ULP Pasangkayu", "32930": "ULP Majene
        "32940": "ULP Wonomulyo", "32950": "ULP Polewali", "32960": "ULP Mamasa"}
 BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-NEED = ["thblrek", "idpel", "unitup", "tarif", "daya", "kdprosesklp", "kogol", "rptag", "rppln", "rpbpju", "rpppn",
+DETAIL_VERSION = 2  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
+DETAIL_COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "kelompok", "kwh_pakai", "kwh_tagih", "jamnyala", "rptag", "status", "status_lalu"]
+NEED = ["thblrek", "idpel", "nama", "alamat", "jamnyala", "pemkwh_real", "dlpd_lm", "unitup", "tarif", "daya", "kdprosesklp", "kogol", "rptag", "rppln", "rpbpju", "rpppn",
         "pemkwh", "dlpd", "dlpd_kvarh", "dlpd_3bln", "dlpd_jnsmutasi", "jamnyala400", "jamnyala600"]
 # penanda kualitas (jumlah pelanggan); urutan = urutan tampil
 FLAGS = [
@@ -103,6 +105,7 @@ def build_period(path: Path) -> dict:
     ulp, tarif, proses = {}, {}, {}
     ulp_flag, flag_tot = {}, {k: 0 for k, _ in FLAGS}
     dlpd_c, mut_c, kogol_c = {}, {}, {}
+    detail = {k: [] for k, _ in FLAGS}
     periods, seen, dup = {}, set(), 0
     for r in it:
         if not r or g(r, "idpel") is None:
@@ -134,10 +137,16 @@ def build_period(path: Path) -> dict:
             "kvarh": _s(g(r, "dlpd_kvarh")).upper() not in ("", "TANPA KVARH"),
         }
         uf = ulp_flag.setdefault(u, {k: 0 for k, _ in FLAGS})
+        rec = None
         for k, on in fl.items():
             if on:
                 uf[k] += 1
                 flag_tot[k] += 1
+                if rec is None:
+                    rec = [idp, _s(g(r, "nama")), _s(g(r, "alamat")), ULP.get(u, f"ULP {u}"), _s(g(r, "tarif")), round(daya),
+                           _s(g(r, "kdprosesklp")), round(_num(g(r, "pemkwh_real"))), round(kwh), round(_num(g(r, "jamnyala"))), round(rptag),
+                           DLPD.get(d[:1], d.title()), DLPD.get(_s(g(r, "dlpd_lm")).upper()[:1], _s(g(r, "dlpd_lm")).title())]
+                detail[k].append(rec)
         dk = DLPD.get(d[:1], d.title() or "Lainnya")
         dlpd_c[dk] = dlpd_c.get(dk, 0) + 1
         m = _s(g(r, "dlpd_jnsmutasi")).capitalize()
@@ -148,9 +157,11 @@ def build_period(path: Path) -> dict:
     ym = max(periods, key=periods.get) if periods else ""
     if not re.fullmatch(r"\d{6}", ym):
         raise ValueError("kolom thblrek tidak berisi periode (YYYYMM)")
+    for k in detail:
+        detail[k].sort(key=lambda x: -x[8])  # kWh terbesar dulu
     srt = lambda d: sorted(d.items(), key=lambda kv: -kv[1]["kwh"])  # noqa: E731
-    return {
-        "ym": ym, "label": ym_label(ym), "src_md5": md5(path), "file": path.name, "rows": tot["n"], "dup": dup,
+    out = {
+        "ym": ym, "label": ym_label(ym), "detail_v": DETAIL_VERSION, "src_md5": md5(path), "file": path.name, "rows": tot["n"], "dup": dup,
         "other_periods": {k: v for k, v in periods.items() if k != ym},
         "total": _fin(tot, {"bpju": round(bpju), "ppn": round(ppn)}),
         "ulp": [_fin(a, {"code": k, "name": ULP.get(k, f"ULP {k}"), "flags": ulp_flag[k]}) for k, a in sorted(ulp.items(), key=lambda kv: kv[0])],
@@ -161,13 +172,15 @@ def build_period(path: Path) -> dict:
         "mutasi": [{"label": k, "n": v} for k, v in sorted(mut_c.items(), key=lambda kv: -kv[1])],
         "kogol": [{"label": k, "n": v} for k, v in sorted(kogol_c.items(), key=lambda kv: -kv[1])],
     }
+    return out, detail
 
 
 def main(src: Path, cached: dict | None = None, log=print) -> dict:
+    """-> {generated_at, order, periods, warnings, details: {ym: {penanda: [baris...]}}} (details hanya periode yang baru dibaca)"""
     """src = folder 'Mon Billing'. cached = {ym: hasil_periode_sebelumnya} (dipakai ulang bila file tidak berubah)."""
     cached = cached or {}
     files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$"))
-    by_ym, warns = {}, []
+    by_ym, warns, details = {}, [], {}
     for p in files:
         try:
             ym = peek_period(p)
@@ -182,13 +195,13 @@ def main(src: Path, cached: dict | None = None, log=print) -> dict:
             warns.append(f"periode {ym} ada di {len(ps)} file ({', '.join(x.name for x in ps)}); dipakai {p.name}")
         old = cached.get(ym)
         h = md5(p)
-        if old and old.get("src_md5") == h:
+        if old and old.get("src_md5") == h and old.get("detail_v") == DETAIL_VERSION:
             log(f"  {p.name}: tidak berubah, pakai hasil sebelumnya")
             periods[ym] = old
             continue
         log(f"  {p.name}: membaca…")
         try:
-            periods[ym] = build_period(p)
+            periods[ym], details[ym] = build_period(p)
         except Exception as e:
             warns.append(f"{p.name}: gagal ({e})")
             continue
@@ -197,4 +210,4 @@ def main(src: Path, cached: dict | None = None, log=print) -> dict:
             warns.append(f"{p.name}: periode di isi file ({ym}) berbeda dengan nama file")
     order = sorted(periods)
     return {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "order": order,
-            "periods": periods, "warnings": warns}
+            "periods": periods, "warnings": warns, "details": details}

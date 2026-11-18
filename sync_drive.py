@@ -141,7 +141,16 @@ def publish_billing(sb: Supa, src: Path, work: Path):
     for row in sb.select("tul_data", "select=data&id=eq.billing"):
         cached = (row.get("data") or {}).get("periods") or {}
     data = build_billing.main(src, cached)
+    details = data.pop("details", {})
+    # daftar pelanggan per penanda -> baris tul_data 'bd:<periode>:<penanda>' (dulu, baru ringkasan)
+    for ym, flags in details.items():
+        for k, rows in flags.items():
+            sb.upsert("tul_data", [{"id": f"bd:{ym}:{k}", "data": {"cols": build_billing.DETAIL_COLS, "rows": rows}, "generated_at": data["generated_at"]}], "id")
     sb.upsert("tul_data", [{"id": "billing", "data": data, "generated_at": data["generated_at"]}], "id")
+    keep = {f"bd:{ym}:{k}" for ym in data["periods"] for k, _ in build_billing.FLAGS}
+    for row in sb.select("tul_data", "select=id&id=like.bd:*"):
+        if row["id"] not in keep:
+            sb.delete("tul_data", f"id=eq.{row['id']}")
     return data["warnings"]
 
 

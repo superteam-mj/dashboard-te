@@ -8,9 +8,10 @@
   const nf = (d) => new Intl.NumberFormat('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
   const fmt = (v, d = 0) => nf(d).format(v || 0);
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const B = { ym: null, uMetric: 'kwh', tMetric: 'kwh', trMetric: 'kwh' };
+  const B = { dk: '', du: '', dq: '', dp: 0, ym: null, uMetric: 'kwh', tMetric: 'kwh', trMetric: 'kwh' };
   let D = null, loading = null;
   const charts = {};
+  const detCache = new Map();
 
   const MET = {
     kwh: { t: 'kWh', f: (v) => fmt(v) + ' kWh', c: (v) => (v >= 1e6 ? fmt(v / 1e6, 1) + ' jt' : v >= 1e3 ? fmt(v / 1e3, 0) + ' rb' : fmt(v)), g: (p) => p.kwh },
@@ -97,7 +98,7 @@
       { k: 'rp', l: 'Pendapatan listrik', v: t.rppln, s: 'Rp ' + fmt(t.rppln / 1e9, 2), u: 'M', d: q && dl(t.rppln, q.rppln, lb), sub: 'Tagihan total Rp ' + fmt(t.rptag / 1e9, 2) + ' M (termasuk PPJ & PPN)' },
       { k: 'avg', l: 'Harga jual rata-rata', v: rpkwh(t), s: fmt(rpkwh(t), 2), u: 'Rp/kWh', d: q && dl(rpkwh(t), rpkwh(q), lb), sub: 'Pendapatan listrik ÷ kWh' },
       { k: 'va', l: 'Daya tersambung', v: t.kva, s: fmt(t.kva / 1e3, 2), u: 'MVA', d: q && dl(t.kva, q.kva, lb), sub: fmt(t.kva) + ' kVA' },
-      { k: 'chk', l: 'Selisih > 50% dari rata-rata 3 bulan', v: dev.n, s: fmt(dev.n), u: 'plg', d: q && dl(dev.n, (pv.flags.find((f) => f.k === 'dev50') || {}).n, lb), sub: fmt(dev.n / (t.n || 1) * 100, 1) + '% dari pelanggan — perlu dicek' },
+      { k: 'chk', l: 'Selisih > 50% dari rata-rata 3 bulan', v: dev.n, s: fmt(dev.n), u: 'plg', d: q && dl(dev.n, (pv.flags.find((f) => f.k === 'dev50') || {}).n, lb), sub: fmt(dev.n / (t.n || 1) * 100, 1) + '% dari pelanggan · <button type="button" class="b-link" data-k="dev50" data-u="">Lihat detail ›</button>' },
     ];
     $('bKpis').innerHTML = defs.map((d, i) =>
       `<div class="kpi" style="--i:${i}"><div class="kpi-top"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${ICON[d.k]}"/></svg></span><div class="lbl">${d.l}</div></div>` +
@@ -130,14 +131,16 @@
 
   function renderQual(p) {
     const heads = p.flags.map((f) => `<th>${esc(f.label)}</th>`).join('');
-    const cell = (n, tot, max) => {
+    const cell = (n, tot, max, k, u) => {
       const pc = tot ? n / tot * 100 : 0, a = max ? Math.min(1, pc / max) * 0.55 : 0;
-      return `<td class="qc" style="background:color-mix(in srgb, var(--s2) ${Math.round(a * 100)}%, transparent)"><b>${fmt(n)}</b><small>${fmt(pc, 1)}%</small></td>`;
+      return `<td class="qc" style="background:color-mix(in srgb, var(--s2) ${Math.round(a * 100)}%, transparent)">` +
+        (n ? `<button type="button" class="qb" data-k="${k}" data-u="${esc(u)}" title="Lihat daftar pelanggan">` : '<span class="qb">') +
+        `<b>${fmt(n)}</b><small>${fmt(pc, 1)}%</small>` + (n ? '</button>' : '</span>') + '</td>';
     };
     const maxPc = p.flags.map((f, j) => Math.max(...p.ulp.map((u) => (u.flags[f.k] || 0) / (u.n || 1) * 100), (f.n / (p.total.n || 1)) * 100, 0.0001));
     $('bQualTbl').innerHTML = `<thead><tr><th>ULP</th>${heads}</tr></thead><tbody>` +
-      p.ulp.map((u) => `<tr><td>${esc(u.name)}</td>${p.flags.map((f, j) => cell(u.flags[f.k] || 0, u.n, maxPc[j])).join('')}</tr>`).join('') +
-      `<tr class="tot"><td>UP3 Mamuju</td>${p.flags.map((f, j) => cell(f.n, p.total.n, maxPc[j])).join('')}</tr></tbody>`;
+      p.ulp.map((u) => `<tr><td>${esc(u.name)}</td>${p.flags.map((f, j) => cell(u.flags[f.k] || 0, u.n, maxPc[j], f.k, u.name)).join('')}</tr>`).join('') +
+      `<tr class="tot"><td>UP3 Mamuju</td>${p.flags.map((f, j) => cell(f.n, p.total.n, maxPc[j], f.k, '')).join('')}</tr></tbody>`;
     const tot = p.total.n || 1;
     const items = p.dlpd.map((x) => ({ name: x.label, v: x.n, share: x.n / tot * 100 }));
     hbar('bChDlpd', items, 'n', css('--s4'), 60 + items.length * 36);
@@ -171,6 +174,67 @@
     $('bFoot').innerHTML = `Sumber: Excel Monitoring Billing (${esc(p.file)}) · Hanya agregat yang ditampilkan — tanpa nama atau ID pelanggan · Pendapatan listrik = komponen energi (rppln); Tagihan = rptag, termasuk PPJ dan PPN · Data diperbarui ${gen.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}`;
   }
 
+  // ---------- detail pelanggan ----------
+  const PAGE = 100;
+  const flagLabel = (k) => ((per().flags.find((f) => f.k === k) || {}).label) || k;
+  async function loadDetail(ym, k) {
+    const key = ym + ':' + k;
+    if (!detCache.has(key)) {
+      const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', 'bd:' + key).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('daftar pelanggan belum tersedia — tunggu sinkron berikutnya');
+      detCache.set(key, data.data);
+    }
+    return detCache.get(key);
+  }
+  let detRows = [];
+  function filtered() {
+    const d = detCache.get(B.ym + ':' + B.dk); if (!d) return [];
+    const q = B.dq.trim().toLowerCase(), ix = (c) => d.cols.indexOf(c);
+    const iu = ix('ulp'), i1 = ix('idpel'), i2 = ix('nama'), i3 = ix('alamat');
+    return d.rows.filter((r) => (!B.du || r[iu] === B.du) && (!q || r[i1].toLowerCase().includes(q) || r[i2].toLowerCase().includes(q) || r[i3].toLowerCase().includes(q)));
+  }
+  function renderDetail() {
+    const d = detCache.get(B.ym + ':' + B.dk); if (!d) return;
+    detRows = filtered();
+    const pages = Math.max(1, Math.ceil(detRows.length / PAGE));
+    B.dp = Math.min(B.dp, pages - 1);
+    const H = ['ID pelanggan', 'Nama', 'Alamat', 'ULP', 'Tarif', 'Daya (VA)', 'Kelompok', 'kWh pakai', 'kWh ditagih', 'Jam nyala', 'Tagihan (Rp)', 'Status', 'Status bulan lalu'];
+    const NUM = new Set([5, 7, 8, 9, 10]);
+    $('bDTbl').innerHTML = `<thead><tr>${H.map((t, i) => `<th${NUM.has(i) ? '' : ' class="l"'}>${t}</th>`).join('')}</tr></thead><tbody>` +
+      detRows.slice(B.dp * PAGE, B.dp * PAGE + PAGE).map((r) => '<tr>' + r.map((v, i) => `<td${NUM.has(i) ? '' : ' class="l"'}>${NUM.has(i) ? fmt(v) : esc(v)}</td>`).join('') + '</tr>').join('') +
+      (detRows.length ? '' : `<tr><td class="l" colspan="${H.length}">Tidak ada pelanggan yang cocok.</td></tr>`) + '</tbody>';
+    $('bDTitle').textContent = 'Detail pelanggan · ' + flagLabel(B.dk);
+    $('bDHint').textContent = `${per().label} · ${B.du || 'Semua ULP'} · ${fmt(detRows.length)} pelanggan${B.dq ? ' (hasil pencarian)' : ''} · urut kWh ditagih terbesar`;
+    $('bDPage').textContent = `Halaman ${B.dp + 1} dari ${pages}`;
+    $('bDPrev').disabled = B.dp === 0; $('bDNext').disabled = B.dp >= pages - 1;
+    $('bDCsv').disabled = !detRows.length;
+  }
+  async function openDetail(k, u, scroll = true) {
+    B.dk = k; B.du = u || ''; B.dq = ''; B.dp = 0; $('bDQ').value = '';
+    const p = per();
+    $('bDFlag').innerHTML = p.flags.map((f) => `<option value="${f.k}"${f.k === k ? ' selected' : ''}${f.n ? '' : ' disabled'}>${esc(f.label)} (${fmt(f.n)})</option>`).join('');
+    $('bDUlp').innerHTML = `<option value="">Semua ULP</option>` + p.ulp.map((x) => `<option value="${esc(x.name)}"${x.name === B.du ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    $('bDetail').hidden = false;
+    $('bDMsg').hidden = false; $('bDMsg').textContent = 'Memuat daftar pelanggan…';
+    $('bDTbl').innerHTML = '';
+    if (scroll) $('bDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try { await loadDetail(B.ym, B.dk); } catch (e) { $('bDMsg').textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    $('bDMsg').hidden = true;
+    renderDetail();
+  }
+  function csvDetail() {
+    const d = detCache.get(B.ym + ':' + B.dk); if (!d || !detRows.length) return;
+    const H = ['ID Pelanggan', 'Nama', 'Alamat', 'ULP', 'Tarif', 'Daya (VA)', 'Kelompok Baca', 'kWh Pakai', 'kWh Ditagih', 'Jam Nyala', 'Tagihan (Rp)', 'Status', 'Status Bulan Lalu'];
+    const txt = (v) => { v = String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
+    const lines = [H.join(';')].concat(detRows.map((r) => r.map((v, i) => (i === 0 ? '="' + v + '"' : i >= 5 && i <= 10 && i !== 6 ? String(v) : txt(v))).join(';')));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    const sl = (x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    a.download = `MonBilling_${B.ym}_${sl(flagLabel(B.dk))}${B.du ? '_' + sl(B.du) : ''}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
   function bindSeg(id, key, fn) {
     $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
@@ -196,7 +260,18 @@
     bindSeg('bUMetric', 'uMetric', renderUlp);
     bindSeg('bTMetric', 'tMetric', renderTarif);
     bindSeg('bTrMetric', 'trMetric', renderTrend);
-    $('bPeriod').onchange = (e) => { B.ym = e.target.value; renderAll(); };
+    $('bPeriod').onchange = (e) => { B.ym = e.target.value; $('bDetail').hidden = true; renderAll(); };
+    const open = (e) => { const b = e.target.closest('button[data-k]'); if (b) openDetail(b.dataset.k, b.dataset.u); };
+    $('bQualTbl').addEventListener('click', open);
+    $('bKpis').addEventListener('click', open);
+    $('bDFlag').onchange = (e) => openDetail(e.target.value, B.du, false);
+    $('bDUlp').onchange = (e) => { B.du = e.target.value; B.dp = 0; renderDetail(); };
+    let qt = 0;
+    $('bDQ').oninput = (e) => { B.dq = e.target.value; B.dp = 0; clearTimeout(qt); qt = setTimeout(renderDetail, 150); };
+    $('bDPrev').onclick = () => { B.dp = Math.max(0, B.dp - 1); renderDetail(); };
+    $('bDNext').onclick = () => { B.dp += 1; renderDetail(); };
+    $('bDCsv').onclick = csvDetail;
+    $('bDClose').onclick = () => { $('bDetail').hidden = true; };
     $('subBilling').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-t]'); if (!b) return;
       const el = document.querySelector(b.dataset.t);
