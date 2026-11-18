@@ -650,17 +650,81 @@
     if (!p) { S.pngText = ''; return; }
     S.pngText = pengusahaanText(p);
     $('pngHint').textContent = `${p.unit} · ${p.bulan}`;
-    const row = (k, v, sub) => `<div class="png-row"><span class="k">${k}</span><span class="v">${v}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
-    const two = (k, a, b) => `<div class="png-row png-2"><span class="k">${k}</span><span class="v">${a}<em>Kini</em></span><span class="v">${b}<em>Kum</em></span></div>`;
-    $('pngBody').innerHTML =
-      `<div class="png-col"><h3>Pelanggan &amp; daya</h3>` +
-      (p.split ? row('Pelanggan Pascabayar', fmt(p.pasca)) + row('Pelanggan Prabayar', fmt(p.pra)) : '') +
-      row('Pelanggan TR', fmt(p.tr), '≤ 200 kVA') + row('Pelanggan TM', fmt(p.tm), '> 200 kVA') +
-      row('Daya Tersambung', fmt(p.dayaKva), 'kVA') + `</div>` +
-      `<div class="png-col"><h3>Penjualan &amp; pendapatan</h3>` +
-      two('Penjualan (MWh)', fmt(p.mwhKini, 3), fmt(p.mwhKum, 3)) +
-      two('Pendapatan (Rp)', fmt(p.rpKini), fmt(p.rpKum)) +
-      row('Rp/kWh', fmt(p.bpp, 2), 'kumulatif') + `</div>`;
+    const svg = pengSvg(p);
+    S.pngSvg = svg;
+    $('pngBody').innerHTML = `<div class="peng-wrap">${svg}</div>`;
+  }
+
+  // ---- infografis Data Pengusahaan (SVG -> PNG untuk PPT) ----
+  const PW = 1600, PH = 900;
+  function pengSvg(p) {
+    const INK = '#0f172a', MUT = '#64748b', CARD = '#f1f5f9', BLUE = '#2a78d6', ORG = '#eb6834', GRN = '#1baf7a', VIO = '#6250d6', AMB = '#eda100';
+    const FONT = "Inter, 'Segoe UI', Arial, sans-serif";
+    const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const T = (x, y, t, o = {}) => `<text x="${x}" y="${y}" font-size="${o.s || 20}" font-weight="${o.w || 500}" fill="${o.c || INK}" text-anchor="${o.a || 'start'}">${esc(t)}</text>`;
+    const o = [`<rect width="${PW}" height="${PH}" fill="#fff"/>`, `<rect width="${PW}" height="12" fill="${BLUE}"/>`];
+    o.push(T(60, 90, 'Data Pengusahaan', { s: 46, w: 800 }));
+    o.push(T(60, 130, `${p.unit} · ${p.bulan}`, { s: 24, w: 600, c: MUT }));
+    o.push(`<rect x="${PW - 330}" y="52" width="270" height="44" rx="22" fill="${CARD}"/>` + T(PW - 195, 82, 'Transaksi Energi', { s: 20, w: 700, c: BLUE, a: 'middle' }));
+    // kartu utama
+    const hero = [
+      { c: BLUE, t: 'Penjualan', u: 'MWh', a: fmt(p.mwhKini, 3), b: fmt(p.mwhKum, 3) },
+      { c: GRN, t: 'Pendapatan', u: 'Rp', a: fmt(p.rpKini), b: fmt(p.rpKum) },
+      { c: ORG, t: 'Harga jual rata-rata', u: 'Rp/kWh', a: fmt(p.bpp, 2), b: null },
+    ];
+    const hw = 480, hg = 30, hy = 175, hh = 322;
+    hero.forEach((h, i) => {
+      const x = 60 + i * (hw + hg);
+      o.push(`<rect x="${x}" y="${hy}" width="${hw}" height="${hh}" rx="22" fill="${CARD}"/><rect x="${x}" y="${hy + 28}" width="8" height="${hh - 56}" rx="4" fill="${h.c}"/>`);
+      o.push(T(x + 36, hy + 58, h.t, { s: 24, w: 700, c: MUT }) + T(x + hw - 30, hy + 58, h.u, { s: 22, w: 700, c: h.c, a: 'end' }));
+      if (h.b === null) {
+        o.push(T(x + 36, hy + 190, h.a, { s: 84, w: 800 }), T(x + 36, hy + 250, 'kumulatif sampai bulan ini', { s: 22, w: 500, c: MUT }));
+      } else {
+        o.push(T(x + 36, hy + 150, h.a, { s: h.a.length > 15 ? 40 : h.a.length > 11 ? 46 : 60, w: 800 }), T(x + 36, hy + 184, 'bulan ini', { s: 20, w: 600, c: MUT }));
+        o.push(`<line x1="${x + 36}" x2="${x + hw - 30}" y1="${hy + 206}" y2="${hy + 206}" stroke="#cbd5e1" stroke-width="2"/>`);
+        o.push(T(x + 36, hy + 258, h.b, { s: h.b.length > 15 ? 30 : 36, w: 700, c: h.c }), T(x + 36, hy + 284, 'kumulatif', { s: 20, w: 600, c: MUT }));
+      }
+    });
+    // pelanggan & daya
+    const tiles = [];
+    if (p.split) tiles.push({ c: BLUE, t: 'Pelanggan Pascabayar', v: fmt(p.pasca), u: 'pelanggan' }, { c: GRN, t: 'Pelanggan Prabayar', v: fmt(p.pra), u: 'pelanggan' });
+    tiles.push({ c: VIO, t: 'Pelanggan TR', v: fmt(p.tr), u: '≤ 200 kVA' }, { c: AMB, t: 'Pelanggan TM', v: fmt(p.tm), u: '> 200 kVA' }, { c: ORG, t: 'Daya Tersambung', v: fmt(p.dayaKva), u: 'kVA' });
+    o.push(T(60, 540, 'Pelanggan & daya tersambung', { s: 26, w: 800 }));
+    const n = tiles.length, tg = 24, tw = (PW - 120 - tg * (n - 1)) / n, ty = 570, th = 230;
+    tiles.forEach((t, i) => {
+      const x = 60 + i * (tw + tg);
+      o.push(`<rect x="${x}" y="${ty}" width="${tw}" height="${th}" rx="20" fill="${CARD}"/><rect x="${x}" y="${ty}" width="${tw}" height="8" rx="4" fill="${t.c}"/>`);
+      o.push(T(x + 26, ty + 62, t.t, { s: 21, w: 700, c: MUT }), T(x + 26, ty + 150, t.v, { s: t.v.length > 9 ? 44 : 54, w: 800 }), T(x + 26, ty + 195, t.u, { s: 21, w: 600, c: t.c }));
+    });
+    o.push(T(60, PH - 28, 'Sumber: TUL III-09 · PLN UP3 Mamuju · Dashboard TE', { s: 18, c: MUT }));
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PW} ${PH}" width="${PW}" height="${PH}" font-family="${FONT}">${o.join('')}</svg>`;
+  }
+  function pengPng() {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas'); cv.width = PW * 2; cv.height = PH * 2;
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob((b) => (b ? resolve(b) : reject(new Error('png'))), 'image/png');
+      };
+      img.onerror = () => reject(new Error('svg'));
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(S.pngSvg);
+    });
+  }
+  async function copyPengImage() {
+    const btn = $('pngImg');
+    try {
+      if (!(navigator.clipboard && window.ClipboardItem)) throw new Error('clipboard');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pengPng() })]);
+      flash(btn, 'Tersalin ✓ — tempel di PPT');
+    } catch (e) {
+      try {
+        const blob = await pengPng(), a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'data-pengusahaan.png';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        flash(btn, 'Salin tidak didukung — gambar diunduh');
+      } catch (e2) { flash(btn, 'Gagal'); }
+    }
   }
 
   function copyText(text) {
@@ -696,6 +760,7 @@
     $('hideZero').onchange = (e) => { S.hideZero = e.target.checked; renderTable(); };
     $('csvBtn').onclick = exportCsv;
     $('waBtn').onclick = () => { if (S.pngText) window.open('https://wa.me/?text=' + encodeURIComponent(S.pngText), '_blank', 'noopener'); };
+    $('pngImg').onclick = copyPengImage;
     $('pngCopy').onclick = () => { if (S.pngText) copyText(S.pngText).then(() => flash($('pngCopy'), 'Tersalin ✓'), () => flash($('pngCopy'), 'Gagal menyalin')); };
     const onTbl = (e) => {
       const th = e.target.closest('th');
