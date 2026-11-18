@@ -335,6 +335,66 @@ def build_summary(wb):
         return None
 
 
+_ACR = {"GI", "UP3", "UP2B", "UPB", "IPP", "PLTD", "PS", "KV", "UPDK", "ULPL", "MVA"}
+_GRP_RE = re.compile(r"^[de]\d\.$", re.I)
+
+
+def _tc(txt):
+    """'1. GI. POLEWALI' -> 'GI Polewali'; 'UPDK BAKARU' -> 'UPDK Bakaru'."""
+    t = re.sub(r"\(.*?\)", "", str(txt)).strip()
+    t = re.sub(r"^\d\.\s*", "", t).replace(".", "")
+    return " ".join(w.upper() if w.upper() in _ACR else (w.capitalize() if w.isupper() else w) for w in t.split())
+
+
+def build_points(wk, mh, kcols):
+    """Semua titik transaksi (terima & kirim) dari SUSUT 2026, dikelompokkan per sumber/GI."""
+    def lab(rr):
+        return _norm(" ".join(str(wk.cell(rr, c).value) for c in range(1, 5) if wk.cell(rr, c).value is not None))
+
+    start = next(rr for rr in range(mh + 1, wk.max_row + 1) if "KWH TERIMA/BELI DISTRIBUSI" in lab(rr))
+    groups, cur, sub, kind = [], None, None, "terima"
+    for rr in range(start + 1, wk.max_row + 1):
+        c = [str(wk.cell(rr, k).value).strip() if wk.cell(rr, k).value not in (None, "") else "" for k in range(1, 6)]
+        if "PEMAKAIAN SENDIRI" in c[2].upper():
+            break
+        vals = [round(_num(wk.cell(rr, k).value) or 0, 2) for k in kcols]
+        if c[1] == "E." or "KWH KIRIM" in c[2].upper():
+            kind, cur, sub = "kirim", None, None
+            continue
+        if "KWH TERIMA DARI" in c[2].upper():
+            continue
+        if _GRP_RE.match(c[2]):
+            name, sub = _tc(c[3]), None
+            if name.startswith("UPB"):
+                cur = None  # wadah GI; anaknya (GI) jadi grup sendiri
+            else:
+                cur = {"kind": kind, "name": name, "v": vals, "points": []}
+                groups.append(cur)
+            continue
+        if c[2].isdigit():
+            sub = c[3]
+            continue
+        if c[3] and re.match(r"^\d\.\s*GI", c[3]):
+            cur = {"kind": kind, "name": _tc(c[3]), "v": vals, "points": []}
+            groups.append(cur)
+            sub = None
+            continue
+        label = c[4] or c[3]
+        if not label or cur is None or label.upper().startswith("INCOMING"):
+            continue
+        if label.isupper():
+            label = label.capitalize()
+        name = label
+        if sub and not cur["name"].startswith("GI") and sub.split()[-1].lower() not in label.lower():
+            name = f"{label} · {sub}"
+        cur["points"].append({"name": name, "ps": label.upper().startswith("PS"), "v": vals})
+    for g in groups:
+        if not g["points"]:  # grup tanpa rincian: grup itu sendiri adalah titiknya
+            g["points"] = [{"name": g["name"], "ps": False, "v": g["v"]}]
+            g["flat"] = True
+    return groups
+
+
 def build_produksi(wb):
     """Ringkasan pasokan energi (kWh terima/beli distribusi per sumber) dari sheet SUSUT 2026. Opsional."""
     try:
@@ -375,6 +435,7 @@ def build_produksi(wb):
             "terima": [x or 0 for x in terima],
             "kirim": [x or 0 for x in (find("KWH KIRIM") or [0] * 12)],
             "sources": sources,
+            "groups": build_points(wk, mh, kcols),
         }
     except Exception as e:
         print(f"  (ringkasan produksi dilewati: {e})")
