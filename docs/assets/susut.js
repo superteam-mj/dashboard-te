@@ -535,7 +535,7 @@
 
   function showTransaksi() {
     setView('transaksi');
-    if (location.hash.startsWith('#susut') || location.hash === '#billing') history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash.startsWith('#susut') || location.hash.startsWith('#billing')) history.replaceState(null, '', location.pathname + location.search);
     // ukuran grafik perlu dihitung ulang setelah kembali tampil
     setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   }
@@ -611,7 +611,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash === '#billing') window.DashBilling.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else setView('transaksi');
   }
 
   init();

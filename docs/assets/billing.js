@@ -1,6 +1,6 @@
 /* Transaksi Energi > Mon Billing: ringkasan monitoring billing (agregat per ULP, tarif, kualitas pembacaan).
    Data: tabel Supabase tul_data, baris id = 'billing' (diisi otomatis oleh sync_drive.py dari folder "Mon Billing").
-   Tidak ada nama/alamat/ID pelanggan di data ini. Hash: #billing */
+   Daftar pelanggan (bd:/bx:) hanya dibaca saat diminta. Hash: #billing, #billing/<halaman> */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -8,7 +8,7 @@
   const nf = (d) => new Intl.NumberFormat('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
   const fmt = (v, d = 0) => nf(d).format(v || 0);
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const B = { dk: '', du: '', dq: '', dp: 0, ym: null, uMetric: 'kwh', tMetric: 'kwh', trMetric: 'kwh' };
+  const B = { page: 'ringkasan', du: '', dq: '', dp: 0, ym: null, uMetric: 'kwh', tMetric: 'kwh', trMetric: 'kwh' };
   let D = null, loading = null;
   const charts = {};
   const detCache = new Map();
@@ -61,7 +61,7 @@
         trigger: 'axis', axisPointer: { type: 'shadow' },
         formatter: (ps) => { const p = ps[0]; return `<b>${esc(p.name)}</b>` + ttRow(m.t, m.f(p.value), color) + (p.data.share != null ? ttRow('Porsi', fmt(p.data.share, 1) + '%') : ''); },
       }),
-      xAxis: { type: 'value', splitNumber: $(id).clientWidth < 500 ? 3 : 5, axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => m.c(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      xAxis: { type: 'value', splitNumber: $(id).clientWidth < 500 ? 2 : 5, axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => m.c(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
       yAxis: { type: 'category', inverse: true, data: items.map((x) => x.name), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
       series: [{
         type: 'bar', barMaxWidth: 18, itemStyle: { color, borderRadius: [0, 4, 4, 0] },
@@ -146,92 +146,263 @@
     hbar('bChDlpd', items, 'n', css('--s4'), 60 + items.length * 36);
   }
 
-  function renderTrend(p) {
-    $('bCardTrend').hidden = D.order.length < 2;
-    if (D.order.length < 2) return;
-    const m = MET[B.trMetric], xs = D.order, ys = xs.map((k) => m.g(D.periods[k].total));
-    chart('bChTrend').setOption(Object.assign(base(), {
-      grid: { left: 8, right: 12, top: 28, bottom: 8, containLabel: true },
+  // ---------- util analisis ----------
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const ymShort = (ym) => MON[+ym.slice(4) - 1] + ' ' + ym.slice(2, 4);
+  const ULPS = () => { const m = new Map(); D.order.forEach((k) => D.periods[k].ulp.forEach((u) => { if (!m.has(u.code)) m.set(u.code, u.name); })); return [...m].sort((a, b) => a[0].localeCompare(b[0])); };
+  const ulpColor = (i) => css('--s' + (i + 1));
+  // metrik tren: n, kwh, rp (pendapatan listrik), avg (Rp/kWh)
+  const TM = {
+    kwh: { t: 'kWh', g: (x) => x.kwh, f: (v) => fmt(v), c: (v) => MET.kwh.c(v) },
+    rp: { t: 'Pendapatan listrik', g: (x) => x.rppln, f: (v) => 'Rp ' + fmt(v / 1e9, 2) + ' M', c: (v) => MET.rp.c(v) },
+    n: { t: 'Pelanggan', g: (x) => x.n, f: (v) => fmt(v), c: (v) => MET.n.c(v) },
+    avg: { t: 'Rp/kWh', g: (x) => (x.kwh ? x.rppln / x.kwh : 0), f: (v) => fmt(v, 1), c: (v) => fmt(v, 0) },
+  };
+  const pct = (v, p) => (p ? (v - p) / Math.abs(p) * 100 : null);
+  const pctCell = (v, p) => {
+    const c = pct(v, p); if (c == null) return '<td class="muted">–</td>';
+    const cls = Math.abs(c) < 0.05 ? 'flat' : c > 0 ? 'up' : 'down';
+    return `<td class="dc ${cls}">${cls === 'up' ? '▲' : cls === 'down' ? '▼' : '■'} ${fmt(Math.abs(c), 1)}%</td>`;
+  };
+  const sgn = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v), d);
+  const note = (id, html) => { $(id).innerHTML = html ? `<div class="s-msg b-note">${html}</div>` : ''; };
+
+  // ---------- halaman: Tren & perbandingan ----------
+  function renderTren() {
+    const order = D.order, multi = order.length >= 2;
+    note('bTrNote', multi ? '' : 'Tren dan perbandingan baru muncul setelah ada minimal 2 periode data. Saat ini baru ada ' + order.length + '.');
+    $('bTrBody').hidden = !multi;
+    if (!multi) return;
+    const m = TM[B.trMetric], ulps = ULPS();
+    const series = ulps.map(([code, name], i) => ({
+      name, type: 'line', symbol: 'circle', symbolSize: 8, lineStyle: { width: 2 }, itemStyle: { color: ulpColor(i), borderColor: css('--surface'), borderWidth: 2 }, color: ulpColor(i),
+      data: order.map((k) => { const u = D.periods[k].ulp.find((x) => x.code === code); return u ? m.g(u) : null; }),
+    }));
+    chart('bChTr').setOption(Object.assign(base(), {
+      color: ulps.map((_, i) => ulpColor(i)),
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 4 },
+      grid: { left: 8, right: 28, top: 40, bottom: 8, containLabel: true },
+      tooltip: Object.assign(base().tooltip, { trigger: 'axis', axisPointer: { type: 'line' },
+        formatter: (ps) => `<b>${esc(D.periods[order[ps[0].dataIndex]].label)}</b>` + ps.map((p) => ttRow(p.seriesName, p.value == null ? '–' : m.f(p.value), p.color)).join('') }),
+      xAxis: { type: 'category', data: order.map(ymShort), boundaryGap: false, axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--muted'), fontSize: 11 } },
+      yAxis: { type: 'value', scale: B.trMetric === 'avg', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => m.c(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      series,
+    }), true);
+    $('bTrHint').textContent = `${order.length} periode: ${ymShort(order[0])} – ${ymShort(order[order.length - 1])} · ${m.t}`;
+    // tabel: baris = ULP + total, kolom = periode
+    const head = `<thead><tr><th>ULP</th>${order.map((k) => `<th class="${k === B.ym ? 'cur' : ''}">${ymShort(k)}</th>`).join('')}<th>vs bulan lalu</th></tr></thead>`;
+    const row = (name, vals, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(name)}</td>${vals.map((v, i) => `<td class="${order[i] === B.ym ? 'cur' : ''}">${v == null ? '–' : m.f(v)}</td>`).join('')}` +
+      pctCell(vals[vals.length - 1], vals[vals.length - 2]) + '</tr>';
+    $('bTrTbl').innerHTML = head + '<tbody>' + ulps.map(([code, name]) => row(name, order.map((k) => { const u = D.periods[k].ulp.find((x) => x.code === code); return u ? m.g(u) : null; }))).join('') +
+      row('UP3 Mamuju', order.map((k) => m.g(D.periods[k].total)), 'tot') + '</tbody>';
+    // tarif: 10 terbesar menurut periode terakhir
+    const last = D.periods[order[order.length - 1]], tops = last.tarif.slice().sort((a, b) => m.g(b) - m.g(a)).slice(0, 10).map((x) => x.name);
+    $('bTrTarif').innerHTML = head.replace('<th>ULP</th>', '<th>Tarif</th>') + '<tbody>' + tops.map((t) => row(t, order.map((k) => { const x = D.periods[k].tarif.find((y) => y.name === t); return x ? m.g(x) : null; }))).join('') + '</tbody>';
+    // kualitas pembacaan per bulan
+    const fl = last.flags.map((f) => f.k);
+    $('bTrQual').innerHTML = `<thead><tr><th>Penanda</th>${order.map((k) => `<th class="${k === B.ym ? 'cur' : ''}">${ymShort(k)}</th>`).join('')}<th>vs bulan lalu</th></tr></thead><tbody>` +
+      fl.map((k) => {
+        const vals = order.map((o) => { const f = D.periods[o].flags.find((x) => x.k === k); return f ? f.n : null; });
+        return `<tr><td>${esc(last.flags.find((f) => f.k === k).label)}</td>${vals.map((v, i) => `<td class="${order[i] === B.ym ? 'cur' : ''}">${v == null ? '–' : fmt(v)}</td>`).join('')}${pctCell(vals[vals.length - 1], vals[vals.length - 2])}</tr>`;
+      }).join('') + '</tbody>';
+  }
+
+  // ---------- halaman: Penyebab naik/turun ----------
+  const pairOf = () => (D.analytics && D.analytics.pairs && D.analytics.pairs[B.ym]) || null;
+  function dbar(id, items, h) {
+    $(id).style.height = h + 'px';
+    const up = css('--up'), dn = css('--down');
+    chart(id).setOption(Object.assign(base(), {
+      grid: { left: 8, right: 90, top: 8, bottom: 8, containLabel: true },
       tooltip: Object.assign(base().tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' },
-        formatter: (ps) => `<b>${esc(D.periods[xs[ps[0].dataIndex]].label)}</b>` + ttRow(m.t, m.f(ps[0].value), css('--s1')) }),
-      xAxis: { type: 'category', data: xs.map((k) => D.periods[k].label.split(' ')[0].slice(0, 3)), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--muted'), fontSize: 11 } },
-      yAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => m.c(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
-      series: [{ type: 'bar', barMaxWidth: 28, data: ys.map((v, i) => ({ value: v, itemStyle: { color: xs[i] === B.ym ? css('--s1') : css('--s1'), opacity: xs[i] === B.ym ? 1 : 0.45, borderRadius: [4, 4, 0, 0] } })),
-        label: { show: true, position: 'top', color: css('--ink-2'), fontSize: 11, formatter: (q) => m.c(q.value) } }],
+        formatter: (ps) => { const p = ps[0]; return `<b>${esc(p.name)}</b>` + ttRow('Perubahan kWh', (p.value >= 0 ? '▲ ' : '▼ ') + sgn(p.value) + ' kWh', p.value >= 0 ? up : dn) + (p.data.sub ? `<div style="color:${css('--muted')}">${esc(p.data.sub)}</div>` : ''); } }),
+      xAxis: { type: 'value', splitNumber: $(id).clientWidth < 500 ? 2 : 5, axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => (v < 0 ? '−' : '') + MET.kwh.c(Math.abs(v)) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      yAxis: { type: 'category', inverse: true, data: items.map((x) => x.name), axisLine: { onZero: true, lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 }, position: 'left' },
+      series: [{ type: 'bar', barMaxWidth: 18, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => (p.value >= 0 ? '▲ ' : '▼ ') + MET.kwh.c(Math.abs(p.value)) },
+        data: items.map((x) => ({ value: x.v, sub: x.sub, itemStyle: { color: x.v >= 0 ? up : dn, borderRadius: x.v >= 0 ? [0, 4, 4, 0] : [4, 0, 0, 4] } })) }],
     }), true);
   }
-
-  function renderAll() {
-    const p = per(), pv = prevP();
-    $('bCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><b>Mon Billing</b>`;
-    const sel = $('bPeriod');
-    sel.innerHTML = D.order.map((k) => `<option value="${k}"${k === B.ym ? ' selected' : ''}>${esc(D.periods[k].label)}</option>`).join('');
-    sel.hidden = D.order.length < 2;
-    $('bMeta').innerHTML = `<span class="chip">Periode ${esc(p.label)}</span><span class="chip">${fmt(p.total.n)} pelanggan</span>` +
-      (p.dup ? `<span class="chip warn">${fmt(p.dup)} baris ganda dilewati</span>` : '');
-    renderKpis(p, pv); renderUlp(p); renderTarif(p); renderQual(p); renderTrend(p);
-    const gen = new Date(D.generated_at);
-    $('bFoot').innerHTML = `Sumber: Excel Monitoring Billing (${esc(p.file)}) · Hanya agregat yang ditampilkan — tanpa nama atau ID pelanggan · Pendapatan listrik = komponen energi (rppln); Tagihan = rptag, termasuk PPJ dan PPN · Data diperbarui ${gen.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}`;
+  function renderSebab() {
+    const i = D.order.indexOf(B.ym), pv = i > 0 ? D.periods[D.order[i - 1]] : null, p = per(), pr = pairOf();
+    note('bSbNote', pv ? '' : 'Periode ini adalah bulan pertama, belum ada bulan sebelumnya untuk dibandingkan. Pilih periode yang lebih baru.');
+    $('bSbBody').hidden = !pv;
+    if (!pv) return;
+    const T = p.total, Q = pv.total, dk = T.kwh - Q.kwh;
+    const kp = [
+      { l: 'Perubahan energi', v: sgn(dk), u: 'kWh', d: dl(T.kwh, Q.kwh, pv.label) },
+      { l: 'Perubahan pendapatan listrik', v: sgn((T.rppln - Q.rppln) / 1e6, 1), u: 'juta Rp', d: dl(T.rppln, Q.rppln, pv.label) },
+      { l: 'Perubahan pelanggan', v: sgn(T.n - Q.n), u: 'plg', d: dl(T.n, Q.n, pv.label) },
+      { l: 'Perubahan Rp/kWh', v: sgn(rpkwh(T) - rpkwh(Q), 2), u: 'Rp/kWh', d: dl(rpkwh(T), rpkwh(Q), pv.label) },
+    ];
+    $('bSbKpis').innerHTML = kp.map((d, k) => `<div class="kpi" style="--i:${k}"><div class="kpi-top"><div class="lbl">${d.l}</div></div><div class="val">${d.v}<small>${d.u}</small></div>${d.d}<div class="ytd">${esc(pv.label)} → ${esc(p.label)}</div></div>`).join('');
+    // dekomposisi berdasarkan pelanggan (butuh analisis lintas bulan)
+    if (pr) {
+      const t = pr.total;
+      const items = [
+        { name: 'Pelanggan baru', v: t.baru.kwh, sub: fmt(t.baru.n) + ' pelanggan' },
+        { name: 'Pelanggan hilang', v: -t.hilang.kwh, sub: fmt(t.hilang.n) + ' pelanggan' },
+        { name: 'Tetap, pemakaian naik', v: t.naik.kwh, sub: fmt(t.naik.n) + ' pelanggan' },
+        { name: 'Tetap, pemakaian turun', v: t.turun.kwh, sub: fmt(t.turun.n) + ' pelanggan' },
+      ];
+      dbar('bSbChCust', items, 60 + items.length * 44);
+      const sum = items.reduce((s, x) => s + x.v, 0);
+      $('bSbCustHint').textContent = `Jumlah keempat batang = ${sgn(sum)} kWh (selisih dengan perubahan total ${sgn(dk)} kWh hanya pembulatan)`;
+      $('bSbCust').hidden = false;
+    } else { $('bSbCust').hidden = true; }
+    // per ULP
+    const ulps = ULPS(), rows = ulps.map(([code, name]) => {
+      const a = pv.ulp.find((x) => x.code === code) || { n: 0, kwh: 0 }, b = p.ulp.find((x) => x.code === code) || { n: 0, kwh: 0 };
+      const per0 = a.n ? a.kwh / a.n : 0, vol = (b.n - a.n) * per0, use = (b.kwh - a.kwh) - vol, pp = pr && pr.ulp[name];
+      return { name, a, b, d: b.kwh - a.kwh, vol, use, pp };
+    });
+    dbar('bSbChUlp', rows.map((r) => ({ name: r.name, v: r.d, sub: `Pelanggan ${sgn(r.b.n - r.a.n)} · ${fmt(pct(r.b.kwh, r.a.kwh), 1)}%` })), 60 + rows.length * 40);
+    $('bSbUlpTbl').innerHTML = `<thead><tr><th>ULP</th><th>kWh ${esc(ymShort(pv.ym))}</th><th>kWh ${esc(ymShort(p.ym))}</th><th>Δ kWh</th><th>Δ %</th><th>Karena jumlah pelanggan</th><th>Karena pemakaian per pelanggan</th>${pr ? '<th>Baru (kWh)</th><th>Hilang (kWh)</th>' : ''}</tr></thead><tbody>` +
+      rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${fmt(r.a.kwh)}</td><td>${fmt(r.b.kwh)}</td><td class="dc ${r.d >= 0 ? 'up' : 'down'}">${sgn(r.d)}</td>${pctCell(r.b.kwh, r.a.kwh)}<td>${sgn(r.vol)}</td><td>${sgn(r.use)}</td>` +
+        (pr ? `<td>${r.pp ? sgn(r.pp.baru.kwh) : '–'}</td><td>${r.pp ? sgn(-r.pp.hilang.kwh) : '–'}</td>` : '') + '</tr>').join('') +
+      `<tr class="tot"><td>UP3 Mamuju</td><td>${fmt(Q.kwh)}</td><td>${fmt(T.kwh)}</td><td class="dc ${dk >= 0 ? 'up' : 'down'}">${sgn(dk)}</td>${pctCell(T.kwh, Q.kwh)}<td>${sgn(rows.reduce((s, r) => s + r.vol, 0))}</td><td>${sgn(rows.reduce((s, r) => s + r.use, 0))}</td>${pr ? `<td>${sgn(pr.total.baru.kwh)}</td><td>${sgn(-pr.total.hilang.kwh)}</td>` : ''}</tr></tbody>`;
+    // per tarif: 10 kontribusi terbesar (nilai mutlak)
+    const names = [...new Set([...p.tarif.map((x) => x.name), ...pv.tarif.map((x) => x.name)])];
+    const tr = names.map((n) => { const a = pv.tarif.find((x) => x.name === n) || { kwh: 0, n: 0 }, b = p.tarif.find((x) => x.name === n) || { kwh: 0, n: 0 }; return { name: n, d: b.kwh - a.kwh, a, b }; })
+      .sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 10);
+    dbar('bSbChTarif', tr.map((r) => ({ name: r.name, v: r.d, sub: `Pelanggan ${sgn(r.b.n - r.a.n)} · ${fmt(r.a.kwh)} → ${fmt(r.b.kwh)} kWh` })), 60 + tr.length * 34);
   }
 
-  // ---------- detail pelanggan ----------
+  // ---------- halaman: Anomali berulang ----------
+  const ANOM_BTN = (k, n, label) => (n && B.ym === D.analytics.latest ? `<button type="button" class="qb" data-x="${k}" title="Lihat daftar pelanggan">${label}</button>` : label);
+  function renderAnomali() {
+    const A = D.analytics, order = D.order;
+    if (!A) {
+      note('bAnNote', 'Analisis berulang membutuhkan data minimal 2 bulan (3 bulan untuk pemakaian naik/turun). Saat ini data belum cukup atau analisis belum selesai diproses oleh sinkron.');
+      $('bAnBody').hidden = true; return;
+    }
+    note('bAnNote', B.ym === A.latest ? '' : `Daftar pelanggan hanya tersedia untuk periode terbaru (${D.periods[A.latest].label}). Pilih periode itu untuk melihat dan mengunduh daftarnya; angka bulan lain tetap ditampilkan.`);
+    $('bAnBody').hidden = false;
+    const cur = A.anom[B.ym] || {}, i = order.indexOf(B.ym), prv = i > 0 ? A.anom[order[i - 1]] : null, n = D.periods[B.ym].total.n || 1;
+    $('bAnKpis').innerHTML = A.rules.map((r, k) => {
+      const v = cur[r.k], pv = prv ? prv[r.k] : null;
+      return `<div class="kpi" style="--i:${k}"><div class="kpi-top"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${ICON.chk}"/></svg></span><div class="lbl">${esc(r.label)}</div></div>` +
+        `<div class="val">${v == null ? '–' : fmt(v)}<small>plg</small></div>${v == null ? '<span class="delta flat">— <span>riwayat belum cukup</span></span>' : (pv != null ? dl(v, pv, ymShort(order[i - 1])) : '')}` +
+        `<div class="ytd">${v == null ? '&nbsp;' : fmt(v / n * 100, 2) + '% dari pelanggan' + (v && B.ym === A.latest ? ` · <button type="button" class="b-link" data-x="${r.k}">Lihat daftar ›</button>` : '')}</div></div>`;
+    }).join('');
+    $('bAnRules').innerHTML = A.rules.map((r) => `<li><b>${esc(r.label)}</b> — ${esc(r.rule)}</li>`).join('');
+    $('bAnTbl').innerHTML = `<thead><tr><th>Penanda</th>${order.map((k) => `<th class="${k === B.ym ? 'cur' : ''}">${ymShort(k)}</th>`).join('')}</tr></thead><tbody>` +
+      A.rules.map((r) => `<tr><td>${esc(r.label)}</td>${order.map((k) => { const v = (A.anom[k] || {})[r.k]; return `<td class="${k === B.ym ? 'cur' : ''}">${v == null ? '–' : fmt(v)}</td>`; }).join('')}</tr>`).join('') + '</tbody>';
+  }
+
+  // ---------- halaman: Pelanggan baru / hilang / berubah ----------
+  function renderPelanggan() {
+    const A = D.analytics, pr = pairOf(), order = D.order, i = order.indexOf(B.ym);
+    if (!A || !pr) {
+      note('bPlNote', i <= 0 ? 'Periode ini adalah bulan pertama, belum ada bulan sebelumnya untuk dibandingkan. Pilih periode yang lebih baru.' : 'Analisis pelanggan antar bulan belum tersedia (menunggu sinkron).');
+      $('bPlBody').hidden = true; return;
+    }
+    note('bPlNote', B.ym === A.latest ? '' : `Daftar pelanggan hanya tersedia untuk periode terbaru (${D.periods[A.latest].label}). Angka bulan lain tetap ditampilkan.`);
+    $('bPlBody').hidden = false;
+    const t = pr.total, pvl = D.periods[order[i - 1]].label, nett = t.baru.n - t.hilang.n;
+    const defs = [
+      { k: 'baru', l: 'Pelanggan baru', v: fmt(t.baru.n), sub: sgn(t.baru.kwh) + ' kWh bulan ini' },
+      { k: 'hilang', l: 'Pelanggan hilang', v: fmt(t.hilang.n), sub: '−' + fmt(t.hilang.kwh) + ' kWh dibanding bulan lalu' },
+      { k: null, l: 'Selisih bersih', v: sgn(nett), sub: `${esc(pvl)} → ${esc(D.periods[B.ym].label)}` },
+      { k: 'ganti_tarif', l: 'Pindah golongan tarif', v: fmt(t.ganti_tarif), sub: '' },
+      { k: 'ganti_daya', l: 'Ubah daya', v: fmt(t.ganti_daya), sub: '' },
+    ];
+    $('bPlKpis').innerHTML = defs.map((d, k) => `<div class="kpi" style="--i:${k}"><div class="kpi-top"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${ICON.n}"/></svg></span><div class="lbl">${d.l}</div></div>` +
+      `<div class="val">${d.v}<small>plg</small></div><div class="ytd">${d.sub}${d.k && B.ym === A.latest && +d.v.replace(/\D/g, '') ? `${d.sub ? ' · ' : ''}<button type="button" class="b-link" data-x="${d.k}">Lihat daftar ›</button>` : ''}</div></div>`).join('');
+    const ulps = ULPS().map((u) => u[1]);
+    const row = (name, x, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(name)}</td><td>${fmt(x.baru.n)}</td><td>${fmt(x.hilang.n)}</td><td class="dc ${x.baru.n - x.hilang.n >= 0 ? 'up' : 'down'}">${sgn(x.baru.n - x.hilang.n)}</td><td>${fmt(x.naik.n)}</td><td>${fmt(x.turun.n)}</td><td>${fmt(x.sama)}</td><td>${fmt(x.ganti_tarif)}</td><td>${fmt(x.ganti_daya)}</td></tr>`;
+    $('bPlTbl').innerHTML = `<thead><tr><th>ULP</th><th>Baru</th><th>Hilang</th><th>Bersih</th><th>Pemakaian naik (plg)</th><th>Pemakaian turun (plg)</th><th>Pemakaian sama (plg)</th><th>Pindah tarif</th><th>Ubah daya</th></tr></thead><tbody>` +
+      ulps.filter((u) => pr.ulp[u]).map((u) => row(u, pr.ulp[u])).join('') + row('UP3 Mamuju', t, 'tot') + '</tbody>';
+    const ps = order.filter((k) => A.pairs[k]);
+    $('bPlHist').innerHTML = `<thead><tr><th>Periode</th><th>Baru</th><th>Hilang</th><th>Bersih</th><th>Pindah tarif</th><th>Ubah daya</th></tr></thead><tbody>` +
+      ps.map((k) => { const x = A.pairs[k].total; return `<tr class="${k === B.ym ? 'curr' : ''}"><td>${ymShort(k)}</td><td>${fmt(x.baru.n)}</td><td>${fmt(x.hilang.n)}</td><td class="dc ${x.baru.n - x.hilang.n >= 0 ? 'up' : 'down'}">${sgn(x.baru.n - x.hilang.n)}</td><td>${fmt(x.ganti_tarif)}</td><td>${fmt(x.ganti_daya)}</td></tr>`; }).join('') + '</tbody>';
+  }
+
+  // ---------- halaman ----------
+  const PAGES = { ringkasan: () => { const p = per(); renderKpis(p, prevP()); renderUlp(p); renderTarif(p); renderQual(p); $('bMeta').innerHTML = `<span class="chip">Periode ${esc(p.label)}</span><span class="chip">${fmt(p.total.n)} pelanggan</span>` + (p.dup ? `<span class="chip warn">${fmt(p.dup)} baris ganda dilewati</span>` : ''); },
+    tren: renderTren, sebab: renderSebab, anomali: renderAnomali, pelanggan: renderPelanggan };
+  const TITLE = { ringkasan: 'Ringkasan', tren: 'Tren & perbandingan bulan', sebab: 'Penyebab naik/turun kWh', anomali: 'Anomali berulang', pelanggan: 'Pelanggan baru, hilang, berubah' };
+  function renderAll() {
+    if (!PAGES[B.page]) B.page = 'ringkasan';
+    $('bCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><span>Mon Billing</span><i>›</i><b>${TITLE[B.page]}</b>`;
+    const sel = $('bPeriod');
+    sel.innerHTML = D.order.map((k) => `<option value="${k}"${k === B.ym ? ' selected' : ''}>${esc(D.periods[k].label)}</option>`).join('');
+    sel.hidden = D.order.length < 2 || B.page === 'tren';
+    document.querySelectorAll('#bBody .b-page').forEach((el) => { el.hidden = el.dataset.p !== B.page; });
+    document.querySelectorAll('#subBilling button[data-p]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.p === B.page)));
+    PAGES[B.page]();
+    const p = per(), gen = new Date(D.generated_at);
+    $('bFoot').innerHTML = `Sumber: Excel Monitoring Billing (${esc(p.file)}) · Pendapatan listrik = komponen energi (rppln); Tagihan = rptag, termasuk PPJ dan PPN · Data diperbarui ${gen.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}`;
+    setTimeout(() => Object.values(charts).forEach((c) => c.getDom() && c.getDom().isConnected && c.resize()), 30);
+  }
+
+  // ---------- daftar pelanggan (umum) ----------
   const PAGE = 100;
-  const flagLabel = (k) => ((per().flags.find((f) => f.k === k) || {}).label) || k;
-  async function loadDetail(ym, k) {
-    const key = ym + ':' + k;
-    if (!detCache.has(key)) {
-      const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', 'bd:' + key).maybeSingle();
+  const LABEL = { idpel: 'ID pelanggan', nama: 'Nama', alamat: 'Alamat', ulp: 'ULP', tarif: 'Tarif', daya: 'Daya (VA)', kelompok: 'Kelompok', kwh_pakai: 'kWh pakai', kwh_tagih: 'kWh ditagih', jamnyala: 'Jam nyala',
+    rptag: 'Tagihan (Rp)', status: 'Status', status_lalu: 'Status bulan lalu', rata_sebelum: 'Rata-rata 3 bln', selisih_pct: 'Selisih %', streak_nol: 'Bulan nol berturut', tarif_lama: 'Tarif lama', tarif_baru: 'Tarif baru',
+    daya_lama: 'Daya lama (VA)', daya_baru: 'Daya baru (VA)' };
+  const NUMK = new Set(['daya', 'kwh_pakai', 'kwh_tagih', 'jamnyala', 'rptag', 'rata_sebelum', 'selisih_pct', 'streak_nol', 'daya_lama', 'daya_baru']);
+  const lab = (k) => LABEL[k] || (/^\d{6}$/.test(k) ? 'kWh ' + ymShort(k) : k);
+  const isNum = (k) => NUMK.has(k) || /^\d{6}$/.test(k);
+  const cell = (k, v) => (v == null || v === '' ? '–' : isNum(k) ? (k === 'selisih_pct' ? (v > 0 ? '+' : '') + fmt(v) + '%' : fmt(v)) : esc(v));
+  const DOC = { id: '', title: '', file: '', flags: false };
+  async function loadDoc(id) {
+    if (!detCache.has(id)) {
+      const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', id).maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) throw new Error('daftar pelanggan belum tersedia — tunggu sinkron berikutnya');
-      detCache.set(key, data.data);
+      detCache.set(id, data.data);
     }
-    return detCache.get(key);
+    return detCache.get(id);
   }
   let detRows = [];
   function filtered() {
-    const d = detCache.get(B.ym + ':' + B.dk); if (!d) return [];
+    const d = detCache.get(DOC.id); if (!d) return [];
     const q = B.dq.trim().toLowerCase(), ix = (c) => d.cols.indexOf(c);
     const iu = ix('ulp'), i1 = ix('idpel'), i2 = ix('nama'), i3 = ix('alamat');
-    return d.rows.filter((r) => (!B.du || r[iu] === B.du) && (!q || r[i1].toLowerCase().includes(q) || r[i2].toLowerCase().includes(q) || r[i3].toLowerCase().includes(q)));
+    return d.rows.filter((r) => (!B.du || r[iu] === B.du) && (!q || String(r[i1]).toLowerCase().includes(q) || String(r[i2]).toLowerCase().includes(q) || String(r[i3]).toLowerCase().includes(q)));
   }
   function renderDetail() {
-    const d = detCache.get(B.ym + ':' + B.dk); if (!d) return;
+    const d = detCache.get(DOC.id); if (!d) return;
     detRows = filtered();
     const pages = Math.max(1, Math.ceil(detRows.length / PAGE));
     B.dp = Math.min(B.dp, pages - 1);
-    const H = ['ID pelanggan', 'Nama', 'Alamat', 'ULP', 'Tarif', 'Daya (VA)', 'Kelompok', 'kWh pakai', 'kWh ditagih', 'Jam nyala', 'Tagihan (Rp)', 'Status', 'Status bulan lalu'];
-    const NUM = new Set([5, 7, 8, 9, 10]);
-    $('bDTbl').innerHTML = `<thead><tr>${H.map((t, i) => `<th${NUM.has(i) ? '' : ' class="l"'}>${t}</th>`).join('')}</tr></thead><tbody>` +
-      detRows.slice(B.dp * PAGE, B.dp * PAGE + PAGE).map((r) => '<tr>' + r.map((v, i) => `<td${NUM.has(i) ? '' : ' class="l"'}>${NUM.has(i) ? fmt(v) : esc(v)}</td>`).join('') + '</tr>').join('') +
-      (detRows.length ? '' : `<tr><td class="l" colspan="${H.length}">Tidak ada pelanggan yang cocok.</td></tr>`) + '</tbody>';
-    $('bDTitle').textContent = 'Detail pelanggan · ' + flagLabel(B.dk);
-    $('bDHint').textContent = `${per().label} · ${B.du || 'Semua ULP'} · ${fmt(detRows.length)} pelanggan${B.dq ? ' (hasil pencarian)' : ''} · urut kWh ditagih terbesar`;
+    $('bDTbl').innerHTML = `<thead><tr>${d.cols.map((k) => `<th${isNum(k) ? '' : ' class="l"'}>${esc(lab(k))}</th>`).join('')}</tr></thead><tbody>` +
+      detRows.slice(B.dp * PAGE, B.dp * PAGE + PAGE).map((r) => '<tr>' + r.map((v, i) => `<td${isNum(d.cols[i]) ? '' : ' class="l"'}>${cell(d.cols[i], v)}</td>`).join('') + '</tr>').join('') +
+      (detRows.length ? '' : `<tr><td class="l" colspan="${d.cols.length}">Tidak ada pelanggan yang cocok.</td></tr>`) + '</tbody>';
+    $('bDTitle').textContent = 'Detail pelanggan · ' + DOC.title;
+    $('bDHint').textContent = `${DOC.period} · ${B.du || 'Semua ULP'} · ${fmt(detRows.length)} pelanggan${B.dq ? ' (hasil pencarian)' : ''}`;
     $('bDPage').textContent = `Halaman ${B.dp + 1} dari ${pages}`;
     $('bDPrev').disabled = B.dp === 0; $('bDNext').disabled = B.dp >= pages - 1;
     $('bDCsv').disabled = !detRows.length;
   }
-  async function openDetail(k, u, scroll = true) {
-    B.dk = k; B.du = u || ''; B.dq = ''; B.dp = 0; $('bDQ').value = '';
+  async function openDoc(id, title, period, u, flags, scroll = true) {
+    Object.assign(DOC, { id, title, period, flags: !!flags });
+    B.du = u || ''; B.dq = ''; B.dp = 0; $('bDQ').value = '';
     const p = per();
-    $('bDFlag').innerHTML = p.flags.map((f) => `<option value="${f.k}"${f.k === k ? ' selected' : ''}${f.n ? '' : ' disabled'}>${esc(f.label)} (${fmt(f.n)})</option>`).join('');
-    $('bDUlp').innerHTML = `<option value="">Semua ULP</option>` + p.ulp.map((x) => `<option value="${esc(x.name)}"${x.name === B.du ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    $('bDFlagF').hidden = !flags;
+    if (flags) $('bDFlag').innerHTML = p.flags.map((f) => `<option value="${f.k}"${id.endsWith(':' + f.k) ? ' selected' : ''}${f.n ? '' : ' disabled'}>${esc(f.label)} (${fmt(f.n)})</option>`).join('');
+    $('bDUlp').innerHTML = `<option value="">Semua ULP</option>` + ULPS().map(([, n]) => `<option value="${esc(n)}"${n === B.du ? ' selected' : ''}>${esc(n)}</option>`).join('');
     $('bDetail').hidden = false;
     $('bDMsg').hidden = false; $('bDMsg').textContent = 'Memuat daftar pelanggan…';
     $('bDTbl').innerHTML = '';
     if (scroll) $('bDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    try { await loadDetail(B.ym, B.dk); } catch (e) { $('bDMsg').textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    try { await loadDoc(id); } catch (e) { $('bDMsg').textContent = 'Gagal memuat (' + e.message + ').'; return; }
     $('bDMsg').hidden = true;
     renderDetail();
   }
+  const openFlag = (k, u) => openDoc(`bd:${B.ym}:${k}`, ((per().flags.find((f) => f.k === k) || {}).label) || k, per().label, u, true);
+  const XTITLE = { nol_berulang: 'kWh nol berturut-turut', turun: 'Pemakaian turun drastis', naik: 'Pemakaian naik drastis', jn_berulang: 'Jam nyala > 400 berulang',
+    baru: 'Pelanggan baru', hilang: 'Pelanggan hilang', ganti_tarif: 'Pindah golongan tarif', ganti_daya: 'Ubah daya' };
+  const openX = (k) => openDoc(`bx:${D.analytics.latest}:${k}`, XTITLE[k] || k, D.periods[D.analytics.latest].label, '', false);
   function csvDetail() {
-    const d = detCache.get(B.ym + ':' + B.dk); if (!d || !detRows.length) return;
-    const H = ['ID Pelanggan', 'Nama', 'Alamat', 'ULP', 'Tarif', 'Daya (VA)', 'Kelompok Baca', 'kWh Pakai', 'kWh Ditagih', 'Jam Nyala', 'Tagihan (Rp)', 'Status', 'Status Bulan Lalu'];
-    const txt = (v) => { v = String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
-    const lines = [H.join(';')].concat(detRows.map((r) => r.map((v, i) => (i === 0 ? '="' + v + '"' : i >= 5 && i <= 10 && i !== 6 ? String(v) : txt(v))).join(';')));
-    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const d = detCache.get(DOC.id); if (!d || !detRows.length) return;
+    const H = d.cols.map((k) => lab(k));
+    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
+    const lines = [H.join(';')].concat(detRows.map((r) => r.map((v, i) => { const k = d.cols[i]; return k === 'idpel' ? '="' + v + '"' : isNum(k) ? (v == null ? '' : String(v)) : txt(v); }).join(';')));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     const sl = (x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-    a.download = `MonBilling_${B.ym}_${sl(flagLabel(B.dk))}${B.du ? '_' + sl(B.du) : ''}.csv`;
+    a.download = `MonBilling_${DOC.id.split(':')[1]}_${sl(DOC.title)}${B.du ? '_' + sl(B.du) : ''}.csv`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
@@ -244,27 +415,31 @@
     });
   }
 
-  async function show() {
+  const hashPage = () => { const m = location.hash.match(/^#billing(?:\/(\w+))?/); return m && PAGES[m[1]] ? m[1] : 'ringkasan'; };
+  async function show(page) {
     window.DashSetView('billing');
-    if (location.hash !== '#billing') history.replaceState(null, '', location.pathname + location.search + '#billing');
+    B.page = page || hashPage();
+    const h = '#billing' + (B.page === 'ringkasan' ? '' : '/' + B.page);
+    if (location.hash !== h) history.replaceState(null, '', location.pathname + location.search + h);
     $('bMsg').hidden = false; $('bMsg').textContent = 'Memuat data Mon Billing…';
     $('bBody').hidden = true;
     try { await load(); } catch (e) { $('bMsg').textContent = 'Data Mon Billing belum tersedia (' + e.message + ').'; return; }
     $('bMsg').hidden = true; $('bBody').hidden = false;
     if (!B.ym || !D.periods[B.ym]) B.ym = D.order[D.order.length - 1];
+    $('bDetail').hidden = true;
     renderAll();
-    setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 30);
+    window.scrollTo({ top: 0 });
   }
 
   function init() {
     bindSeg('bUMetric', 'uMetric', renderUlp);
     bindSeg('bTMetric', 'tMetric', renderTarif);
-    bindSeg('bTrMetric', 'trMetric', renderTrend);
+    bindSeg('bTrMetric', 'trMetric', () => renderTren());
     $('bPeriod').onchange = (e) => { B.ym = e.target.value; $('bDetail').hidden = true; renderAll(); };
-    const open = (e) => { const b = e.target.closest('button[data-k]'); if (b) openDetail(b.dataset.k, b.dataset.u); };
-    $('bQualTbl').addEventListener('click', open);
-    $('bKpis').addEventListener('click', open);
-    $('bDFlag').onchange = (e) => openDetail(e.target.value, B.du, false);
+    $('bQualTbl').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (b) openFlag(b.dataset.k, b.dataset.u); });
+    $('bKpis').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (b) openFlag(b.dataset.k, b.dataset.u); });
+    ['bAnKpis', 'bPlKpis'].forEach((id) => $(id).addEventListener('click', (e) => { const b = e.target.closest('button[data-x]'); if (b) openX(b.dataset.x); }));
+    $('bDFlag').onchange = (e) => openDoc(`bd:${B.ym}:${e.target.value}`, ((per().flags.find((f) => f.k === e.target.value) || {}).label) || e.target.value, per().label, B.du, true, false);
     $('bDUlp').onchange = (e) => { B.du = e.target.value; B.dp = 0; renderDetail(); };
     let qt = 0;
     $('bDQ').oninput = (e) => { B.dq = e.target.value; B.dp = 0; clearTimeout(qt); qt = setTimeout(renderDetail, 150); };
@@ -273,15 +448,14 @@
     $('bDCsv').onclick = csvDetail;
     $('bDClose').onclick = () => { $('bDetail').hidden = true; };
     $('subBilling').addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-t]'); if (!b) return;
-      const el = document.querySelector(b.dataset.t);
-      if (el && !el.hidden) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');
+      show(b.dataset.p);
     });
-    window.addEventListener('resize', () => Object.values(charts).forEach((c) => c.resize()));
+    window.addEventListener('resize', () => Object.values(charts).forEach((c) => c.getDom() && c.getDom().isConnected && c.resize()));
     new MutationObserver(() => { if (D && document.body.dataset.view === 'billing') renderAll(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    window.addEventListener('hashchange', () => { if (location.hash === '#billing' && document.body.dataset.view !== 'billing') show(); });
+    window.addEventListener('hashchange', () => { if (location.hash.startsWith('#billing') && (document.body.dataset.view !== 'billing' || hashPage() !== B.page)) show(); });
   }
 
   window.DashBilling = { show };

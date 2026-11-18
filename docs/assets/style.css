@@ -534,3 +534,23 @@ body:not([data-view="billing"]) #billingApp { display: none; }
 .b-pager { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 12px 0 4px; color: var(--ink-2); font-size: 13px; }
 .b-pager .btn { height: 34px; }
 .b-pager .btn:disabled { opacity: .45; cursor: default; transform: none; filter: none; }
+
+.b-page[hidden], .b-note:empty { display: none; }
+.b-k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.b-k5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.b-kpis .kpi:nth-child(n) { --k: var(--s1); }
+.b-kpis .kpi:nth-child(2) { --k: var(--s7); } .b-kpis .kpi:nth-child(3) { --k: var(--s4); }
+.b-kpis .kpi:nth-child(4) { --k: var(--s3); } .b-kpis .kpi:nth-child(5) { --k: var(--s2); } .b-kpis .kpi:nth-child(6) { --k: var(--s6); }
+.b-note { margin: 0 0 14px; }
+.b-trend td, .b-trend th { white-space: nowrap; }
+.b-tbl th.cur, .b-tbl td.cur { background: var(--accent-soft); }
+.b-tbl td.dc { font-weight: 650; white-space: nowrap; }
+.b-tbl td.dc.up { color: var(--up); } .b-tbl td.dc.down { color: var(--down); } .b-tbl td.dc.flat, .b-tbl td.muted { color: var(--muted); }
+.b-tbl tr.curr td { background: var(--accent-soft); }
+.b-rules { margin: 6px 0 4px; padding-left: 18px; color: var(--ink-2); font-size: 13px; line-height: 1.7; }
+.b-rules b { color: var(--ink); }
+.b-detailgrid { margin-top: 18px; }
+.sub-nav button[aria-current="true"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+@media (max-width: 900px) { .b-k4, .b-k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .b-k4, .b-k5 { grid-template-columns: minmax(0, 1fr); } }
+.field[hidden] { display: none; }
