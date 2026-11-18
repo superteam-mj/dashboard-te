@@ -143,6 +143,10 @@ def publish_susut(sb: Supa, src: Path, work: Path):
             sb.upsert("susut_sheets", [{"file": rep["file"], "idx": -1, "name": "__ringkasan__", "data": rep["summary"]}], "file,idx")
         else:
             sb.delete("susut_sheets", f"file=eq.{_q(rep['file'])}&idx=eq.-1")
+        if rep.get("produksi"):
+            sb.upsert("susut_sheets", [{"file": rep["file"], "idx": -2, "name": "__produksi__", "data": rep["produksi"]}], "file,idx")
+        else:
+            sb.delete("susut_sheets", f"file=eq.{_q(rep['file'])}&idx=eq.-2")
         from urllib.parse import quote
         sb.delete("susut_sheets", f"file=eq.{quote(rep['file'])}&idx=gte.{len(sheets)}")
     for row in sb.select("susut_reports", "select=file"):

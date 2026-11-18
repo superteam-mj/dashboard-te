@@ -335,6 +335,52 @@ def build_summary(wb):
         return None
 
 
+def build_produksi(wb):
+    """Ringkasan pasokan energi (kWh terima/beli distribusi per sumber) dari sheet SUSUT 2026. Opsional."""
+    try:
+        wk = wb["SUSUT 2026"]
+        mh = next(r for r in range(1, 15) for c in range(1, wk.max_column + 1) if _norm(wk.cell(r, c).value) == "JANUARI")
+        c0 = next(c for c in range(1, wk.max_column + 1) if _norm(wk.cell(mh, c).value) == "JANUARI")
+        kcols = [c0 + i for i in range(12)]
+        assert [_norm(wk.cell(mh, c).value) for c in kcols] == MONTH_FULL, "kolom bulan SUSUT 2026 tidak sesuai"
+
+        def find(part):
+            for rr in range(mh + 1, wk.max_row + 1):
+                lab = _norm(" ".join(str(wk.cell(rr, c).value) for c in range(1, 5) if wk.cell(rr, c).value is not None))
+                if part in lab:
+                    return [_round(_num(wk.cell(rr, c).value), 2) for c in kcols]
+            return None
+
+        terima = find("KWH TERIMA/BELI DISTRIBUSI")
+        assert terima, "baris kWh terima tidak ditemukan"
+        spec = [("GI Polewali", "GI. POLEWALI"), ("GI Majene", "GI. MAJENE"), ("GI Mamuju", "GI. MAMUJU"),
+                ("GI Mamuju Baru", "GI. MAMUJU BARU"), ("GI Topoyo", "GI. TOPOYO"), ("GI Pasangkayu", "GI. PASANGKAYU"),
+                ("UPDK Bakaru", "UPDK BAKARU")]
+        sources = []
+        for name, part in spec:
+            v = find(part)
+            if v is None:
+                return None
+            sources.append({"name": name, "v": [x or 0 for x in v]})
+        rest = [round((terima[i] or 0) - sum(s_["v"][i] for s_ in sources), 2) for i in range(12)]
+        sources.append({"name": "Lainnya", "v": rest})
+        last = max((i for i, v in enumerate(terima) if v), default=None)
+        if last is None:
+            return None
+        return {
+            "year": 2026,
+            "months": [m.capitalize() for m in MONTH_TOKENS],
+            "monthsFull": [m.capitalize() for m in MONTH_FULL],
+            "last": last,
+            "terima": [x or 0 for x in terima],
+            "kirim": [x or 0 for x in (find("KWH KIRIM") or [0] * 12)],
+            "sources": sources,
+        }
+    except Exception as e:
+        print(f"  (ringkasan produksi dilewati: {e})")
+        return None
+
+
 def build_file(path):
     wb = openpyxl.load_workbook(path, data_only=True)
     theme = theme_colors(wb)
@@ -352,6 +398,7 @@ def build_file(path):
         "file": path.name,
         "title": path.stem,
         "summary": summary,
+        "produksi": build_produksi(wb),
         "modified": dt.datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
         "sheets": sheets,
     }

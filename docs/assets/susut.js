@@ -11,8 +11,11 @@
   function setView(v) {
     document.body.dataset.view = v;
     document.querySelectorAll('#sections button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
-    $('subtitle').textContent = v === 'susut' ? 'Pengendalian Susut · Laporan Susut' : 'Laporan TUL III-09';
-    document.title = v === 'susut' ? 'Laporan Susut — Dashboard TE' : 'Dashboard Penjualan Listrik';
+    const T = { susut: ['Pengendalian Susut · Laporan Susut', 'Laporan Susut — Dashboard TE'],
+      snackbox: ['Snackbox', 'Snackbox — Dashboard TE'], transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'] };
+    $('subtitle').textContent = T[v][0];
+    document.title = T[v][1];
+    document.body.classList.remove('nav-open');
   }
 
   const sheetCache = new Map();
@@ -25,9 +28,10 @@
           if (error) throw new Error(error.message);
           if (!data.length) throw new Error('belum ada laporan');
           // ringkasan tersimpan sebagai "sheet" khusus idx = -1; boleh tidak ada
-          const sm = await DashAuth.sb.from('susut_sheets').select('file,data').eq('idx', -1);
-          const byFile = new Map(((sm && sm.data) || []).map((x) => [x.file, x.data]));
-          data.forEach((r) => { r.summary = byFile.get(r.file) || null; });
+          const sm = await DashAuth.sb.from('susut_sheets').select('file,idx,data').in('idx', [-1, -2]);
+          const rows = (sm && sm.data) || [];
+          const pick = (file, idx) => { const x = rows.find((y) => y.file === file && y.idx === idx); return x ? x.data : null; };
+          data.forEach((r) => { r.summary = pick(r.file, -1); r.produksi = pick(r.file, -2); });
           return (DATA = { path: ['Pengendalian Susut', 'Laporan Susut'], reports: data });
         });
       loading.catch(() => { loading = null; });
@@ -95,14 +99,15 @@
     const rep = DATA.reports[S.rep];
     const tok = ++renderTok;
     $('sTabs').innerHTML = (rep.summary ? `<button type="button" role="tab" class="tab-sum" aria-selected="${S.sheet === -1}" data-i="-1">Ringkasan</button>` : '') +
-      rep.sheets.map((n, i) => `<button type="button" role="tab" aria-selected="${i === S.sheet}" data-i="${i}">${esc(n)}</button>`).join('');
+      rep.sheets.map((n, i) => (i === 0 && rep.produksi ? `<button type="button" role="tab" class="tab-sum" aria-selected="${S.sheet === -2}" data-i="-2">Ringkasan Produksi</button>` : '') +
+        `<button type="button" role="tab" aria-selected="${i === S.sheet}" data-i="${i}">${esc(n)}</button>`).join('');
     const active = $('sTabs').querySelector('[aria-selected="true"]');
     if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    const isSum = S.sheet === -1 && rep.summary;
+    const isSum = (S.sheet === -1 && rep.summary) || (S.sheet === -2 && rep.produksi);
     $('sSummary').hidden = !isSum;
     $('sWrap').hidden = !!isSum;
     $('sMeta').hidden = !!isSum;
-    if (isSum) { renderSummary(rep.summary); return; }
+    if (isSum) { if (S.sheet === -1) renderSummary(rep.summary); else renderProduksi(rep.produksi); return; }
     disposeSummaryChart();
     $('sMeta').textContent = 'Memuat sheet…';
     let sh;
@@ -257,6 +262,80 @@
     });
   }
 
+  // ---------- Ringkasan Produksi (pasokan kWh per sumber) ----------
+  const gwhN = (v) => nfm(2).format(v / 1e6);
+  function renderProduksi(pr) {
+    const last = pr.last, month = pr.monthsFull[last];
+    const cur = pr.terima[last], prev = last > 0 ? pr.terima[last - 1] : null;
+    const kum = pr.terima.slice(0, last + 1).reduce((a, b) => a + b, 0);
+    const kirimKum = pr.kirim.slice(0, last + 1).reduce((a, b) => a + b, 0);
+    const srcs = pr.sources.map((x, i) => ({ ...x, i, now: x.v[last], was: last > 0 ? x.v[last - 1] : null, kum: x.v.slice(0, last + 1).reduce((a, b) => a + b, 0) }));
+    const top = srcs.slice().sort((a, b) => b.now - a.now)[0];
+    const dPct = prev ? ((cur - prev) / prev) * 100 : null;
+    const arrow = (d) => (d == null ? '–' : Math.abs(d) < 0.05 ? '■ tetap' : (d > 0 ? '▲ naik ' : '▼ turun ') + nfm(1).format(Math.abs(d)) + '%');
+
+    const verdict = `<section class="verdict info"><div class="v-ico" aria-hidden="true">⚡</div><div class="v-txt">
+      <div class="v-title">Energi masuk ${esc(month)} ${pr.year}: ${gwhN(cur)} GWh</div>
+      <p>Total energi yang diterima/dibeli jaringan distribusi UP3 Mamuju ${dPct == null ? '' : `<b>${arrow(dPct).replace('■ ', '')}</b> dibanding bulan lalu (${gwhN(prev)} GWh)`}.
+      Sumber terbesar <b>${esc(top.name)}</b> (${nfm(1).format((top.now / cur) * 100)}% dari total).
+      Kumulatif Januari–${esc(pr.months[last])}: <b>${gwhN(kum)} GWh</b>.</p></div></section>`;
+
+    const kpis = `<section class="s-kpis">
+      <div class="kpi"><div class="kpi-top"><div class="lbl">Energi diterima ${esc(month)}</div></div><div class="val">${gwhN(cur)}<small>GWh</small></div><span class="pill flat">${arrow(dPct)} <em>dari bulan lalu</em></span></div>
+      <div class="kpi"><div class="kpi-top"><div class="lbl">Kumulatif Jan–${esc(pr.months[last])}</div></div><div class="val">${gwhN(kum)}<small>GWh</small></div><span class="pill flat">rata-rata ${gwhN(kum / (last + 1))} GWh/bulan</span></div>
+      <div class="kpi"><div class="kpi-top"><div class="lbl">Sumber terbesar</div></div><div class="val">${esc(top.name)}</div><span class="pill flat">${gwhN(top.now)} GWh · ${nfm(1).format((top.now / cur) * 100)}%</span></div>
+      <div class="kpi"><div class="kpi-top"><div class="lbl">Energi dikirim keluar ${esc(month)}</div></div><div class="val">${gwhN(pr.kirim[last])}<small>GWh</small></div><span class="pill flat">kumulatif ${gwhN(kirimKum)} GWh</span></div>
+    </section>`;
+
+    const trend = `<section class="card s-card"><div class="card-head"><div><h2>Energi diterima per bulan</h2><p class="hint">Dalam GWh, ditumpuk menurut sumber</p></div></div><div class="chart" id="sChTrend" style="height:360px"></div></section>`;
+
+    const rows = srcs.slice().sort((a, b) => b.now - a.now).map((x) => {
+      const d = x.was ? ((x.now - x.was) / x.was) * 100 : null;
+      return `<tr><td><span class="dot" style="background:var(--s${x.i + 1})"></span>${esc(x.name)}</td>
+        <td class="n">${gwhN(x.now)}</td><td class="n">${x.was == null ? '–' : gwhN(x.was)}</td><td class="n">${arrow(d)}</td><td class="n">${gwhN(x.kum)}</td>
+        <td class="bar-c"><div class="bullet" title="${nfm(1).format((x.now / cur) * 100)}% dari total"><i class="fill" style="width:${(x.now / cur) * 100}%;background:var(--s${x.i + 1})"></i></div></td>
+        <td class="n">${nfm(1).format((x.now / cur) * 100)}%</td></tr>`;
+    }).join('');
+    const table = `<section class="card s-card"><div class="card-head"><div><h2>Pasokan per sumber</h2><p class="hint">Angka dalam GWh · sumber: sheet SUSUT 2026 (kWh terima/beli distribusi)</p></div></div>
+      <div class="table-wrap"><table class="s-sum-tbl"><thead><tr><th>Sumber</th><th>${esc(pr.months[last])}</th><th>${last > 0 ? esc(pr.months[last - 1]) : ''}</th><th>Perubahan</th><th>Kumulatif</th><th>Porsi bulan ini</th><th></th></tr></thead>
+      <tbody>${rows}<tr class="tot"><td>Total diterima</td><td class="n">${gwhN(cur)}</td><td class="n">${prev == null ? '–' : gwhN(prev)}</td><td class="n">${arrow(dPct)}</td><td class="n">${gwhN(kum)}</td><td></td><td class="n">100%</td></tr></tbody></table></div></section>`;
+
+    const help = `<details class="s-help"><summary>Cara membaca ringkasan ini</summary><ul>
+      <li><b>Energi diterima</b> = kWh terima/beli distribusi (huruf D pada SUSUT 2026): energi dari GI (Polewali, Majene, Mamuju, Mamuju Baru, Topoyo, Pasangkayu), UPDK Bakaru, dan lainnya (UP3 tetangga, IPP 150 kV, PLTD sewa).</li>
+      <li><b>Dikirim keluar</b> = kWh yang disalurkan ke unit lain (huruf E), tidak termasuk dalam penjualan UP3 Mamuju.</li>
+      <li>Naik/turun di sini hanya menunjukkan perubahan volume, bukan baik/buruk. Data stand meter mentah ada di tab KWH PRODUKSI.</li></ul></details>`;
+
+    $('sSummary').innerHTML = verdict + kpis + trend + table + help;
+    drawProduksi(pr, srcs);
+  }
+
+  function drawProduksi(pr, srcs) {
+    const el = $('sChTrend');
+    if (!el || !window.echarts) return;
+    disposeSummaryChart();
+    sumChart = echarts.init(el, null, { renderer: 'svg' });
+    const n = pr.last + 1, surface = css('--surface'), ink2 = css('--ink-2'), muted = css('--muted');
+    sumChart.setOption({
+      animationDuration: 400,
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: ink2 },
+      color: srcs.map((x) => css('--s' + (x.i + 1))),
+      grid: { left: 8, right: 14, top: 64, bottom: 6, containLabel: true },
+      legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 14, itemHeight: 8, itemGap: 14, textStyle: { color: ink2, fontSize: 12 } },
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(120,130,150,.10)' } },
+        backgroundColor: surface, borderColor: css('--border'), textStyle: { color: css('--ink'), fontSize: 12 },
+        extraCssText: 'border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.15);',
+        valueFormatter: (v) => nfm(2).format(v) + ' GWh',
+      },
+      xAxis: { type: 'category', data: pr.months.slice(0, n), axisTick: { show: false }, axisLine: { lineStyle: { color: css('--axis') } }, axisLabel: { color: muted, fontSize: 11 } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: css('--grid') } }, axisLabel: { color: muted, fontSize: 11, formatter: (v) => nfm(0).format(v) } },
+      series: srcs.map((x) => ({
+        name: x.name, type: 'bar', stack: 'total', barMaxWidth: 34, data: x.v.slice(0, n).map((v) => +(v / 1e6).toFixed(4)),
+        itemStyle: { borderColor: surface, borderWidth: 1 }, emphasis: { focus: 'series' },
+      })),
+    });
+  }
+
   function renderHead() {
     const rep = DATA.reports[S.rep];
     const [a, b] = DATA.path;
@@ -272,7 +351,7 @@
     const rep = DATA.reports[S.rep];
     const parts = ['susut'];
     if (DATA.reports.length > 1) parts.push(encodeURIComponent(rep.file));
-    parts.push(encodeURIComponent(S.sheet === -1 ? 'Ringkasan' : rep.sheets[S.sheet]));
+    parts.push(encodeURIComponent(S.sheet === -1 ? 'Ringkasan' : S.sheet === -2 ? 'Ringkasan-Produksi' : rep.sheets[S.sheet]));
     history.replaceState(null, '', '#' + parts.join('/'));
   }
 
@@ -288,7 +367,7 @@
     }
     const rep = DATA.reports[S.rep];
     const j = rep.sheets.indexOf(rest[0]);
-    S.sheet = rest[0] === 'Ringkasan' && rep.summary ? -1 : j >= 0 ? j : rep.summary ? -1 : 0;
+    S.sheet = rest[0] === 'Ringkasan-Produksi' && rep.produksi ? -2 : rest[0] === 'Ringkasan' && rep.summary ? -1 : j >= 0 ? j : rep.summary ? -1 : 0;
   }
 
   async function show() {
@@ -305,16 +384,21 @@
     renderHead(); renderSheet(); writeHash();
   }
 
+  function showSnack() {
+    setView('snackbox');
+    history.replaceState(null, '', location.pathname + location.search + '#snackbox');
+  }
+
   function showTransaksi() {
     setView('transaksi');
-    if (location.hash.startsWith('#susut')) history.replaceState(null, '', location.pathname + location.search);
+    if (/^#(susut|snackbox)/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
     // ukuran grafik perlu dihitung ulang setelah kembali tampil
     setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   }
 
   function init() {
     document.querySelectorAll('#sections button').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'snackbox' ? showSnack() : showTransaksi());
     });
     $('sTabs').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-i]');
@@ -323,13 +407,16 @@
     });
     $('sRep').onchange = (e) => { S.rep = +e.target.value; S.sheet = DATA.reports[S.rep].summary ? -1 : 0; renderHead(); renderSheet(); writeHash(); };
     window.addEventListener('hashchange', () => {
-      if (location.hash.startsWith('#susut')) { if (document.body.dataset.view !== 'susut') show(); else { applyHash(); renderHead(); renderSheet(); } }
+      if (location.hash === '#snackbox') showSnack();
+      else if (location.hash.startsWith('#susut')) { if (document.body.dataset.view !== 'susut') show(); else { applyHash(); renderHead(); renderSheet(); } }
     });
     // ganti tema terang/gelap -> gambar ulang grafik ringkasan
-    new MutationObserver(() => { if (document.body.dataset.view === 'susut' && S.sheet === -1 && DATA) renderSheet(); })
+    new MutationObserver(() => { if (document.body.dataset.view === 'susut' && S.sheet < 0 && DATA) renderSheet(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('resize', () => { if (sumChart) sumChart.resize(); });
-    if (location.hash.startsWith('#susut')) show(); else setView('transaksi');
+    $('navToggle').onclick = () => document.body.classList.toggle('nav-open');
+    $('navScrim').onclick = () => document.body.classList.remove('nav-open');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash === '#snackbox') showSnack(); else setView('transaksi');
   }
 
   init();
