@@ -18,7 +18,8 @@ ULP = {"32910": "ULP Manakarra", "32920": "ULP Pasangkayu", "32930": "ULP Majene
        "32940": "ULP Wonomulyo", "32950": "ULP Polewali", "32960": "ULP Mamasa"}
 BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
-DETAIL_VERSION = 2  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
+DETAIL_VERSION = 3  # naikkan bila isi daftar/vektor pelanggan berubah -> periode dibaca ulang
+ANALYTICS_VERSION = 1  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
 DETAIL_COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "kelompok", "kwh_pakai", "kwh_tagih", "jamnyala", "rptag", "status", "status_lalu"]
 NEED = ["thblrek", "idpel", "nama", "alamat", "jamnyala", "pemkwh_real", "dlpd_lm", "unitup", "tarif", "daya", "kdprosesklp", "kogol", "rptag", "rppln", "rpbpju", "rpppn",
         "pemkwh", "dlpd", "dlpd_kvarh", "dlpd_3bln", "dlpd_jnsmutasi", "jamnyala400", "jamnyala600"]
@@ -106,6 +107,7 @@ def build_period(path: Path) -> dict:
     ulp_flag, flag_tot = {}, {k: 0 for k, _ in FLAGS}
     dlpd_c, mut_c, kogol_c = {}, {}, {}
     detail = {k: [] for k, _ in FLAGS}
+    V = []  # vektor pelanggan untuk analisis lintas bulan
     periods, seen, dup = {}, set(), 0
     for r in it:
         if not r or g(r, "idpel") is None:
@@ -147,6 +149,11 @@ def build_period(path: Path) -> dict:
                            _s(g(r, "kdprosesklp")), round(_num(g(r, "pemkwh_real"))), round(kwh), round(_num(g(r, "jamnyala"))), round(rptag),
                            DLPD.get(d[:1], d.title()), DLPD.get(_s(g(r, "dlpd_lm")).upper()[:1], _s(g(r, "dlpd_lm")).title())]
                 detail[k].append(rec)
+        try:
+            V.append((int(idp), u, _s(g(r, "tarif")) or "-", round(daya), round(_num(g(r, "pemkwh_real"))), round(kwh),
+                      round(_num(g(r, "jamnyala"))), round(rppln), _s(g(r, "nama")), _s(g(r, "alamat"))))
+        except ValueError:
+            pass
         dk = DLPD.get(d[:1], d.title() or "Lainnya")
         dlpd_c[dk] = dlpd_c.get(dk, 0) + 1
         m = _s(g(r, "dlpd_jnsmutasi")).capitalize()
@@ -172,15 +179,16 @@ def build_period(path: Path) -> dict:
         "mutasi": [{"label": k, "n": v} for k, v in sorted(mut_c.items(), key=lambda kv: -kv[1])],
         "kogol": [{"label": k, "n": v} for k, v in sorted(kogol_c.items(), key=lambda kv: -kv[1])],
     }
-    return out, detail
+    V.sort(key=lambda v: v[0])
+    vec = encode_vec(V)
+    names = {"nm": [v[8] for v in V], "al": [v[9] for v in V]}
+    return out, detail, vec, names
 
 
-def main(src: Path, cached: dict | None = None, log=print) -> dict:
-    """-> {generated_at, order, periods, warnings, details: {ym: {penanda: [baris...]}}} (details hanya periode yang baru dibaca)"""
-    """src = folder 'Mon Billing'. cached = {ym: hasil_periode_sebelumnya} (dipakai ulang bila file tidak berubah)."""
-    cached = cached or {}
+def pick_files(src: Path):
+    """-> ({periode: file_terpilih}, peringatan). Periode dibaca dari isi file (bukan dari nama)."""
     files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$"))
-    by_ym, warns, details = {}, [], {}
+    by_ym, warns = {}, []
     for p in files:
         try:
             ym = peek_period(p)
@@ -188,26 +196,200 @@ def main(src: Path, cached: dict | None = None, log=print) -> dict:
             warns.append(f"{p.name}: dilewati ({e})")
             continue
         by_ym.setdefault(ym, []).append(p)
-    periods = {}
-    for ym, ps in by_ym.items():
-        p = ps[-1]  # nama terurut -> yang terakhir
+    chosen = {}
+    for ym, ps in sorted(by_ym.items()):
+        chosen[ym] = ps[-1]  # nama terurut -> yang terakhir
         if len(ps) > 1:
-            warns.append(f"periode {ym} ada di {len(ps)} file ({', '.join(x.name for x in ps)}); dipakai {p.name}")
-        old = cached.get(ym)
-        h = md5(p)
-        if old and old.get("src_md5") == h and old.get("detail_v") == DETAIL_VERSION:
-            log(f"  {p.name}: tidak berubah, pakai hasil sebelumnya")
-            periods[ym] = old
-            continue
-        log(f"  {p.name}: membaca…")
-        try:
-            periods[ym], details[ym] = build_period(p)
-        except Exception as e:
-            warns.append(f"{p.name}: gagal ({e})")
-            continue
-        tail = p.stem[-4:]
+            warns.append(f"periode {ym} ada di {len(ps)} file ({', '.join(x.name for x in ps)}); dipakai {ps[-1].name}")
+        tail = ps[-1].stem[-4:]
         if tail.isdigit() and tail != ym[2:]:
-            warns.append(f"{p.name}: periode di isi file ({ym}) berbeda dengan nama file")
-    order = sorted(periods)
-    return {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "order": order,
-            "periods": periods, "warnings": warns, "details": details}
+            warns.append(f"{ps[-1].name}: periode di isi file ({ym}) berbeda dengan nama file")
+    return chosen, warns
+
+
+# ---------------------------------------------------------------- vektor pelanggan (kolom, id di-delta)
+def encode_vec(V):
+    units = sorted({v[1] for v in V})
+    tarifs = sorted({v[2] for v in V})
+    ui, ti = {u: i for i, u in enumerate(units)}, {t: i for i, t in enumerate(tarifs)}
+    ids = [v[0] for v in V]
+    return {"n": len(V), "units": units, "tarifs": tarifs,
+            "id": [ids[0]] + [ids[i] - ids[i - 1] for i in range(1, len(ids))] if ids else [],
+            "u": [ui[v[1]] for v in V], "t": [ti[v[2]] for v in V], "d": [v[3] for v in V],
+            "kp": [v[4] for v in V], "kt": [v[5] for v in V], "jn": [v[6] for v in V], "rp": [v[7] for v in V]}
+
+
+def decode_vec(d):
+    ids, acc = [], 0
+    for x in d["id"]:
+        acc += x
+        ids.append(acc)
+    out = {"id": ids, "u": [d["units"][i] for i in d["u"]], "t": [d["tarifs"][i] for i in d["t"]]}
+    for k in ("d", "kp", "kt", "jn", "rp"):
+        out[k] = d[k]
+    out["pos"] = {i: k for k, i in enumerate(ids)}
+    return out
+
+
+# ---------------------------------------------------------------- analisis lintas bulan
+ANOM = [
+    ("nol_berulang", "kWh nol berturut-turut", "Pemakaian nyata 0 kWh pada bulan ini dan bulan sebelumnya (minimal 2 bulan berturut-turut)"),
+    ("turun", "Pemakaian turun drastis", "Pemakaian < 50% rata-rata 3 bulan sebelumnya (rata-rata ≥ 50 kWh, pemakaian bulan ini > 0)"),
+    ("naik", "Pemakaian naik drastis", "Pemakaian > 150% rata-rata 3 bulan sebelumnya (rata-rata ≥ 50 kWh, selisih ≥ 100 kWh)"),
+    ("jn_berulang", "Jam nyala > 400 berulang", "Jam nyala > 400 pada bulan ini dan bulan sebelumnya"),
+]
+MIN_AVG, DROP, RISE, RISE_ABS = 50, 0.5, 1.5, 100
+EMPTY_SUM = lambda: {"n": 0, "kwh": 0}  # noqa: E731
+
+
+def _ulpn(code):
+    return ULP.get(code, f"ULP {code}")
+
+
+def _pair(prev, cur):
+    """Perbandingan dua bulan berurutan -> (ringkasan total + per ULP, indeks untuk daftar)."""
+    def blank():
+        return {"baru": EMPTY_SUM(), "hilang": EMPTY_SUM(), "naik": {"n": 0, "kwh": 0}, "turun": {"n": 0, "kwh": 0},
+                "sama": 0, "ganti_tarif": 0, "ganti_daya": 0}
+    tot, per = blank(), {}
+    rows = {"baru": [], "hilang": [], "ganti_tarif": [], "ganti_daya": []}
+    pp, cp = prev["pos"], cur["pos"]
+    for k, i in enumerate(cur["id"]):
+        u = _ulpn(cur["u"][k])
+        b = per.setdefault(u, blank())
+        j = pp.get(i)
+        if j is None:
+            for x in (tot, b):
+                x["baru"]["n"] += 1
+                x["baru"]["kwh"] += cur["kt"][k]
+            rows["baru"].append(k)
+            continue
+        dlt = cur["kt"][k] - prev["kt"][j]
+        key = "naik" if dlt > 0 else "turun" if dlt < 0 else None
+        for x in (tot, b):
+            if key:
+                x[key]["n"] += 1
+                x[key]["kwh"] += dlt
+            else:
+                x["sama"] += 1
+            if cur["t"][k] != prev["t"][j]:
+                x["ganti_tarif"] += 1
+            if cur["d"][k] != prev["d"][j]:
+                x["ganti_daya"] += 1
+        if cur["t"][k] != prev["t"][j]:
+            rows["ganti_tarif"].append((k, j))
+        if cur["d"][k] != prev["d"][j]:
+            rows["ganti_daya"].append((k, j))
+    for j, i in enumerate(prev["id"]):
+        if i not in cp:
+            u = _ulpn(prev["u"][j])
+            b = per.setdefault(u, blank())
+            for x in (tot, b):
+                x["hilang"]["n"] += 1
+                x["hilang"]["kwh"] += prev["kt"][j]
+            rows["hilang"].append(j)
+    return {"total": tot, "ulp": per}, rows
+
+
+def _scan(order, vecs, idx, want_rows):
+    """Penanda anomali bulan order[idx] terhadap riwayat pelanggan itu sendiri."""
+    cur, ym = vecs[order[idx]], order[idx]
+    prevs = [vecs[o] for o in order[:idx]][::-1]  # terdekat dulu
+    cnt = {k: 0 for k, _, _ in ANOM}
+    rows = {k: [] for k, _, _ in ANOM}
+    for k, i in enumerate(cur["id"]):
+        kp = cur["kp"][k]
+        series = []
+        for pv in prevs:
+            j = pv["pos"].get(i)
+            series.append(None if j is None else (pv["kp"][j], pv["jn"][j]))
+        streak = 0
+        if kp == 0:
+            streak = 1
+            for sv in series:
+                if sv is not None and sv[0] == 0:
+                    streak += 1
+                else:
+                    break
+        last3 = [sv[0] for sv in series[:3] if sv is not None]
+        avg = sum(last3) / len(last3) if len(last3) >= 2 else None
+        hit = {
+            "nol_berulang": idx >= 1 and streak >= 2,
+            "turun": avg is not None and avg >= MIN_AVG and 0 < kp < DROP * avg,
+            "naik": avg is not None and avg >= MIN_AVG and kp > RISE * avg and kp - avg >= RISE_ABS,
+            "jn_berulang": idx >= 1 and cur["jn"][k] > 400 and bool(series) and series[0] is not None and series[0][1] > 400,
+        }
+        for c, on in hit.items():
+            if on:
+                cnt[c] += 1
+                if want_rows:
+                    hist = [None if sv is None else sv[0] for sv in series[:3]][::-1]
+                    rows[c].append((k, hist, avg, streak))
+    return cnt, rows
+
+
+def analyze(order, vecs, names):
+    """order: periode menaik; vecs: {ym: vektor ter-decode}; names: {ym: {"nm": [...], "al": [...]}} (bulan terakhir & sebelumnya).
+    -> (ringkasan, daftar{kategori: {"cols", "rows"}})"""
+    summary = {"v": ANALYTICS_VERSION, "latest": order[-1], "pairs": {}, "anom": {},
+               "rules": [{"k": k, "label": lb, "rule": rule} for k, lb, rule in ANOM]}
+    lists = {}
+    for a, b in zip(order, order[1:]):
+        res, rows = _pair(vecs[a], vecs[b])
+        summary["pairs"][b] = res
+        if b == order[-1]:
+            lists.update(_pair_lists(vecs[a], vecs[b], names.get(a), names.get(b), rows))
+    for idx, ym in enumerate(order):
+        cnt, rows = _scan(order, vecs, idx, want_rows=(idx == len(order) - 1))
+        summary["anom"][ym] = {k: (cnt[k] if (idx >= 2 or (idx >= 1 and k in ("nol_berulang", "jn_berulang"))) else None) for k, _, _ in ANOM}
+        if idx == len(order) - 1:
+            lists.update(_anom_lists(order, vecs, names.get(ym), rows))
+    summary["lists"] = {k: len(v["rows"]) for k, v in lists.items()}
+    return summary, lists
+
+
+def _nm(names, k):
+    return (names["nm"][k], names["al"][k]) if names else ("", "")
+
+
+def _pair_lists(prev, cur, pn, cn, rows):
+    out = {}
+    base = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "kwh_tagih"]
+
+    def rec(v, nm, k):
+        n, al = _nm(nm, k)
+        return [str(v["id"][k]), n, al, _ulpn(v["u"][k]), v["t"][k], v["d"][k], v["kt"][k]]
+    out["baru"] = {"cols": base, "rows": sorted((rec(cur, cn, k) for k in rows["baru"]), key=lambda r: -r[6])}
+    out["hilang"] = {"cols": base, "rows": sorted((rec(prev, pn, j) for j in rows["hilang"]), key=lambda r: -r[6])}
+    gt = []
+    for k, j in rows["ganti_tarif"]:
+        r = rec(cur, cn, k)
+        gt.append(r[:4] + [prev["t"][j], cur["t"][k], r[5], r[6]])
+    out["ganti_tarif"] = {"cols": ["idpel", "nama", "alamat", "ulp", "tarif_lama", "tarif_baru", "daya", "kwh_tagih"], "rows": sorted(gt, key=lambda r: -r[7])}
+    gd = []
+    for k, j in rows["ganti_daya"]:
+        r = rec(cur, cn, k)
+        gd.append(r[:5] + [prev["d"][j], cur["d"][k], r[6]])
+    out["ganti_daya"] = {"cols": ["idpel", "nama", "alamat", "ulp", "tarif", "daya_lama", "daya_baru", "kwh_tagih"], "rows": sorted(gd, key=lambda r: -abs(r[6] - r[5]))}
+    return out
+
+
+def _anom_lists(order, vecs, cn, rows):
+    cur = vecs[order[-1]]
+    hist_ym = order[-4:-1]  # sampai 3 bulan sebelumnya (menaik)
+    cols = ["idpel", "nama", "alamat", "ulp", "tarif", "daya"] + hist_ym + [order[-1], "rata_sebelum", "selisih_pct", "streak_nol", "jamnyala"]
+    out = {}
+    for c, lst in rows.items():
+        rs = []
+        for k, hist, avg, streak in lst:
+            hist = [None] * (len(hist_ym) - len(hist)) + hist  # panjang tetap, bulan tertua di kiri
+            n, al = _nm(cn, k)
+            kp = cur["kp"][k]
+            pct = round((kp - avg) / avg * 100) if avg else None
+            rs.append([str(cur["id"][k]), n, al, _ulpn(cur["u"][k]), cur["t"][k], cur["d"][k]] + hist + [kp,
+                       None if avg is None else round(avg), pct, streak or None, cur["jn"][k]])
+        key = {"nol_berulang": lambda r: (-(r[-2] or 0), -r[5]), "turun": lambda r: (r[-3] is None, r[-3] or 0),
+               "naik": lambda r: (-(r[-3] or 0)), "jn_berulang": lambda r: -r[-1]}[c]
+        rs.sort(key=key)
+        out[c] = {"cols": cols, "rows": rs}
+    return out

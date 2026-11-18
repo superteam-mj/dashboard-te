@@ -135,23 +135,93 @@ def publish_tul(sb: Supa, src: Path, work: Path):
     return list(build_data.LAST_WARNINGS)
 
 
+BILLING_MAX_NEW = 3   # maksimal file Excel baru dibaca per sinkron (tiap file ~2,5 menit); sisanya di sinkron berikutnya
+_PARTIAL = {"billing": False}
+
+
 def publish_billing(sb: Supa, src: Path, work: Path):
-    import build_billing
-    cached = {}
+    import build_billing as bb
+    prev = {}
     for row in sb.select("tul_data", "select=data&id=eq.billing"):
-        cached = (row.get("data") or {}).get("periods") or {}
-    data = build_billing.main(src, cached)
-    details = data.pop("details", {})
-    # daftar pelanggan per penanda -> baris tul_data 'bd:<periode>:<penanda>' (dulu, baru ringkasan)
-    for ym, flags in details.items():
-        for k, rows in flags.items():
-            sb.upsert("tul_data", [{"id": f"bd:{ym}:{k}", "data": {"cols": build_billing.DETAIL_COLS, "rows": rows}, "generated_at": data["generated_at"]}], "id")
-    sb.upsert("tul_data", [{"id": "billing", "data": data, "generated_at": data["generated_at"]}], "id")
-    keep = {f"bd:{ym}:{k}" for ym in data["periods"] for k, _ in build_billing.FLAGS}
-    for row in sb.select("tul_data", "select=id&id=like.bd:*"):
-        if row["id"] not in keep:
-            sb.delete("tul_data", f"id=eq.{row['id']}")
-    return data["warnings"]
+        prev = row.get("data") or {}
+    cached = prev.get("periods") or {}
+    chosen, warns = bb.pick_files(src)
+    periods, new = {}, []
+    for ym, p in chosen.items():
+        old = cached.get(ym)
+        if old and old.get("src_md5") == bb.md5(p) and old.get("detail_v") == bb.DETAIL_VERSION:
+            periods[ym] = old
+        else:
+            new.append((ym, p))
+            if old:
+                periods[ym] = old  # tampilkan hasil lama sampai file ini dibaca ulang
+    parsed = {}  # ym -> (vektor, nama) hanya yang baru dibaca
+
+    def doc(id_, data, stamp):
+        sb.upsert("tul_data", [{"id": id_, "data": data, "generated_at": stamp}], "id")
+
+    def save(analytics):
+        stamp = now()
+        order = sorted(periods)
+        doc("billing", {"generated_at": stamp, "order": order, "periods": periods, "warnings": warns, "analytics": analytics}, stamp)
+
+    analytics = prev.get("analytics")
+    for ym, p in new[:BILLING_MAX_NEW]:
+        print(f"  {p.name}: membaca…", flush=True)
+        try:
+            summary, detail, vec, names = bb.build_period(p)
+        except Exception as e:
+            warns.append(f"{p.name}: gagal ({e})")
+            continue
+        stamp = now()
+        for k, rows in detail.items():
+            doc(f"bd:{ym}:{k}", {"cols": bb.DETAIL_COLS, "rows": rows}, stamp)
+        doc(f"bc:{ym}", vec, stamp)
+        doc(f"bn:{ym}", names, stamp)
+        periods[ym] = summary
+        parsed[ym] = (vec, names)
+        save(analytics)
+    rest = new[BILLING_MAX_NEW:]
+    if rest:
+        _PARTIAL["billing"] = True
+        warns.append(f"{len(rest)} file belum dibaca ({', '.join(x[1].name for x in rest)}); dilanjutkan di sinkron berikutnya")
+        print("  " + warns[-1])
+
+    # ---- analisis lintas bulan (butuh vektor tiap periode)
+    order = [ym for ym in sorted(periods) if ym in parsed or periods[ym].get("detail_v") == bb.DETAIL_VERSION]
+    if len(order) >= 2:
+        want = (not analytics or analytics.get("v") != bb.ANALYTICS_VERSION or parsed
+                or sorted(analytics.get("anom", {})) != order)
+        if want:
+            print(f"  analisis lintas bulan: {len(order)} periode", flush=True)
+            vecs, names = {}, {}
+            for ym in order:
+                vec = parsed[ym][0] if ym in parsed else (sb.select("tul_data", f"select=data&id=eq.bc:{ym}") or [{}])[0].get("data")
+                if not vec:
+                    raise RuntimeError(f"vektor pelanggan {ym} tidak ditemukan")
+                vecs[ym] = bb.decode_vec(vec)
+            for ym in order[-2:]:
+                nm = parsed[ym][1] if ym in parsed else (sb.select("tul_data", f"select=data&id=eq.bn:{ym}") or [{}])[0].get("data")
+                names[ym] = nm
+            analytics, lists = bb.analyze(order, vecs, names)
+            stamp = now()
+            for c, d in lists.items():
+                doc(f"bx:{order[-1]}:{c}", d, stamp)
+    else:
+        analytics = None
+    save(analytics)
+
+    # ---- bersihkan dokumen yatim
+    keep_bd = {f"bd:{ym}:{k}" for ym in periods for k, _ in bb.FLAGS}
+    keep_bc = {f"bc:{ym}" for ym in periods}
+    keep_bn = {f"bn:{ym}" for ym in order[-2:]}
+    keep_bx = {f"bx:{order[-1]}:{c}" for c, _, _ in bb.ANOM} | {f"bx:{order[-1]}:{c}" for c in ("baru", "hilang", "ganti_tarif", "ganti_daya")} if order else set()
+    keep = keep_bd | keep_bc | keep_bn | keep_bx
+    for pre in ("bd", "bc", "bn", "bx"):
+        for row in sb.select("tul_data", f"select=id&id=like.{pre}:*"):
+            if row["id"] not in keep:
+                sb.delete("tul_data", f"id=eq.{row['id']}")
+    return warns
 
 
 def publish_susut(sb: Supa, src: Path, work: Path):
@@ -284,6 +354,9 @@ def main():
             # 3) bangun & kirim
             try:
                 warns = PUBLISH[name](sb, src, work / name)
+                if _PARTIAL.get(name):
+                    print("  Sebagian selesai — manifest tidak disimpan agar sinkron berikutnya melanjutkan.")
+                    continue
                 state_row = {"files": manifest, "warnings": warns, "synced_at": now(), "ok": True}
                 sb.upsert("sync_state", [{"key": f"manifest_{name}", "value": state_row, "updated_at": now()}], "key")
                 print(f"  Selesai. Peringatan: {len(warns)}")
