@@ -380,6 +380,9 @@ body:not([data-view="snackbox"]) #snackApp { display: none; }
 @media (max-width: 1000px) { .s-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .s-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .s-kpis { grid-template-columns: minmax(0, 1fr); } .verdict { padding: 16px; } .v-ico { width: 38px; height: 38px; } .v-title { font-size: 17px; } }
 
+.info-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.info-wrap svg { display: block; width: 100%; min-width: 960px; height: auto; }
+.info-card .tools { display: flex; gap: 8px; flex-wrap: wrap; }
 /* ---------- Login ---------- */
 .login { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); background: var(--page); }
 .login[hidden] { display: none; }

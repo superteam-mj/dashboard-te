@@ -305,8 +305,152 @@
       <li><b>Dikirim keluar</b> = kWh yang disalurkan ke unit lain (huruf E), tidak termasuk dalam penjualan UP3 Mamuju.</li>
       <li>Naik/turun di sini hanya menunjukkan perubahan volume, bukan baik/buruk. Data stand meter mentah ada di tab KWH PRODUKSI.</li></ul></details>`;
 
-    $('sSummary').innerHTML = verdict + kpis + trend + table + help;
+    const svg = infographicSvg(pr, srcs);
+    const info = `<section class="card s-card info-card"><div class="card-head"><div><h2>Infografis untuk presentasi</h2><p class="hint">Gambar 16:9 (1920×1080) berisi ringkasan dan seluruh titik transaksi — klik Salin gambar lalu tempel (Ctrl+V) di PowerPoint</p></div>
+      <div class="tools"><button type="button" class="btn" id="infoCopy">Salin gambar</button><button type="button" class="btn ghost" id="infoDl">Unduh PNG</button></div></div>
+      <div class="info-wrap">${svg}</div></section>`;
+    $('sSummary').innerHTML = verdict + kpis + info + trend + table + help;
+    wireInfographic(svg, `infografis-produksi-${month.toLowerCase()}-${pr.year}.png`);
     drawProduksi(pr, srcs);
+  }
+
+  // ---------- Infografis (gambar 16:9 untuk PowerPoint) ----------
+  const IW = 1920, IH = 1080;
+  const IC = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  function infographicSvg(pr, srcs) {
+    const last = pr.last, month = pr.monthsFull[last];
+    const INK = '#0f172a', MUT = '#64748b', LINE = '#e2e8f0', CARD = '#f1f5f9', FONT = "Inter, 'Segoe UI', Arial, sans-serif";
+    const gw = (v) => nfm(2).format(v / 1e6);
+    const mw = (v) => (!v || Math.abs(v) < 0.005 ? '–' : nfm(2).format(v / 1000));
+    const sum = (a) => a.slice(0, last + 1).reduce((x, y) => x + y, 0);
+    const cur = pr.terima[last], prev = last > 0 ? pr.terima[last - 1] : null, kum = sum(pr.terima);
+    const dP = prev ? ((cur - prev) / prev) * 100 : null;
+    const top = srcs.slice().sort((a, b) => b.now - a.now)[0];
+    const T = (x, y, txt, o = {}) => `<text x="${x}" y="${y}" font-size="${o.s || 16}" font-weight="${o.w || 400}" fill="${o.c || INK}" text-anchor="${o.a || 'start'}">${esc(txt)}</text>`;
+    const o = [];
+    o.push(`<rect width="${IW}" height="${IH}" fill="#ffffff"/><rect width="${IW}" height="10" fill="${IC[0]}"/>`);
+    o.push(T(48, 66, `Pasokan Energi UP3 Mamuju — ${month} ${pr.year}`, { s: 40, w: 750 }));
+    o.push(T(48, 98, 'kWh terima/beli distribusi menurut sumber dan seluruh titik transaksi', { s: 18, c: MUT }));
+
+    // kartu angka (kiri)
+    const cards = [
+      ['Energi diterima ' + month, gw(cur) + ' GWh', dP == null ? '' : (dP >= 0 ? '▲ naik ' : '▼ turun ') + nfm(1).format(Math.abs(dP)) + '% dari ' + pr.monthsFull[last - 1]],
+      ['Kumulatif Jan–' + pr.months[last], gw(kum) + ' GWh', 'rata-rata ' + gw(kum / (last + 1)) + ' GWh per bulan'],
+      ['Sumber terbesar', top.name, gw(top.now) + ' GWh · ' + nfm(1).format((top.now / cur) * 100) + '% dari total'],
+    ];
+    cards.forEach((c, i) => {
+      const y = 126 + i * 104;
+      o.push(`<rect x="48" y="${y}" width="340" height="94" rx="14" fill="${CARD}"/><rect x="48" y="${y}" width="6" height="94" rx="3" fill="${IC[i === 2 ? 3 : i]}"/>`);
+      o.push(T(70, y + 28, c[0], { s: 15, c: MUT, w: 600 }), T(70, y + 62, c[1], { s: 30, w: 750 }), T(70, y + 84, c[2], { s: 14, c: MUT }));
+    });
+
+    // grafik batang bertumpuk (kanan atas)
+    const px0 = 470, px1 = 1872, base = 372, ptop = 178, n = last + 1;
+    const maxG = Math.max(...pr.terima.slice(0, n)) / 1e6, step = maxG > 80 ? 20 : 10, yMax = Math.ceil(maxG / step) * step;
+    const yy = (g) => base - (g / yMax) * (base - ptop);
+    for (let g = 0; g <= yMax; g += step) {
+      o.push(`<line x1="${px0}" x2="${px1}" y1="${yy(g)}" y2="${yy(g)}" stroke="${g ? LINE : '#94a3b8'}" stroke-width="1"/>`, T(px0 - 10, yy(g) + 5, String(g), { s: 13, c: MUT, a: 'end' }));
+    }
+    o.push(T(px0, 134, 'Energi diterima per bulan (GWh)', { s: 17, w: 650 }));
+    let lx = px0;
+    srcs.forEach((x) => {
+      o.push(`<rect x="${lx}" y="146" width="13" height="13" rx="3" fill="${IC[x.i]}"/>`, T(lx + 19, 158, x.name, { s: 13, c: '#334155' }));
+      lx += 40 + x.name.length * 7.4;
+    });
+    const slot = (px1 - px0) / n, bw = Math.min(58, slot * 0.58);
+    for (let m = 0; m < n; m++) {
+      const cx = px0 + slot * (m + 0.5);
+      let acc = 0;
+      srcs.forEach((x) => {
+        const g = x.v[m] / 1e6;
+        if (g <= 0) return;
+        o.push(`<rect x="${cx - bw / 2}" y="${yy(acc + g)}" width="${bw}" height="${Math.max(0, yy(acc) - yy(acc + g))}" fill="${IC[x.i]}" stroke="#fff" stroke-width="1"/>`);
+        acc += g;
+      });
+      o.push(T(cx, yy(acc) - 7, nfm(1).format(acc), { s: 13, w: 700, a: 'middle' }), T(cx, base + 22, pr.months[m], { s: 14, c: MUT, a: 'middle' }));
+    }
+
+    // daftar seluruh titik transaksi (tiga kolom)
+    const gy = 450;
+    o.push(`<line x1="48" x2="${IW - 48}" y1="${gy - 14}" y2="${gy - 14}" stroke="${LINE}"/>`);
+    o.push(T(48, gy + 12, 'Seluruh titik transaksi', { s: 20, w: 700 }), T(300, gy + 12, `Satuan MWh · ${month} dan kumulatif Jan–${pr.months[last]} · (−) pemakaian sendiri (PS) gardu induk/pembangkit`, { s: 14, c: MUT }));
+    const items = [];
+    const section = (kind, title) => {
+      const gs = (pr.groups || []).filter((g) => g.kind === kind);
+      if (!gs.length) return;
+      items.push({ t: 'sec', txt: title });
+      gs.forEach((g) => {
+        const si = srcs.findIndex((x) => x.name === g.name);
+        const col = kind === 'kirim' ? '#94a3b8' : si >= 0 ? IC[si] : IC[7];
+        if (g.flat) { items.push({ t: 'flat', txt: g.name, v: g.v, col }); return; }
+        items.push({ t: 'head', txt: g.name, v: g.v, col });
+        g.points.forEach((p) => items.push({ t: 'pt', txt: (p.ps ? '(−) ' : '') + p.name, v: p.v }));
+      });
+    };
+    section('terima', 'ENERGI DITERIMA / DIBELI');
+    section('kirim', 'ENERGI DIKIRIM KE UNIT LAIN');
+    const NC = 4, GAP = 30, cw = (IW - 96 - (NC - 1) * GAP) / NC, top0 = gy + 56, avail = IH - 44 - top0;
+    // kelompokkan menjadi blok (judul bagian + grup + titiknya) agar grup tidak terpotong antar kolom
+    const blocks = [];
+    let pendingSec = null;
+    items.forEach((it) => {
+      if (it.t === 'sec') { pendingSec = it; return; }
+      if (it.t === 'head' || it.t === 'flat') { blocks.push(pendingSec ? [pendingSec, it] : [it]); pendingSec = null; } else blocks[blocks.length - 1].push(it);
+    });
+    const total = blocks.reduce((a, bl) => a + bl.length, 0), target = Math.ceil(total / NC);
+    const cols = Array.from({ length: NC }, () => []);
+    let c = 0;
+    blocks.forEach((bl) => {
+      if (c < NC - 1 && cols[c].length && cols[c].length + bl.length > target + 1) c++;
+      cols[c].push(...bl);
+    });
+    const LH = Math.min(26, avail / (Math.max(...cols.map((x) => x.length)) + 0.4));
+    cols.forEach((col, ci) => {
+      const x0 = 48 + ci * (cw + GAP);
+      o.push(`<rect x="${x0}" y="${gy + 26}" width="${cw}" height="24" rx="6" fill="${CARD}"/>`, T(x0 + 10, gy + 43, 'Titik transaksi', { s: 13, c: MUT, w: 650 }),
+        T(x0 + cw - 105, gy + 43, month.slice(0, 3), { s: 13, c: MUT, w: 650, a: 'end' }), T(x0 + cw - 8, gy + 43, 'Kum', { s: 13, c: MUT, w: 650, a: 'end' }));
+      col.forEach((it, r) => {
+        const y = top0 + (r + 1) * LH - 5, kv = sum(it.v || []), cv = it.v ? it.v[last] : 0;
+        if (it.t === 'sec') { o.push(T(x0, y, it.txt, { s: 13, c: IC[0], w: 800 })); return; }
+        if (it.t === 'pt') { o.push(T(x0 + 22, y, it.txt, { s: 14, c: '#334155' }), T(x0 + cw - 105, y, mw(cv), { s: 14, c: cv ? INK : '#94a3b8', a: 'end' }), T(x0 + cw - 8, y, mw(kv), { s: 14, c: kv ? INK : '#94a3b8', a: 'end' })); return; }
+        o.push(`<rect x="${x0}" y="${y - 11}" width="12" height="12" rx="3" fill="${it.col}"/>`, T(x0 + 22, y, it.txt, { s: 14.5, w: 700 }), T(x0 + cw - 105, y, mw(cv), { s: 14.5, w: 700, a: 'end' }), T(x0 + cw - 8, y, mw(kv), { s: 14.5, w: 700, a: 'end' }));
+      });
+    });
+    o.push(T(48, IH - 16, 'Sumber: Laporan Susut Distribusi UP3 (sheet SUSUT 2026) · PLN UP3 Mamuju · Dashboard TE', { s: 13, c: MUT }));
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${IW} ${IH}" width="${IW}" height="${IH}" font-family="${FONT}">${o.join('')}</svg>`;
+  }
+
+  function svgToPng(svg) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas'); cv.width = IW * 2; cv.height = IH * 2;
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob((b) => (b ? resolve(b) : reject(new Error('gagal membuat gambar'))), 'image/png');
+      };
+      img.onerror = () => reject(new Error('gagal merender gambar'));
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  }
+  function labelFlash(btn, msg) {
+    const old = btn.dataset.l || btn.textContent; btn.dataset.l = old; btn.textContent = msg;
+    clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = old; }, 2000);
+  }
+  function download(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  function wireInfographic(svg, name) {
+    $('infoDl').onclick = async () => { try { download(await svgToPng(svg), name); labelFlash($('infoDl'), 'Terunduh ✓'); } catch (e) { labelFlash($('infoDl'), 'Gagal'); } };
+    $('infoCopy').onclick = async () => {
+      try {
+        if (!(navigator.clipboard && window.ClipboardItem)) throw new Error('clipboard');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': svgToPng(svg) })]);
+        labelFlash($('infoCopy'), 'Tersalin ✓ — tempel di PPT');
+      } catch (e) {
+        try { download(await svgToPng(svg), name); labelFlash($('infoCopy'), 'Disalin tidak didukung — gambar diunduh'); } catch (e2) { labelFlash($('infoCopy'), 'Gagal'); }
+      }
+    };
   }
 
   function drawProduksi(pr, srcs) {

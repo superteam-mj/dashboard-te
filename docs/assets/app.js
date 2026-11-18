@@ -208,7 +208,7 @@
   function writeHash() {
     const p = new URLSearchParams({ l: S.level, u: S.unit || '', m: S.ym || '', j: S.jenis });
     if (S.gol) p.set('g', S.gol);
-    history.replaceState(null, '', '#' + p.toString());
+    if ((document.body.dataset.view || 'transaksi') === 'transaksi') history.replaceState(null, '', '#' + p.toString());
   }
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
@@ -222,7 +222,7 @@
   // ---------- render: meta + KPI ----------
   function renderMeta() {
     const u = unitData(), mon = u && u.months[S.ym];
-    $('subtitle').textContent = `TUL III-09 · ${S.unit || '-'} · ${JENIS_NAME[S.jenis]}${S.gol ? ' · Golongan ' + GOL[S.gol].name : ''}`;
+    if ((document.body.dataset.view || 'transaksi') === 'transaksi') $('subtitle').textContent = `TUL III-09 · ${S.unit || '-'} · ${JENIS_NAME[S.jenis]}${S.gol ? ' · Golongan ' + GOL[S.gol].name : ''}`;
     if (!mon) { $('meta').innerHTML = ''; return; }
     const st = Object.entries(mon.status || {}).map(([j, s]) =>
       `<span class="badge" title="${esc((mon.source || {})[j] || '')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>${JENIS_NAME[j]}: ${esc(s || '-')}</span>`).join('');
