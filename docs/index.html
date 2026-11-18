@@ -261,11 +261,28 @@
         </article>
         <article class="card span-2" id="bQual">
           <div class="card-head">
-            <div><h2>Kualitas pembacaan</h2><p class="hint">Jumlah pelanggan dengan catatan pada bulan ini; warna makin pekat = porsi makin besar dibanding ULP lain</p></div>
+            <div><h2>Kualitas pembacaan</h2><p class="hint">Klik angka untuk melihat dan mengunduh daftar pelanggannya · warna makin pekat = porsi makin besar dibanding ULP lain</p></div>
           </div>
           <div class="table-wrap"><table id="bQualTbl" class="b-tbl b-q"></table></div>
           <h3 class="b-sub">Status pembacaan (DLPD)</h3>
           <div class="chart" id="bChDlpd"></div>
+        </article>
+        <article class="card span-2" id="bDetail" hidden>
+          <div class="card-head">
+            <div><h2 id="bDTitle">Detail pelanggan</h2><p class="hint" id="bDHint"></p></div>
+            <div class="tools">
+              <button type="button" class="btn" id="bDCsv">Unduh Excel (CSV)</button>
+              <button type="button" class="btn ghost" id="bDClose">Tutup</button>
+            </div>
+          </div>
+          <div class="b-dfilters">
+            <label class="field"><span>Penanda</span><select id="bDFlag"></select></label>
+            <label class="field"><span>ULP</span><select id="bDUlp"></select></label>
+            <label class="field b-dq"><span>Cari</span><input type="search" id="bDQ" placeholder="ID pelanggan, nama, atau alamat…" aria-label="Cari pelanggan"></label>
+          </div>
+          <div class="s-msg" id="bDMsg" hidden></div>
+          <div class="table-wrap b-dwrap"><table id="bDTbl" class="b-tbl b-det"></table></div>
+          <div class="b-pager"><button type="button" class="btn ghost" id="bDPrev">‹ Sebelumnya</button><span id="bDPage"></span><button type="button" class="btn ghost" id="bDNext">Berikutnya ›</button></div>
         </article>
         <article class="card span-2" id="bCardTrend" hidden>
           <div class="card-head">
