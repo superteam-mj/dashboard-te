@@ -94,15 +94,26 @@ h2 { font-size: 15.5px; }
 .side-nav svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
 .side-nav button:hover { color: var(--ink); background: var(--surface-2); }
 .side-nav button[aria-pressed="true"] { background: var(--brand); color: #fff; box-shadow: 0 8px 16px -8px rgba(42, 120, 214, .75); }
+.nav-group + .nav-group { margin-top: 4px; }
+.side-nav .chev { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); opacity: .55; transition: transform .2s; flex: none; }
+.nav-group.open > button .chev { transform: rotate(45deg); }
+.sub-nav { display: none; flex-direction: column; gap: 1px; margin: 4px 0 6px 21px; padding-left: 12px; border-left: 2px solid var(--grid); }
+.nav-group.open .sub-nav { display: flex; }
+.sub-nav button {
+  height: 34px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 550;
+  text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .15s, background .15s;
+}
+.sub-nav button:hover { color: var(--ink); background: var(--surface-2); }
+.sub-nav button[aria-current="true"], .sub-nav button.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+.sub-nav button.tab-sum { font-weight: 650; }
+.sub-nav button[hidden] { display: none; }
+@media (min-width: 901px) { #sTabs { display: none; } }
+.card, .kpis { scroll-margin-top: 156px; }
+@media (max-width: 560px) { .card, .kpis { scroll-margin-top: 16px; } }
 .top-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .top-title .sub { font-size: 15px; font-weight: 650; color: var(--ink); max-width: 60ch; }
 .nav-btn { display: none; flex: none; }
 .scrim { display: none; }
-.snack { padding-top: 22px; }
-.empty-state { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 56px 20px; }
-.empty-state p { margin: 0; color: var(--ink-2); }
-.es-ico { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
-.es-ico svg { width: 28px; height: 28px; fill: currentColor; }
 .verdict.info { --vc: var(--s1); background: linear-gradient(90deg, color-mix(in srgb, var(--s1) 12%, var(--surface)), var(--surface) 55%); }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 9px; vertical-align: -1px; }
 @media (max-width: 900px) {
@@ -294,10 +305,8 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters, body[data-view="susut"] #app,
-body[data-view="snackbox"] #dashFilters, body[data-view="snackbox"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
-body:not([data-view="snackbox"]) #snackApp { display: none; }
 .susut { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 .s-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }

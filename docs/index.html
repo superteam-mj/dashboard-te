@@ -25,15 +25,27 @@
     </div>
     <div class="side-label">Menu</div>
     <nav class="side-nav" id="sections" aria-label="Menu utama">
-      <button type="button" data-v="transaksi" aria-pressed="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span>
-      </button>
-      <button type="button" data-v="susut" aria-pressed="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span>
-      </button>
-      <button type="button" data-v="snackbox" aria-pressed="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l9-5 9 5v1H3zm1 3h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm5 2v2h6v-2z"/></svg><span>Snackbox</span>
-      </button>
+      <div class="nav-group open" data-g="transaksi">
+        <button type="button" data-v="transaksi" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subTransaksi" role="group" aria-label="Bagian Transaksi Energi">
+          <button type="button" data-t="#kpis">Ringkasan</button>
+          <button type="button" data-t="#cardPng">Data Pengusahaan</button>
+          <button type="button" data-t="#chTrend">Tren bulanan</button>
+          <button type="button" data-t="#cardCmp">Perbandingan antar unit</button>
+          <button type="button" data-t="#chGol">Komposisi golongan</button>
+          <button type="button" data-t="#chMix">Pascabayar vs Prabayar</button>
+          <button type="button" data-t="#chTop">10 tarif terbesar</button>
+          <button type="button" data-t="#tbl">Detail per tarif</button>
+        </div>
+      </div>
+      <div class="nav-group" data-g="susut">
+        <button type="button" data-v="susut" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subSusut" role="group" aria-label="Halaman Laporan Susut"></div>
+      </div>
     </nav>
   </aside>
   <div class="scrim" id="navScrim"></div>
@@ -210,13 +222,6 @@
     <style id="sStyle"></style>
   </main>
 
-  <main class="wrap snack" id="snackApp">
-    <section class="card empty-state">
-      <div class="es-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v1H3zm1 3h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm5 2v2h6v-2z"/></svg></div>
-      <h2>Snackbox</h2>
-      <p>Halaman ini masih kerangka. Isi dan sumber datanya menunggu keputusan.</p>
-    </section>
-  </main>
   </div>
 
   <div class="login" id="login" hidden>

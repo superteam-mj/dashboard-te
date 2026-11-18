@@ -10,9 +10,10 @@
 
   function setView(v) {
     document.body.dataset.view = v;
-    document.querySelectorAll('#sections button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    document.querySelectorAll('#sections button[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === v));
     const T = { susut: ['Pengendalian Susut · Laporan Susut', 'Laporan Susut — Dashboard TE'],
-      snackbox: ['Snackbox', 'Snackbox — Dashboard TE'], transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'] };
+      transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'] };
     $('subtitle').textContent = T[v][0];
     document.title = T[v][1];
     document.body.classList.remove('nav-open');
@@ -101,6 +102,7 @@
     $('sTabs').innerHTML = (rep.summary ? `<button type="button" role="tab" class="tab-sum" aria-selected="${S.sheet === -1}" data-i="-1">Ringkasan</button>` : '') +
       rep.sheets.map((n, i) => (i === 0 && rep.produksi ? `<button type="button" role="tab" class="tab-sum" aria-selected="${S.sheet === -2}" data-i="-2">Ringkasan Produksi</button>` : '') +
         `<button type="button" role="tab" aria-selected="${i === S.sheet}" data-i="${i}">${esc(n)}</button>`).join('');
+    $('subSusut').innerHTML = $('sTabs').innerHTML.replace(/ role="tab"/g, '').replace(/aria-selected/g, 'aria-current');
     const active = $('sTabs').querySelector('[aria-selected="true"]');
     if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const isSum = (S.sheet === -1 && rep.summary) || (S.sheet === -2 && rep.produksi);
@@ -528,22 +530,48 @@
     renderHead(); renderSheet(); writeHash();
   }
 
-  function showSnack() {
-    setView('snackbox');
-    history.replaceState(null, '', location.pathname + location.search + '#snackbox');
-  }
-
   function showTransaksi() {
     setView('transaksi');
-    if (/^#(susut|snackbox)/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash.startsWith('#susut')) history.replaceState(null, '', location.pathname + location.search);
     // ukuran grafik perlu dihitung ulang setelah kembali tampil
     setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   }
 
-  function init() {
-    document.querySelectorAll('#sections button').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'snackbox' ? showSnack() : showTransaksi());
+  // ---------- submenu di sidebar ----------
+  function initSubnav() {
+    // Pengendalian Susut: sama dengan tab halaman
+    $('subSusut').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-i]');
+      if (!b || !DATA) return;
+      S.sheet = +b.dataset.i; renderSheet(); writeHash();
+      document.body.classList.remove('nav-open');
     });
+    // Transaksi Energi: lompat ke bagian halaman
+    const sub = $('subTransaksi'), btns = [...sub.querySelectorAll('button[data-t]')];
+    const target = (b) => { const el = document.querySelector(b.dataset.t); return el && (el.closest('.card, .kpis') || el); };
+    sub.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-t]'); if (!b) return;
+      const el = target(b);
+      if (el && !el.hidden) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.body.classList.remove('nav-open');
+    });
+    const refresh = () => {
+      btns.forEach((b) => { const el = target(b); b.hidden = !el || el.hidden; });
+      let cur = null;
+      btns.forEach((b) => { const el = target(b); if (el && !el.hidden && el.getBoundingClientRect().top <= 140) cur = b; });
+      btns.forEach((b) => b.classList.toggle('on', b === cur));
+    };
+    let raf = 0;
+    window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; refresh(); }); }, { passive: true });
+    ['cardPng', 'cardCmp'].forEach((id) => { const el = $(id); if (el) new MutationObserver(refresh).observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
+    setTimeout(refresh, 800); setTimeout(refresh, 2500);
+  }
+
+  function init() {
+    document.querySelectorAll('#sections button[data-v]').forEach((b) => {
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : showTransaksi());
+    });
+    initSubnav();
     $('sTabs').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-i]');
       if (!b) return;
@@ -551,8 +579,7 @@
     });
     $('sRep').onchange = (e) => { S.rep = +e.target.value; S.sheet = DATA.reports[S.rep].summary ? -1 : 0; renderHead(); renderSheet(); writeHash(); };
     window.addEventListener('hashchange', () => {
-      if (location.hash === '#snackbox') showSnack();
-      else if (location.hash.startsWith('#susut')) { if (document.body.dataset.view !== 'susut') show(); else { applyHash(); renderHead(); renderSheet(); } }
+      if (location.hash.startsWith('#susut')) { if (document.body.dataset.view !== 'susut') show(); else { applyHash(); renderHead(); renderSheet(); } }
     });
     // ganti tema terang/gelap -> gambar ulang grafik ringkasan
     new MutationObserver(() => { if (document.body.dataset.view === 'susut' && S.sheet < 0 && DATA) renderSheet(); })
@@ -560,7 +587,7 @@
     window.addEventListener('resize', () => { if (sumChart) sumChart.resize(); });
     $('navToggle').onclick = () => document.body.classList.toggle('nav-open');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash === '#snackbox') showSnack(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else setView('transaksi');
   }
 
   init();
