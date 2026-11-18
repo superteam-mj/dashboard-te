@@ -36,6 +36,7 @@ import build_susut
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
+SKIP_TUL = "transaksi energi/mon billing/"  # menu lain, bukan bagian dari 309
 TOP = {
     "tul": ("Transaksi Energi", "309"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
@@ -214,7 +215,7 @@ def main():
                     listing["/".join(p.relative_to(a.local_root).parts)] = (h, p)
             else:
                 pre = top.strip().lower() + "/"
-                listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre)}
+                listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre) and not k.lower().startswith(SKIP_TUL)}
                 if not listing:
                     print(f"  Folder '{top}' kosong / tidak ditemukan di Drive — dilewati.")
                     failures.append(f"folder '{top}' kosong atau tidak ada di Drive")
