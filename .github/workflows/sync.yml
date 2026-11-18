@@ -1,6 +1,15 @@
 name: Sinkron Drive ke Supabase
 
 on:
+  push:                      # kode pipeline berubah -> langsung sinkron (tanpa menunggu jadwal)
+    branches: [main]
+    paths:
+      - "sync_drive.py"
+      - "build_data.py"
+      - "build_susut.py"
+      - "build_billing.py"
+      - "requirements.txt"
+      - ".github/workflows/sync.yml"
   schedule:
     - cron: "*/30 * * * *"   # tiap 30 menit (waktu UTC)
   workflow_dispatch:
