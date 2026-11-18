@@ -488,3 +488,7 @@ body:not([data-view="susut"]) #susutApp { display: none; }
   .topbar { position: static; }
   .card, .kpi { box-shadow: none; break-inside: avoid; animation: none; }
 }
+
+.peng-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+.peng-wrap svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.png-body:has(.peng-wrap) { display: block; padding: 4px 0 0; }
