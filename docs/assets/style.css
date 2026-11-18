@@ -317,8 +317,9 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters, body[data-view="susut"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
+body:not([data-view="billing"]) #billingApp { display: none; }
 .susut { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 .s-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
@@ -492,3 +493,25 @@ body:not([data-view="susut"]) #susutApp { display: none; }
 .peng-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
 .peng-wrap svg { display: block; width: 100%; min-width: 760px; height: auto; }
 .png-body:has(.peng-wrap) { display: block; padding: 4px 0 0; }
+
+/* ---------- Mon Billing ---------- */
+.billing { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
+.billing #bBody[hidden], .billing .s-msg[hidden] { display: none; }
+.b-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.b-meta .chip { font-size: 12.5px; font-weight: 600; padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--ink-2); }
+.b-meta .chip.warn { color: var(--ink); border-color: var(--s4); }
+.b-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.b-kpis .kpi:nth-child(6) { --k: var(--s6); }
+.b-kpis .kpi .ytd { min-height: 1.4em; }
+.b-tbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.b-tbl th { text-align: right; font-size: 11.5px; font-weight: 650; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--axis); white-space: normal; vertical-align: bottom; }
+.b-tbl th:first-child, .b-tbl td:first-child { text-align: left; }
+.b-tbl td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+.b-tbl td:first-child { font-weight: 600; white-space: nowrap; }
+.b-tbl tr.tot td { font-weight: 750; background: var(--accent-soft); border-top: 2px solid color-mix(in srgb, var(--accent) 40%, var(--axis)); }
+.b-q td.qc { line-height: 1.2; }
+.b-q td.qc b { display: block; font-weight: 700; }
+.b-q td.qc small { color: var(--muted); font-size: 11px; }
+.b-sub { margin: 18px 0 2px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+@media (max-width: 900px) { .b-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .b-kpis { grid-template-columns: minmax(0, 1fr); } }

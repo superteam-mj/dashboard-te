@@ -16,7 +16,7 @@ function doGet(e) {
   if (!p.token || p.token !== TOKEN) return out({ error: 'unauthorized' });
   try {
     if (p.action === 'list') return out({ files: listAll() });
-    if (p.action === 'get') return out(getFile(p.id));
+    if (p.action === 'get') return out(getFile(p.id, p.offset, p.len));
     return out({ error: 'aksi tidak dikenal' });
   } catch (err) {
     return out({ error: String(err) });
@@ -71,9 +71,13 @@ function isUnderRoot(file) {
   return false;
 }
 
-function getFile(id) {
+function getFile(id, p_offset, p_len) {
   if (!id) return { error: 'id kosong' };
   const f = DriveApp.getFileById(id);
   if (!isUnderRoot(f)) return { error: 'di luar folder induk' };
-  return { name: f.getName(), b64: Utilities.base64Encode(f.getBlob().getBytes()) };
+  const bytes = f.getBlob().getBytes();
+  // potongan: ?offset=..&len=.. (file besar tidak muat dalam satu balasan)
+  const off = Number(p_offset) || 0, len = Number(p_len) || 0;
+  if (len > 0) return { name: f.getName(), total: bytes.length, b64: Utilities.base64Encode(bytes.slice(off, off + len)) };
+  return { name: f.getName(), b64: Utilities.base64Encode(bytes) };
 }
