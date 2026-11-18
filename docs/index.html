@@ -44,6 +44,18 @@
           <button type="button" data-t="#tbl">Detail per tarif</button>
         </div>
       </div>
+      <div class="nav-group" data-g="billing">
+        <button type="button" data-v="billing" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zm8 1.5V8h4.5zM9 12h8v1.5H9zm0 3.5h8V17H9zM9 19h5v1.5H9z"/></svg><span>Mon Billing</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subBilling" role="group" aria-label="Bagian Mon Billing">
+          <button type="button" data-t="#bKpis">Ringkasan</button>
+          <button type="button" data-t="#bUlp">Per ULP</button>
+          <button type="button" data-t="#bTarif">Per golongan tarif</button>
+          <button type="button" data-t="#bQual">Kualitas pembacaan</button>
+          <button type="button" data-t="#bCardTrend">Tren bulanan</button>
+        </div>
+      </div>
       <div class="nav-group" data-g="susut">
         <button type="button" data-v="susut" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
@@ -214,6 +226,63 @@
     <footer class="foot" id="foot"></footer>
   </main>
 
+  <main class="wrap billing" id="billingApp" aria-label="Mon Billing">
+    <div class="s-head">
+      <div class="crumb" id="bCrumb"></div>
+      <select id="bPeriod" aria-label="Pilih periode" hidden></select>
+    </div>
+    <div class="s-msg" id="bMsg" hidden></div>
+    <div id="bBody" hidden>
+      <div class="b-meta" id="bMeta"></div>
+      <section class="kpis b-kpis" id="bKpis" aria-label="Ringkasan Mon Billing"></section>
+      <section class="grid">
+        <article class="card span-2" id="bUlp">
+          <div class="card-head">
+            <div><h2>Per ULP</h2><p class="hint">Urutan ULP tetap menurut kode unit</p></div>
+            <div class="seg sm" id="bUMetric">
+              <button type="button" data-v="kwh" aria-pressed="true">kWh</button>
+              <button type="button" data-v="rp" aria-pressed="false">Rupiah</button>
+              <button type="button" data-v="n" aria-pressed="false">Pelanggan</button>
+            </div>
+          </div>
+          <div class="chart" id="bChUlp"></div>
+          <div class="table-wrap"><table id="bUlpTbl" class="b-tbl"></table></div>
+        </article>
+        <article class="card span-2" id="bTarif">
+          <div class="card-head">
+            <div><h2>Per golongan tarif</h2><p class="hint" id="bTarifHint"></p></div>
+            <div class="seg sm" id="bTMetric">
+              <button type="button" data-v="kwh" aria-pressed="true">kWh</button>
+              <button type="button" data-v="rp" aria-pressed="false">Rupiah</button>
+              <button type="button" data-v="n" aria-pressed="false">Pelanggan</button>
+            </div>
+          </div>
+          <div class="chart" id="bChTarif"></div>
+        </article>
+        <article class="card span-2" id="bQual">
+          <div class="card-head">
+            <div><h2>Kualitas pembacaan</h2><p class="hint">Jumlah pelanggan dengan catatan pada bulan ini; warna makin pekat = porsi makin besar dibanding ULP lain</p></div>
+          </div>
+          <div class="table-wrap"><table id="bQualTbl" class="b-tbl b-q"></table></div>
+          <h3 class="b-sub">Status pembacaan (DLPD)</h3>
+          <div class="chart" id="bChDlpd"></div>
+        </article>
+        <article class="card span-2" id="bCardTrend" hidden>
+          <div class="card-head">
+            <div><h2>Tren bulanan</h2><p class="hint">Periode terpilih ditandai lebih pekat</p></div>
+            <div class="seg sm" id="bTrMetric">
+              <button type="button" data-v="kwh" aria-pressed="true">kWh</button>
+              <button type="button" data-v="rp" aria-pressed="false">Rupiah</button>
+              <button type="button" data-v="n" aria-pressed="false">Pelanggan</button>
+            </div>
+          </div>
+          <div class="chart" id="bChTrend" style="height:280px"></div>
+        </article>
+      </section>
+    </div>
+    <footer class="foot" id="bFoot"></footer>
+  </main>
+
   <main class="wrap susut" id="susutApp" aria-label="Laporan Susut">
     <div class="s-head">
       <div class="crumb" id="sCrumb"></div>
@@ -260,6 +329,7 @@
   <script src="assets/auth.js"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
     <script src="assets/app.js"></script>
+  <script src="assets/billing.js"></script>
   <script src="assets/susut.js"></script>
 </body>
 </html>

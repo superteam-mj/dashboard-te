@@ -34,11 +34,13 @@ from pathlib import Path
 import build_data
 import build_susut
 
+CHUNK = 6 * 1024 * 1024  # byte per potongan unduhan
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
-SKIP_TUL = "transaksi energi/mon billing/"  # menu lain, bukan bagian dari 309
+BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
 TOP = {
     "tul": ("Transaksi Energi", "309"),
+    "billing": ("Transaksi Energi", "Mon Billing"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
 }
 
@@ -73,7 +75,16 @@ class Drive:
     def download(self, file_id, dest: Path):
         import base64
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(base64.b64decode(self._get(action="get", id=file_id)["b64"]))
+        # file besar diambil per potongan (Apps Script membatasi ukuran satu balasan);
+        # skrip jembatan lama mengabaikan offset dan mengirim seluruh file sekaligus -> tetap didukung
+        buf, off = bytearray(), 0
+        while True:
+            j = self._get(action="get", id=file_id, offset=off, len=CHUNK)
+            buf += base64.b64decode(j["b64"])
+            if "total" not in j or len(buf) >= j["total"] or not j["b64"]:
+                break
+            off = len(buf)
+        dest.write_bytes(bytes(buf))
 
 
 # ---------------------------------------------------------------- Supabase (REST)
@@ -124,6 +135,16 @@ def publish_tul(sb: Supa, src: Path, work: Path):
     return list(build_data.LAST_WARNINGS)
 
 
+def publish_billing(sb: Supa, src: Path, work: Path):
+    import build_billing
+    cached = {}
+    for row in sb.select("tul_data", "select=data&id=eq.billing"):
+        cached = (row.get("data") or {}).get("periods") or {}
+    data = build_billing.main(src, cached)
+    sb.upsert("tul_data", [{"id": "billing", "data": data, "generated_at": data["generated_at"]}], "id")
+    return data["warnings"]
+
+
 def publish_susut(sb: Supa, src: Path, work: Path):
     out = work / "susut.json"
     build_susut.main(src, out)
@@ -157,6 +178,12 @@ def publish_susut(sb: Supa, src: Path, work: Path):
     return []
 
 
+def _belongs(name: str, path_str: str) -> bool:
+    """Folder Mon Billing hanya milik 'billing'; 309 tidak boleh ikut terhitung."""
+    in_billing = path_str.lower().startswith(BILLING_DIR)
+    return in_billing if name == "billing" else (not in_billing if name == "tul" else True)
+
+
 def _ci_dir(parent: Path, name: str) -> Path:
     """Subfolder dengan nama yang sama tanpa peduli huruf besar/kecil (Drive vs Linux)."""
     if parent.exists():
@@ -166,7 +193,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing}
 
 
 def main():
@@ -174,7 +201,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
@@ -211,11 +238,14 @@ def main():
                 for p in sorted(base.rglob("*.xlsx")) if base.exists() else []:
                     if p.name.startswith("~$"):
                         continue
+                    key = "/".join(p.relative_to(a.local_root).parts)
+                    if not _belongs(name, key):
+                        continue
                     h = hashlib.md5(p.read_bytes()).hexdigest()
-                    listing["/".join(p.relative_to(a.local_root).parts)] = (h, p)
+                    listing[key] = (h, p)
             else:
                 pre = top.strip().lower() + "/"
-                listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre) and not k.lower().startswith(SKIP_TUL)}
+                listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre) and _belongs(name, k)}
                 if not listing:
                     print(f"  Folder '{top}' kosong / tidak ditemukan di Drive — dilewati.")
                     failures.append(f"folder '{top}' kosong atau tidak ada di Drive")

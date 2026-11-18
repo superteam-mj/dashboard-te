@@ -13,11 +13,14 @@
     document.querySelectorAll('#sections button[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
     document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === v));
     const T = { susut: ['Pengendalian Susut · Laporan Susut', 'Laporan Susut — Dashboard TE'],
-      transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'] };
+      transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'],
+      billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'] };
     $('subtitle').textContent = T[v][0];
     document.title = T[v][1];
     document.body.classList.remove('nav-open');
   }
+
+  window.DashSetView = setView;
 
   const sheetCache = new Map();
   function load() {
@@ -532,7 +535,7 @@
 
   function showTransaksi() {
     setView('transaksi');
-    if (location.hash.startsWith('#susut')) history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash.startsWith('#susut') || location.hash === '#billing') history.replaceState(null, '', location.pathname + location.search);
     // ukuran grafik perlu dihitung ulang setelah kembali tampil
     setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   }
@@ -569,7 +572,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : showTransaksi());
     });
     initSubnav();
     $('sTabs').addEventListener('click', (e) => {
@@ -608,7 +611,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash === '#billing') window.DashBilling.show(); else setView('transaksi');
   }
 
   init();
