@@ -637,7 +637,7 @@
       L('Daya Tersambung (kVA)', fmt(p.dayaKva)),
       L('Penjualan (MWh)', `${fmt(p.mwhKini, 3)} (Kini)  ${fmt(p.mwhKum, 3)} (Kum)`),
       L('Pendapatan (Rp)', `${fmt(p.rpKini)} (Kini)  ${fmt(p.rpKum)} (Kum)`),
-      L('BPP (Rp/kWh)', fmt(p.bpp, 2)),
+      L('Rp/kWh', fmt(p.bpp, 2)),
       L('Pelanggan TR', fmt(p.tr)),
       L('Pelanggan TM', fmt(p.tm)),
     );
@@ -660,7 +660,7 @@
       `<div class="png-col"><h3>Penjualan &amp; pendapatan</h3>` +
       two('Penjualan (MWh)', fmt(p.mwhKini, 3), fmt(p.mwhKum, 3)) +
       two('Pendapatan (Rp)', fmt(p.rpKini), fmt(p.rpKum)) +
-      row('BPP (Rp/kWh)', fmt(p.bpp, 2), 'kumulatif') + `</div>`;
+      row('Rp/kWh', fmt(p.bpp, 2), 'kumulatif') + `</div>`;
   }
 
   function copyText(text) {
