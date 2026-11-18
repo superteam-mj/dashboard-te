@@ -77,6 +77,43 @@ h2 { font-size: 15.5px; }
 ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ---------- Sidebar ---------- */
+:root { --side-w: 248px; }
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; width: var(--side-w); z-index: 30; display: flex; flex-direction: column; padding: 18px 14px;
+  background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto;
+  transition: transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.shell { margin-left: var(--side-w); min-width: 0; }
+.side-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 650; padding: 0 12px 8px; }
+.side-nav { display: flex; flex-direction: column; gap: 4px; }
+.side-nav button {
+  display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 12px; border: 0; border-radius: 12px; cursor: pointer;
+  background: transparent; color: var(--ink-2); font: inherit; font-weight: 600; text-align: left; transition: color .15s, background .15s, box-shadow .15s;
+}
+.side-nav svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+.side-nav button:hover { color: var(--ink); background: var(--surface-2); }
+.side-nav button[aria-pressed="true"] { background: var(--brand); color: #fff; box-shadow: 0 8px 16px -8px rgba(42, 120, 214, .75); }
+.top-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.top-title .sub { font-size: 15px; font-weight: 650; color: var(--ink); max-width: 60ch; }
+.nav-btn { display: none; flex: none; }
+.scrim { display: none; }
+.snack { padding-top: 22px; }
+.empty-state { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 56px 20px; }
+.empty-state p { margin: 0; color: var(--ink-2); }
+.es-ico { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
+.es-ico svg { width: 28px; height: 28px; fill: currentColor; }
+.verdict.info { --vc: var(--s1); background: linear-gradient(90deg, color-mix(in srgb, var(--s1) 12%, var(--surface)), var(--surface) 55%); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 9px; vertical-align: -1px; }
+@media (max-width: 900px) {
+  .shell { margin-left: 0; }
+  .sidebar { transform: translateX(-100%); box-shadow: none; }
+  body.nav-open .sidebar { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, .3); }
+  .nav-btn { display: grid; }
+  .scrim { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(10, 15, 30, .45); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  body.nav-open .scrim { opacity: 1; pointer-events: auto; }
+}
+
 /* ---------- Top bar ---------- */
 .topbar {
   position: sticky; top: 0; z-index: 20;
@@ -85,25 +122,14 @@ h2 { font-size: 15.5px; }
   -webkit-backdrop-filter: saturate(1.6) blur(16px);
   border-bottom: 1px solid var(--border);
 }
-.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-bottom: 10px; }
-.brand { display: flex; gap: 12px; align-items: center; min-width: 0; flex: none; }
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-bottom: 10px; min-height: 64px; }
+.brand { display: flex; gap: 12px; align-items: center; min-width: 0; flex: none; padding: 4px 8px 18px; }
 .brand .bolt {
   width: 40px; height: 40px; padding: 9px; border-radius: 13px; background: var(--brand); fill: #fff; flex: none;
   box-shadow: 0 6px 16px -4px rgba(42, 120, 214, .55), inset 0 1px 0 rgba(255, 255, 255, .35);
 }
-.sub { margin: 1px 0 0; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
+.sub { margin: 1px 0 0; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60ch; }
 
-.sections {
-  display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 4px; gap: 4px; margin: 0 auto 0 22px; flex: none; box-shadow: var(--shadow);
-}
-.sections button {
-  border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 600;
-  height: 34px; padding: 0 16px; border-radius: 10px; cursor: pointer; white-space: nowrap;
-  transition: color .15s, background .15s, box-shadow .15s;
-}
-.sections button:hover { color: var(--ink); background: var(--surface-2); }
-.sections button[aria-pressed="true"] { background: var(--brand); color: #fff; box-shadow: 0 6px 14px -6px rgba(42, 120, 214, .7); }
 
 .top-actions { display: flex; align-items: center; gap: 10px; }
 .icon-btn, .btn-out {
@@ -268,9 +294,10 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters,
-body[data-view="susut"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app,
+body[data-view="snackbox"] #dashFilters, body[data-view="snackbox"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
+body:not([data-view="snackbox"]) #snackApp { display: none; }
 .susut { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 .s-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
@@ -414,11 +441,8 @@ body:not([data-view="susut"]) #susutApp { display: none; }
 @media (max-width: 700px) {
   .wrap { padding: 0 14px; }
   .topbar-inner { flex-wrap: wrap; row-gap: 6px; }
-  .brand { flex: 1 1 0; min-width: 0; }
-  .brand .sub { max-width: 22ch; }
+  .top-title .sub { max-width: 24ch; }
   .top-actions { gap: 8px; }
-  .sections { order: 3; width: 100%; margin: 4px 0 0; }
-  .sections button { flex: 1; padding: 0 8px; }
   .usermail { display: none !important; }
   .s-wrap { max-height: calc(100vh - 270px); }
   .meta .period { font-size: 24px; }

@@ -15,19 +15,38 @@
   </script>
 </head>
 <body>
+  <aside class="sidebar" id="sidebar" aria-label="Navigasi">
+    <div class="brand">
+      <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      <div>
+        <h1>Dashboard TE</h1>
+        <p class="sub">PLN UP3 Mamuju</p>
+      </div>
+    </div>
+    <div class="side-label">Menu</div>
+    <nav class="side-nav" id="sections" aria-label="Menu utama">
+      <button type="button" data-v="transaksi" aria-pressed="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span>
+      </button>
+      <button type="button" data-v="susut" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span>
+      </button>
+      <button type="button" data-v="snackbox" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l9-5 9 5v1H3zm1 3h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm5 2v2h6v-2z"/></svg><span>Snackbox</span>
+      </button>
+    </nav>
+  </aside>
+  <div class="scrim" id="navScrim"></div>
+
+  <div class="shell">
   <header class="topbar">
     <div class="wrap topbar-inner">
-      <div class="brand">
-        <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
-        <div>
-          <h1>Penjualan Tenaga Listrik</h1>
-          <p class="sub" id="subtitle">Laporan TUL III-09</p>
-        </div>
+      <div class="top-title">
+        <button class="icon-btn nav-btn" id="navToggle" type="button" aria-label="Buka menu" title="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+        </button>
+        <p class="sub" id="subtitle">Laporan TUL III-09</p>
       </div>
-      <nav class="sections" id="sections" aria-label="Menu utama">
-        <button type="button" data-v="transaksi" aria-pressed="true">Transaksi Energi</button>
-        <button type="button" data-v="susut" aria-pressed="false">Pengendalian Susut</button>
-      </nav>
       <div class="top-actions">
         <span class="usermail" id="userMail"></span>
         <button class="btn-out" id="logoutBtn" type="button" title="Keluar">Keluar</button>
@@ -190,6 +209,15 @@
     <footer class="foot" id="sFoot"></footer>
     <style id="sStyle"></style>
   </main>
+
+  <main class="wrap snack" id="snackApp">
+    <section class="card empty-state">
+      <div class="es-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v1H3zm1 3h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm5 2v2h6v-2z"/></svg></div>
+      <h2>Snackbox</h2>
+      <p>Halaman ini masih kerangka. Isi dan sumber datanya menunggu keputusan.</p>
+    </section>
+  </main>
+  </div>
 
   <div class="login" id="login" hidden>
     <aside class="login-hero" aria-hidden="true">
