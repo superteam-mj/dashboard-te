@@ -112,7 +112,7 @@ h2 { font-size: 15.5px; }
 @media (max-width: 560px) { .card, .kpis { scroll-margin-top: 16px; } }
 .top-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .top-title .sub { font-size: 15px; font-weight: 650; color: var(--ink); max-width: 60ch; }
-.nav-btn { display: none; flex: none; }
+.nav-btn { flex: none; }
 .scrim { display: none; }
 .verdict.info { --vc: var(--s1); background: linear-gradient(90deg, color-mix(in srgb, var(--s1) 12%, var(--surface)), var(--surface) 55%); }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 9px; vertical-align: -1px; }
@@ -120,11 +120,23 @@ h2 { font-size: 15.5px; }
   .shell { margin-left: 0; }
   .sidebar { transform: translateX(-100%); box-shadow: none; }
   body.nav-open .sidebar { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, .3); }
-  .nav-btn { display: grid; }
   .scrim { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(10, 15, 30, .45); opacity: 0; pointer-events: none; transition: opacity .2s; }
   body.nav-open .scrim { opacity: 1; pointer-events: auto; }
 }
 
+.brand { position: relative; }
+.side-hide { margin-left: auto; width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; display: grid; place-items: center; flex: none; transition: background .15s, color .15s; }
+.side-hide svg { width: 20px; height: 20px; fill: currentColor; }
+.side-hide:hover { background: var(--surface-2); color: var(--ink); }
+.side-hot { display: none; }
+.shell { transition: margin-left .25s cubic-bezier(.2, .7, .2, 1); }
+@media (min-width: 901px) {
+  html.side-hidden .sidebar { transform: translateX(-100%); }
+  html.side-hidden .shell { margin-left: 0; }
+  html.side-hidden .side-hot { display: block; position: fixed; inset: 0 auto 0 0; width: 14px; z-index: 29; }
+  html.side-hidden.side-peek .sidebar { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, .22); }
+}
+@media (max-width: 900px) { .side-hide { display: none; } }
 /* ---------- Top bar ---------- */
 .topbar {
   position: sticky; top: 0; z-index: 20;

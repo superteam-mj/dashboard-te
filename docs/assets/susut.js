@@ -585,7 +585,28 @@
     new MutationObserver(() => { if (document.body.dataset.view === 'susut' && S.sheet < 0 && DATA) renderSheet(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('resize', () => { if (sumChart) sumChart.resize(); });
-    $('navToggle').onclick = () => document.body.classList.toggle('nav-open');
+    // sidebar desktop: sembunyikan/tampilkan (disimpan), dan muncul sementara saat mouse di tepi kiri
+    const root = document.documentElement, wide = window.matchMedia('(min-width: 901px)');
+    const setHidden = (hide) => {
+      root.classList.toggle('side-hidden', hide); root.classList.remove('side-peek');
+      try { localStorage.setItem('sideHidden', hide ? '1' : '0'); } catch (e) {}
+      $('navToggle').setAttribute('aria-label', hide ? 'Tampilkan menu' : 'Sembunyikan menu');
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+    };
+    $('navToggle').onclick = () => (wide.matches ? setHidden(!root.classList.contains('side-hidden')) : document.body.classList.toggle('nav-open'));
+    $('sideHide').onclick = () => setHidden(true);
+    let peekT = 0;
+    const peek = (on) => {
+      clearTimeout(peekT);
+      if (!root.classList.contains('side-hidden')) return;
+      if (on) root.classList.add('side-peek'); else peekT = setTimeout(() => root.classList.remove('side-peek'), 350);
+    };
+    $('sideHot').addEventListener('mouseenter', () => peek(true));
+    $('sideHot').addEventListener('mouseleave', () => peek(false));
+    $('sidebar').addEventListener('mouseenter', () => peek(true));
+    $('sidebar').addEventListener('mouseleave', () => peek(false));
+    $('sidebar').addEventListener('focusin', () => peek(true));
+    $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
     if (location.hash.startsWith('#susut')) show(); else setView('transaksi');
   }

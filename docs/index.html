@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/style.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try { if (localStorage.getItem('sideHidden') === '1') document.documentElement.classList.add('side-hidden'); } catch (e) {}
   </script>
 </head>
 <body>
@@ -22,6 +23,9 @@
         <h1>Dashboard TE</h1>
         <p class="sub">PLN UP3 Mamuju</p>
       </div>
+      <button class="side-hide" id="sideHide" type="button" aria-label="Sembunyikan menu" title="Sembunyikan menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 6 14 4.6 6.6 12 14 19.4 15.4 18 9.4 12z"/></svg>
+      </button>
     </div>
     <div class="side-label">Menu</div>
     <nav class="side-nav" id="sections" aria-label="Menu utama">
@@ -49,6 +53,7 @@
     </nav>
   </aside>
   <div class="scrim" id="navScrim"></div>
+  <div class="side-hot" id="sideHot" aria-hidden="true"></div>
 
   <div class="shell">
   <header class="topbar">
