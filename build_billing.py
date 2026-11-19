@@ -19,7 +19,7 @@ ULP = {"32910": "ULP Manakarra", "32920": "ULP Pasangkayu", "32930": "ULP Majene
 BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 DETAIL_VERSION = 3  # naikkan bila isi daftar/vektor pelanggan berubah -> periode dibaca ulang
-ANALYTICS_VERSION = 2  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
+ANALYTICS_VERSION = 3  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
 DETAIL_COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "kelompok", "kwh_pakai", "kwh_tagih", "jamnyala", "rptag", "status", "status_lalu"]
 NEED = ["thblrek", "idpel", "nama", "alamat", "jamnyala", "pemkwh_real", "dlpd_lm", "unitup", "tarif", "daya", "kdprosesklp", "kogol", "rptag", "rppln", "rpbpju", "rpppn",
         "pemkwh", "dlpd", "dlpd_kvarh", "dlpd_3bln", "dlpd_jnsmutasi", "jamnyala400", "jamnyala600"]
@@ -240,7 +240,7 @@ ANOM = [
     ("nol_berulang", "kWh nol berturut-turut", f"Pemakaian nyata 0 kWh selama minimal {CONSEC} bulan berturut-turut sampai bulan ini"),
     ("turun", "Pemakaian turun drastis berulang", f"Pemakaian < 50% rata-rata pembanding selama {CONSEC} bulan berturut-turut (pembanding = rata-rata sampai {BASE_N} bulan sebelum jendela itu, minimal {BASE_MIN} bulan dan ≥ 50 kWh; pemakaian > 0)"),
     ("naik", "Pemakaian naik drastis berulang", f"Pemakaian > 150% rata-rata pembanding selama {CONSEC} bulan berturut-turut (pembanding sama; selisih ≥ 100 kWh per bulan)"),
-    ("jn_berulang", "Jam nyala > 400 berulang", f"Jam nyala > 400 selama minimal {CONSEC} bulan berturut-turut sampai bulan ini"),
+    ("jn_berulang", "Jam nyala > 600 berulang", f"Jam nyala > 600 selama minimal {CONSEC} bulan berturut-turut sampai bulan ini"),
 ]
 NEED_IDX = {"nol_berulang": CONSEC - 1, "jn_berulang": CONSEC - 1, "turun": CONSEC + BASE_MIN - 1, "naik": CONSEC + BASE_MIN - 1}
 EMPTY_SUM = lambda: {"n": 0, "kwh": 0}  # noqa: E731
@@ -314,7 +314,7 @@ def _scan(order, vecs, idx, want_rows):
                 break
         jn_run = 0
         for sv in series:
-            if sv is not None and sv[1] > 400:
+            if sv is not None and sv[1] > 600:
                 jn_run += 1
             else:
                 break

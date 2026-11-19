@@ -393,7 +393,7 @@
     renderDetail();
   }
   const openFlag = (k, u) => openDoc(`bd:${B.ym}:${k}`, ((per().flags.find((f) => f.k === k) || {}).label) || k, per().label, u, true);
-  const XTITLE = { nol_berulang: 'kWh nol berturut-turut', turun: 'Pemakaian turun drastis berulang', naik: 'Pemakaian naik drastis berulang', jn_berulang: 'Jam nyala > 400 berulang',
+  const XTITLE = { nol_berulang: 'kWh nol berturut-turut', turun: 'Pemakaian turun drastis berulang', naik: 'Pemakaian naik drastis berulang', jn_berulang: 'Jam nyala > 600 berulang',
     baru: 'Pelanggan baru', hilang: 'Pelanggan hilang', ganti_tarif: 'Pindah golongan tarif', ganti_daya: 'Ubah daya' };
   const openX = (k) => openDoc(`bx:${D.analytics.latest}:${k}`, XTITLE[k] || k, D.periods[D.analytics.latest].label, '', false);
   function csvDetail() {
