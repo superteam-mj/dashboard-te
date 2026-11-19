@@ -157,12 +157,12 @@
       { i: 'n', l: 'Total ganti meter', v: n, u: 'meter', sub: `${esc(m.label)} · ${fmt(m.hari)} hari ada data` },
       { i: 'cal', l: `Hari terakhir (${esc(dayShort(m.last))})`, v: ld ? ld.n : 0, u: 'meter', sub: `${fmt(ld ? ld.tua : 0)} kategori tua` },
       { i: 'warn', l: 'Kategori tua', v: m.tua, u: 'meter', sub: `${fmt(pc(m.tua, n), 1)}% dari pergantian`, go: { t: 'tua' } },
-      { i: 'bolt', l: 'Prabayar', v: m.pra, u: 'meter', sub: `${fmt(m.tua_pra)} tua (usia > ${D.rule.Prabayar} th)`, go: { j: 'Prabayar' } },
-      { i: 'bolt', l: 'Pascabayar', v: m.pasca, u: 'meter', sub: `${fmt(m.tua_pasca)} tua (usia > ${D.rule.Pascabayar} th)`, go: { j: 'Pascabayar' } },
+      { i: 'bolt', l: 'Prabayar', v: m.pra, u: 'meter', sub: `${fmt(m.tua_pra)} tua (usia ≥ ${D.rule.Prabayar} th)`, go: { j: 'Prabayar' } },
+      { i: 'bolt', l: 'Pascabayar', v: m.pasca, u: 'meter', sub: `${fmt(m.tua_pasca)} tua (usia ≥ ${D.rule.Pascabayar} th)`, go: { j: 'Pascabayar' } },
       { i: 'ok', l: 'Alasan "Program meter tua" belum memenuhi kriteria', v: m.program_tua.bukan, u: 'meter', sub: `dari ${fmt(m.program_tua.n)} program meter tua`, go: null },
     ]);
     $('gNote').innerHTML = (m.tera ? `<div class="s-msg b-note">${fmt(m.tera)} meter lama tidak punya tahun buat di data, jadi usianya dihitung dari <b>tahun tera</b> (usia sebenarnya sama atau lebih tua). Ditandai "tera" di daftar pelanggan.</div>` : '') +
-      (m.unk ? `<div class="s-msg b-note">${fmt(m.unk)} meter tidak bisa dinilai tua/tidaknya karena tahun buat dan tahun tera sama-sama kosong.</div>` : '');
+      (m.unk ? `<div class="s-msg b-note">${fmt(m.unk)} meter tahun buat dan tahun tera-nya sama-sama kosong, sehingga <b>dianggap kategori tua</b>.</div>` : '');
     if (isAll()) {
       const ms = m.months.map((k) => D.months[k]);
       $('gDayT').textContent = 'Ganti meter per bulan';
@@ -185,7 +185,7 @@
     const text = [`*GANTI METER H+1* — ${m.label}`, `Data sampai ${dayLabel(m.last)} · UP3 Mamuju`, '', L('Total ganti meter', fmt(m.n)), L(`Hari terakhir (${dayShort(m.last)})`, fmt(ld ? ld.n : 0)),
       L('Kategori tua', `${fmt(m.tua)} (${fmt(pc(m.tua, m.n), 1)}%)`), L('Prabayar', `${fmt(m.pra)} (tua ${fmt(m.tua_pra)})`), L('Pascabayar', `${fmt(m.pasca)} (tua ${fmt(m.tua_pasca)})`), '', '*PER ULP*']
       .concat(m.ulp.filter((u) => u.n).map((u) => `${u.name} : ${fmt(u.n)} (tua ${fmt(u.tua)})`)).concat(['', '*ALASAN TERBANYAK*']).concat(m.alasan.slice(0, 5).map((a) => `${a.name} : ${fmt(a.n)}`))
-      .concat(['', `Kriteria tua: usia meter lama > ${D.rule.Prabayar} th (prabayar), > ${D.rule.Pascabayar} th (pascabayar)`]).join('\n');
+      .concat(['', `Kriteria tua: usia meter lama ≥ ${D.rule.Prabayar} th (prabayar), ≥ ${D.rule.Pascabayar} th (pascabayar), atau tahun buat & tera kosong`]).join('\n');
     DashShare.set($('gShare'), {
       title: 'Ganti Meter H+1', subtitle: `UP3 Mamuju · ${m.label} · data sampai ${dayShort(m.last)}`, tag: 'Pemeliharaan Meter', file: `ganti-meter-${m.ym}`, foot: 'Sumber: Monitoring Ganti Meter H+1 · PLN UP3 Mamuju · Dashboard TE', text,
       hero: [
@@ -228,18 +228,18 @@
   // ---------- meter tua ----------
   function renderTua() {
     const m = per(), n = m.n;
-    $('gRule').innerHTML = `<b>Kriteria meter tua:</b> usia meter lama &gt; <b>${D.rule.Prabayar} tahun</b> untuk <b>prabayar</b> dan &gt; <b>${D.rule.Pascabayar} tahun</b> untuk <b>pascabayar</b>. ` +
+    $('gRule').innerHTML = `<b>Kriteria meter tua:</b> usia meter lama &ge; <b>${D.rule.Prabayar} tahun</b> untuk <b>prabayar</b> dan &ge; <b>${D.rule.Pascabayar} tahun</b> untuk <b>pascabayar</b>; meter yang <b>tahun buat dan tahun tera-nya kosong dianggap tua</b>. ` +
       `Usia = tahun ganti meter − tahun buat meter lama (bila tahun buat kosong dipakai tahun tera). Prabayar/pascabayar ditentukan dari kolom <b>kdpembmeter</b> (kode P = prabayar).`;
     $('gTuaKpis').innerHTML = kpiHtml([
       { i: 'warn', l: 'Kategori tua', v: m.tua, u: 'meter', sub: `${fmt(pc(m.tua, n), 1)}% dari ${fmt(n)} pergantian`, go: { t: 'tua' } },
       { i: 'bolt', l: 'Prabayar tua', v: m.tua_pra, u: 'meter', sub: `${fmt(pc(m.tua_pra, m.pra), 1)}% dari ${fmt(m.pra)} prabayar`, go: { j: 'Prabayar', t: 'tua' } },
       { i: 'bolt', l: 'Pascabayar tua', v: m.tua_pasca, u: 'meter', sub: `${fmt(pc(m.tua_pasca, m.pasca), 1)}% dari ${fmt(m.pasca)} pascabayar`, go: { j: 'Pascabayar', t: 'tua' } },
-      { i: 'ok', l: 'Tidak bisa dinilai', v: m.unk, u: 'meter', sub: 'Tahun buat dan tera kosong', go: { t: 'unk' } },
+      { i: 'ok', l: 'Tahun kosong (dianggap tua)', v: m.unk, u: 'meter', sub: 'Tahun buat dan tera kosong', go: { t: 'unk' } },
     ]);
     hstack('gChTuaUlp', m.ulp.filter((u) => u.n).map((u) => ({ name: u.name, n: u.n, tua: u.tua })));
     const pt = m.program_tua;
     $('gProg').innerHTML = pt.n ? `Dari <b>${fmt(pt.n)}</b> pergantian beralasan <b>"Program meter tua"</b>: <b>${fmt(pt.tua)}</b> memenuhi kriteria tua, <b>${fmt(pt.bukan)}</b> belum memenuhi kriteria` + (pt.unk ? `, ${fmt(pt.unk)} tidak bisa dinilai` : '') +
-      '. Meter yang belum memenuhi kriteria biasanya berusia tepat di batas (mis. prabayar 10 tahun).' : 'Tidak ada pergantian dengan alasan "Program meter tua" pada periode ini.';
+      '. Meter yang belum memenuhi kriteria usianya masih di bawah batas (prabayar < 10 tahun, pascabayar < 15 tahun).' : 'Tidak ada pergantian dengan alasan "Program meter tua" pada periode ini.';
     const B = ['0 – 5 tahun', '6 – 10 tahun', '11 – 15 tahun', '> 15 tahun', 'Tidak diketahui'], g = (b, j) => (m.usia.find((x) => x.name === b && x.jenis === j) || { n: 0 }).n;
     $('gUsiaTbl').innerHTML = '<thead><tr><th>Usia meter lama</th><th>Prabayar</th><th>Pascabayar</th><th>Total</th></tr></thead><tbody>' +
       B.filter((b) => g(b, 'Prabayar') || g(b, 'Pascabayar')).map((b) => `<tr><td>${b}</td><td>${fmt(g(b, 'Prabayar'))}</td><td>${fmt(g(b, 'Pascabayar'))}</td><td><b>${fmt(g(b, 'Prabayar') + g(b, 'Pascabayar'))}</b></td></tr>`).join('') + '</tbody>';
@@ -290,9 +290,9 @@
     $('gFD').innerHTML = opts('tgl', 'Semua tanggal');
   }
   function applyFilter() {
-    const q = F.q.trim().toLowerCase(), c = col, tuaOk = (v) => (F.t === 'tua' ? v === 1 : F.t === 'bukan' ? v === 0 : F.t === 'unk' ? v == null : true);
+    const q = F.q.trim().toLowerCase(), c = col, tuaOk = (v, r) => (F.t === 'tua' ? v === 1 : F.t === 'bukan' ? v === 0 : F.t === 'unk' ? r[col('usia')] == null : true);
     rows = allRows.filter((r) => (!F.u || r[c('ulp')] === F.u) && (!F.a || r[c('alasan')] === F.a) && (!F.m || r[c('merek_lama')] === F.m) && (!F.j || r[c('jenis')] === F.j) &&
-      (!F.d || r[c('tgl')] === F.d) && tuaOk(r[c('tua')]) && (!q || [r[c('idpel')], r[c('nama')], r[c('alamat')], r[c('no_lama')], r[c('no_baru')]].some((v) => String(v).toLowerCase().includes(q))));
+      (!F.d || r[c('tgl')] === F.d) && tuaOk(r[c('tua')], r) && (!q || [r[c('idpel')], r[c('nama')], r[c('alamat')], r[c('no_lama')], r[c('no_baru')]].some((v) => String(v).toLowerCase().includes(q))));
   }
   function syncUi() {
     Object.entries({ gFU: 'u', gFA: 'a', gFM: 'm', gFJ: 'j', gFT: 't', gFD: 'd' }).forEach(([id, k]) => { $(id).value = F[k]; });
@@ -302,7 +302,7 @@
     applyFilter();
     const pages = Math.max(1, Math.ceil(rows.length / PAGE)); T.pg = Math.min(T.pg, pages - 1);
     const idx = SHOW.map(col);
-    const cell = (k, v, r) => (k === 'tua' ? (v === 1 ? '<b style="color:var(--down)">Tua</b>' : v === 0 ? 'Tidak' : '–')
+    const cell = (k, v, r) => (k === 'tua' ? (v === 1 ? '<b style="color:var(--down)">Tua' + (r[col('usia')] == null ? ' (tahun kosong)' : '') + '</b>' : v === 0 ? 'Tidak' : '–')
       : k === 'thbuat_lama' ? (v ? String(v) : r[col('thtera_lama')] ? r[col('thtera_lama')] + '*' : '–') : v == null || v === '' ? '–' : k === 'daya' ? fmt(v) : esc(v));
     $('gDTbl').innerHTML = `<thead><tr>${SHOW.map((k) => `<th${NUM.has(k) ? '' : ' class="l"'}>${esc(k === 'thbuat_lama' ? 'Tahun buat lama' : LABEL[k])}</th>`).join('')}</tr></thead><tbody>` +
       rows.slice(T.pg * PAGE, T.pg * PAGE + PAGE).map((r) => '<tr>' + SHOW.map((k, j) => `<td${NUM.has(k) ? '' : ' class="l"'}>${cell(k, r[idx[j]], r)}</td>`).join('') + '</tr>').join('') +

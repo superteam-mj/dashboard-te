@@ -4,11 +4,11 @@ Sumber: folder Drive "Pemeliharaan Meter/Ganti Meter H+1/" (nama file bebas, bol
 satu baris = satu pergantian meter. Tanggal ganti meter dibaca dari isi file (kolom tglremaja), bukan dari nama file;
 baris yang sama (noagenda) di beberapa file hanya dihitung sekali (yang tglrekap-nya lebih baru dipakai).
 
-Kategori TUA (kriteria dari pengguna): usia meter lama > 10 tahun untuk prabayar, > 15 tahun untuk pascabayar.
+Kategori TUA (kriteria dari pengguna): usia meter lama >= 10 tahun untuk prabayar, >= 15 tahun untuk pascabayar.
   usia = tahun ganti meter - tahun buat meter lama
   * prabayar  = kolom kdpembmeter diawali "P"; selain itu pascabayar
   * bila tahun buat kosong, dipakai tahun tera meter lama (tera >= buat, jadi usia yang dihitung adalah batas bawah) dan ditandai sumber "tera"
-  * bila keduanya kosong -> status tua "tidak diketahui"
+  * bila tahun buat DAN tahun tera kosong -> dianggap TUA (sumber "kosong", usia kosong)
 Keluaran: ringkasan di tul_data id='gm'; daftar per bulan di tul_data id='gml:<yyyymm>'.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ import openpyxl
 
 from build_billing import BULAN, ULP, ym_label
 
-LIMIT = {"Prabayar": 10, "Pascabayar": 15}   # tua bila usia > batas
+LIMIT = {"Prabayar": 10, "Pascabayar": 15}   # tua bila usia >= batas
 KEEP_DETAIL = 12                              # daftar pelanggan disimpan untuk N bulan terakhir
 COLS = ["tgl", "idpel", "nama", "alamat", "ulp", "kec", "kel", "tarif", "daya", "jenis", "alasan", "merek_lama", "type_lama", "no_lama",
         "thbuat_lama", "thtera_lama", "usia", "sumber", "tua", "merek_baru", "type_baru", "no_baru", "thbuat_baru", "petugas"]
@@ -95,9 +95,9 @@ def classify(r: dict, tgl: str) -> dict:
     usia = int(tgl[:4]) - acuan if acuan else None
     if usia is not None and usia < 0:
         usia = None
-    tua = None if usia is None else usia > LIMIT[jenis]
+    tua = True if usia is None else usia >= LIMIT[jenis]   # tahun buat & tera kosong dianggap tua
     merek = _s(r["merk_meter_lama"])
-    return {"jenis": jenis, "acuan": acuan if usia is not None else None, "sumber": sumber if usia is not None else "", "usia": usia, "tua": tua,
+    return {"jenis": jenis, "acuan": acuan if usia is not None else None, "sumber": sumber if usia is not None else "kosong", "usia": usia, "tua": tua,
             "merek_lama": merek or "Tidak tercatat"}
 
 
@@ -172,7 +172,7 @@ def build(src: Path):
             u["n"] += 1
             u["pra" if c["jenis"] == "Prabayar" else "pasca"] += 1
             u["tua"] += bool(c["tua"])
-            u["unk"] += c["tua"] is None
+            u["unk"] += c["usia"] is None
             a = alasan.setdefault(name, Counter(id=_s(r["id_ganti_meter"])))
             a["n"] += 1
             a["tua"] += bool(c["tua"])
@@ -193,14 +193,14 @@ def build(src: Path):
                 prog["n"] += 1
                 prog["tua"] += bool(c["tua"])
                 prog["bukan"] += c["tua"] is False
-                prog["unk"] += c["tua"] is None
+                prog["unk"] += c["usia"] is None
         tot = Counter()
         for _, r, c in L:
             tot["pra" if c["jenis"] == "Prabayar" else "pasca"] += 1
             tot["tua"] += bool(c["tua"])
             tot["tua_pra"] += bool(c["tua"]) and c["jenis"] == "Prabayar"
             tot["tua_pasca"] += bool(c["tua"]) and c["jenis"] == "Pascabayar"
-            tot["unk"] += c["tua"] is None
+            tot["unk"] += c["usia"] is None
             tot["tera"] += c["sumber"] == "tera"
         mday = [x for x in days if x["d"][:4] + x["d"][5:7] == ym]
         ulp_codes = sorted(set(ULP) | set(ulp))
