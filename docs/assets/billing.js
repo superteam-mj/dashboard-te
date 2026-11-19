@@ -275,7 +275,9 @@
       note('bAnNote', 'Analisis berulang membutuhkan data minimal 2 bulan (3 bulan untuk pemakaian naik/turun). Saat ini data belum cukup atau analisis belum selesai diproses oleh sinkron.');
       $('bAnBody').hidden = true; return;
     }
-    note('bAnNote', B.ym === A.latest ? '' : `Daftar pelanggan hanya tersedia untuk periode terbaru (${D.periods[A.latest].label}). Pilih periode itu untuk melihat dan mengunduh daftarnya; angka bulan lain tetap ditampilkan.`);
+    const lat = A.anom[A.latest] || {}, short = (lat.turun == null || lat.naik == null);
+    note('bAnNote', [B.ym === A.latest ? '' : `Daftar pelanggan hanya tersedia untuk periode terbaru (${D.periods[A.latest].label}). Pilih periode itu untuk melihat dan mengunduh daftarnya; angka bulan lain tetap ditampilkan.`,
+      short ? 'Pemakaian naik/turun drastis dihitung untuk pelanggan yang berulang 3 bulan berturut-turut dan dibandingkan dengan rata-rata bulan sebelumnya, sehingga butuh minimal 5 bulan data. Angkanya muncul otomatis setelah data cukup.' : ''].filter(Boolean).join('<br>'));
     $('bAnBody').hidden = false;
     const cur = A.anom[B.ym] || {}, i = order.indexOf(B.ym), prv = i > 0 ? A.anom[order[i - 1]] : null, n = D.periods[B.ym].total.n || 1;
     $('bAnKpis').innerHTML = A.rules.map((r, k) => {
@@ -338,7 +340,7 @@
   // ---------- daftar pelanggan (umum) ----------
   const PAGE = 100;
   const LABEL = { idpel: 'ID pelanggan', nama: 'Nama', alamat: 'Alamat', ulp: 'ULP', tarif: 'Tarif', daya: 'Daya (VA)', kelompok: 'Kelompok', kwh_pakai: 'kWh pakai', kwh_tagih: 'kWh ditagih', jamnyala: 'Jam nyala',
-    rptag: 'Tagihan (Rp)', status: 'Status', status_lalu: 'Status bulan lalu', rata_sebelum: 'Rata-rata 3 bln', selisih_pct: 'Selisih %', streak_nol: 'Bulan nol berturut', tarif_lama: 'Tarif lama', tarif_baru: 'Tarif baru',
+    rptag: 'Tagihan (Rp)', status: 'Status', status_lalu: 'Status bulan lalu', rata_sebelum: 'Rata-rata pembanding', selisih_pct: 'Selisih %', streak_nol: 'Bulan nol berturut', tarif_lama: 'Tarif lama', tarif_baru: 'Tarif baru',
     daya_lama: 'Daya lama (VA)', daya_baru: 'Daya baru (VA)' };
   const NUMK = new Set(['daya', 'kwh_pakai', 'kwh_tagih', 'jamnyala', 'rptag', 'rata_sebelum', 'selisih_pct', 'streak_nol', 'daya_lama', 'daya_baru']);
   const lab = (k) => LABEL[k] || (/^\d{6}$/.test(k) ? 'kWh ' + ymShort(k) : k);
@@ -391,7 +393,7 @@
     renderDetail();
   }
   const openFlag = (k, u) => openDoc(`bd:${B.ym}:${k}`, ((per().flags.find((f) => f.k === k) || {}).label) || k, per().label, u, true);
-  const XTITLE = { nol_berulang: 'kWh nol berturut-turut', turun: 'Pemakaian turun drastis', naik: 'Pemakaian naik drastis', jn_berulang: 'Jam nyala > 400 berulang',
+  const XTITLE = { nol_berulang: 'kWh nol berturut-turut', turun: 'Pemakaian turun drastis berulang', naik: 'Pemakaian naik drastis berulang', jn_berulang: 'Jam nyala > 400 berulang',
     baru: 'Pelanggan baru', hilang: 'Pelanggan hilang', ganti_tarif: 'Pindah golongan tarif', ganti_daya: 'Ubah daya' };
   const openX = (k) => openDoc(`bx:${D.analytics.latest}:${k}`, XTITLE[k] || k, D.periods[D.analytics.latest].label, '', false);
   function csvDetail() {

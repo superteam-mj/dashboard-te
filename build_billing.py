@@ -19,7 +19,7 @@ ULP = {"32910": "ULP Manakarra", "32920": "ULP Pasangkayu", "32930": "ULP Majene
 BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 DETAIL_VERSION = 3  # naikkan bila isi daftar/vektor pelanggan berubah -> periode dibaca ulang
-ANALYTICS_VERSION = 1  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
+ANALYTICS_VERSION = 2  # naikkan bila isi daftar pelanggan berubah -> periode dibaca ulang
 DETAIL_COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "kelompok", "kwh_pakai", "kwh_tagih", "jamnyala", "rptag", "status", "status_lalu"]
 NEED = ["thblrek", "idpel", "nama", "alamat", "jamnyala", "pemkwh_real", "dlpd_lm", "unitup", "tarif", "daya", "kdprosesklp", "kogol", "rptag", "rppln", "rpbpju", "rpppn",
         "pemkwh", "dlpd", "dlpd_kvarh", "dlpd_3bln", "dlpd_jnsmutasi", "jamnyala400", "jamnyala600"]
@@ -232,13 +232,17 @@ def decode_vec(d):
 
 
 # ---------------------------------------------------------------- analisis lintas bulan
-ANOM = [
-    ("nol_berulang", "kWh nol berturut-turut", "Pemakaian nyata 0 kWh pada bulan ini dan bulan sebelumnya (minimal 2 bulan berturut-turut)"),
-    ("turun", "Pemakaian turun drastis", "Pemakaian < 50% rata-rata 3 bulan sebelumnya (rata-rata ≥ 50 kWh, pemakaian bulan ini > 0)"),
-    ("naik", "Pemakaian naik drastis", "Pemakaian > 150% rata-rata 3 bulan sebelumnya (rata-rata ≥ 50 kWh, selisih ≥ 100 kWh)"),
-    ("jn_berulang", "Jam nyala > 400 berulang", "Jam nyala > 400 pada bulan ini dan bulan sebelumnya"),
-]
+# Anomali hanya dihitung bila berulang minimal CONSEC bulan berturut-turut (termasuk bulan terbaru).
+CONSEC = 3
+BASE_N, BASE_MIN = 3, 2  # pembanding naik/turun: rata-rata sampai BASE_N bulan sebelum jendela, minimal BASE_MIN bulan
 MIN_AVG, DROP, RISE, RISE_ABS = 50, 0.5, 1.5, 100
+ANOM = [
+    ("nol_berulang", "kWh nol berturut-turut", f"Pemakaian nyata 0 kWh selama minimal {CONSEC} bulan berturut-turut sampai bulan ini"),
+    ("turun", "Pemakaian turun drastis berulang", f"Pemakaian < 50% rata-rata pembanding selama {CONSEC} bulan berturut-turut (pembanding = rata-rata sampai {BASE_N} bulan sebelum jendela itu, minimal {BASE_MIN} bulan dan ≥ 50 kWh; pemakaian > 0)"),
+    ("naik", "Pemakaian naik drastis berulang", f"Pemakaian > 150% rata-rata pembanding selama {CONSEC} bulan berturut-turut (pembanding sama; selisih ≥ 100 kWh per bulan)"),
+    ("jn_berulang", "Jam nyala > 400 berulang", f"Jam nyala > 400 selama minimal {CONSEC} bulan berturut-turut sampai bulan ini"),
+]
+NEED_IDX = {"nol_berulang": CONSEC - 1, "jn_berulang": CONSEC - 1, "turun": CONSEC + BASE_MIN - 1, "naik": CONSEC + BASE_MIN - 1}
 EMPTY_SUM = lambda: {"n": 0, "kwh": 0}  # noqa: E731
 
 
@@ -292,39 +296,45 @@ def _pair(prev, cur):
 
 
 def _scan(order, vecs, idx, want_rows):
-    """Penanda anomali bulan order[idx] terhadap riwayat pelanggan itu sendiri."""
-    cur, ym = vecs[order[idx]], order[idx]
+    """Penanda anomali bulan order[idx]; hanya bila berulang CONSEC bulan berturut-turut pada riwayat pelanggan itu sendiri."""
+    cur = vecs[order[idx]]
     prevs = [vecs[o] for o in order[:idx]][::-1]  # terdekat dulu
     cnt = {k: 0 for k, _, _ in ANOM}
     rows = {k: [] for k, _, _ in ANOM}
     for k, i in enumerate(cur["id"]):
-        kp = cur["kp"][k]
-        series = []
+        series = [(cur["kp"][k], cur["jn"][k])]  # series[0] = bulan ini, [1] = bulan lalu, ...
         for pv in prevs:
             j = pv["pos"].get(i)
             series.append(None if j is None else (pv["kp"][j], pv["jn"][j]))
         streak = 0
-        if kp == 0:
-            streak = 1
-            for sv in series:
-                if sv is not None and sv[0] == 0:
-                    streak += 1
-                else:
-                    break
-        last3 = [sv[0] for sv in series[:3] if sv is not None]
-        avg = sum(last3) / len(last3) if len(last3) >= 2 else None
+        for sv in series:
+            if sv is not None and sv[0] == 0:
+                streak += 1
+            else:
+                break
+        jn_run = 0
+        for sv in series:
+            if sv is not None and sv[1] > 400:
+                jn_run += 1
+            else:
+                break
+        win = series[:CONSEC]
+        full = len(win) == CONSEC and all(v is not None for v in win)
+        base = [v[0] for v in series[CONSEC:CONSEC + BASE_N] if v is not None]
+        avg = sum(base) / len(base) if len(base) >= BASE_MIN else None
+        ok_avg = full and avg is not None and avg >= MIN_AVG
         hit = {
-            "nol_berulang": idx >= 1 and streak >= 2,
-            "turun": avg is not None and avg >= MIN_AVG and 0 < kp < DROP * avg,
-            "naik": avg is not None and avg >= MIN_AVG and kp > RISE * avg and kp - avg >= RISE_ABS,
-            "jn_berulang": idx >= 1 and cur["jn"][k] > 400 and bool(series) and series[0] is not None and series[0][1] > 400,
+            "nol_berulang": streak >= CONSEC,
+            "turun": ok_avg and all(0 < v[0] < DROP * avg for v in win),
+            "naik": ok_avg and all(v[0] > RISE * avg and v[0] - avg >= RISE_ABS for v in win),
+            "jn_berulang": jn_run >= CONSEC,
         }
         for c, on in hit.items():
             if on:
                 cnt[c] += 1
                 if want_rows:
-                    hist = [None if sv is None else sv[0] for sv in series[:3]][::-1]
-                    rows[c].append((k, hist, avg, streak))
+                    pct = round((sum(v[0] for v in win) / CONSEC - avg) / avg * 100) if (avg and c in ("turun", "naik")) else None
+                    rows[c].append((k, [None if sv is None else sv[0] for sv in series[:6]], avg if c in ("turun", "naik") else None, pct, streak))
     return cnt, rows
 
 
@@ -341,7 +351,7 @@ def analyze(order, vecs, names):
             lists.update(_pair_lists(vecs[a], vecs[b], names.get(a), names.get(b), rows))
     for idx, ym in enumerate(order):
         cnt, rows = _scan(order, vecs, idx, want_rows=(idx == len(order) - 1))
-        summary["anom"][ym] = {k: (cnt[k] if (idx >= 2 or (idx >= 1 and k in ("nol_berulang", "jn_berulang"))) else None) for k, _, _ in ANOM}
+        summary["anom"][ym] = {k: (cnt[k] if idx >= NEED_IDX[k] else None) for k, _, _ in ANOM}
         if idx == len(order) - 1:
             lists.update(_anom_lists(order, vecs, names.get(ym), rows))
     summary["lists"] = {k: len(v["rows"]) for k, v in lists.items()}
@@ -376,18 +386,16 @@ def _pair_lists(prev, cur, pn, cn, rows):
 
 def _anom_lists(order, vecs, cn, rows):
     cur = vecs[order[-1]]
-    hist_ym = order[-4:-1]  # sampai 3 bulan sebelumnya (menaik)
-    cols = ["idpel", "nama", "alamat", "ulp", "tarif", "daya"] + hist_ym + [order[-1], "rata_sebelum", "selisih_pct", "streak_nol", "jamnyala"]
+    hist_ym = order[-6:]  # sampai 6 bulan terakhir (menaik), bulan terakhir = bulan ini
+    cols = ["idpel", "nama", "alamat", "ulp", "tarif", "daya"] + hist_ym + ["rata_sebelum", "selisih_pct", "streak_nol", "jamnyala"]
     out = {}
     for c, lst in rows.items():
         rs = []
-        for k, hist, avg, streak in lst:
-            hist = [None] * (len(hist_ym) - len(hist)) + hist  # panjang tetap, bulan tertua di kiri
+        for k, series6, avg, pct, streak in lst:
+            h = [series6[m] if m < len(series6) else None for m in range(len(hist_ym) - 1, -1, -1)]  # lama -> baru
             n, al = _nm(cn, k)
-            kp = cur["kp"][k]
-            pct = round((kp - avg) / avg * 100) if avg else None
-            rs.append([str(cur["id"][k]), n, al, _ulpn(cur["u"][k]), cur["t"][k], cur["d"][k]] + hist + [kp,
-                       None if avg is None else round(avg), pct, streak or None, cur["jn"][k]])
+            rs.append([str(cur["id"][k]), n, al, _ulpn(cur["u"][k]), cur["t"][k], cur["d"][k]] + h +
+                      [None if avg is None else round(avg), pct, streak or None, cur["jn"][k]])
         key = {"nol_berulang": lambda r: (-(r[-2] or 0), -r[5]), "turun": lambda r: (r[-3] is None, r[-3] or 0),
                "naik": lambda r: (-(r[-3] or 0)), "jn_berulang": lambda r: -r[-1]}[c]
         rs.sort(key=key)
