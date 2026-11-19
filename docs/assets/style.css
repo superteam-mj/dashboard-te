@@ -555,3 +555,13 @@ body:not([data-view="dlpd"]) #dlpdApp { display: none; }
 @media (max-width: 900px) { .b-k4, .b-k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .b-k4, .b-k5 { grid-template-columns: minmax(0, 1fr); } }
 .field[hidden] { display: none; }
+
+.d-dets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.d-dets-l { font-size: 12px; font-weight: 650; color: var(--muted); margin-right: 2px; }
+.d-det { font: inherit; font-size: 12.5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.d-det b { color: var(--ink); font-variant-numeric: tabular-nums; margin-left: 3px; }
+.d-det:hover { border-color: var(--accent); color: var(--accent); }
+.d-det:focus-visible, .d-chip button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.d-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; padding: 4px 6px 4px 12px; margin-bottom: 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.d-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 13px; padding: 0 6px; }
+#dChTarif, #dChDaya, #dChBeli, #dChMerek, #dChUmur, #dChKode { cursor: pointer; }

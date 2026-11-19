@@ -14,7 +14,7 @@
   const pc = (a, b) => (b ? a / b * 100 : 0);
 
   const T = { page: 'ringkasan', ym: null, pg: 0 };
-  const F = { u: '', k: '', t: '', c: '', p: '', s: '', d: '', q: '' };  // filter daftar
+  const F = { u: '', k: '', t: '', c: '', p: '', s: '', d: '', q: '', x: null };  // x = {kind, val, label} dari grafik karakteristik  // filter daftar
   let D = null, loading = null, rows = [], listKey = '';
   const charts = {}, docs = new Map();
   const PAGE = 100;
@@ -112,15 +112,31 @@
     hbar('dChKrit', p.kriteria.map((k) => ({ name: k.name.replace(/^[a-z]\.\s*/i, ''), n: k.n })), css('--s3'), t.n);
   }
 
+  // grafik karakteristik: tiap batang & tombol di bawahnya membuka Daftar pelanggan terfilter
+  const CARDS = { dChTarif: 'tarif', dChDaya: 'daya', dChBeli: 'beli', dChMerek: 'merek', dChUmur: 'umur', dChKode: 'kode' };
+  const KIND = { tarif: 'Tarif', daya: 'Daya', beli: 'Terakhir beli', merek: 'Merek meter', umur: 'Umur meter', kode: 'Kode DLPD' };
+  const REST = '\u0000';  // penanda nilai "Lainnya" (gabungan kategori kecil)
+  function cardChart(id, items, color, n) {
+    const kind = CARDS[id];
+    hbar(id, items, color, n);
+    chart(id).off('click'); chart(id).on('click', (e) => { const it = items[e.dataIndex]; if (it) openList({ x: { kind, val: it.v, label: KIND[kind] + ': ' + it.name } }); });
+    let box = $(id).nextElementSibling;
+    if (!box || !box.classList.contains('d-dets')) { box = document.createElement('div'); box.className = 'd-dets'; $(id).after(box); }
+    box.innerHTML = '<span class="d-dets-l">Detail pelanggan:</span>' + items.map((it, i) => `<button type="button" class="d-det" data-i="${i}">${esc(it.name)} <b>${fmt(it.n)}</b></button>`).join('');
+    box.onclick = (e) => { const b = e.target.closest('button[data-i]'); if (!b) return; const it = items[+b.dataset.i]; openList({ x: { kind, val: it.v, label: KIND[kind] + ': ' + it.name } }); };
+  }
   function renderKarakter() {
     const p = per(), n = p.total.n;
-    hbar('dChTarif', top(p.tarif, 10), css('--s2'), n);
-    $('dTarifHint').textContent = `${p.tarif.length} golongan tarif · 10 terbesar`;
-    hbar('dChDaya', p.daya, css('--s1'), n);
-    hbar('dChBeli', p.beli.map((b) => ({ name: b.idle == null ? b.name : `${b.name} (${b.idle} bln lalu)`, n: b.n })), css('--s4'), n);
-    hbar('dChMerek', p.merek, css('--s3'), n);
-    hbar('dChUmur', p.umur, css('--s5'), n);
-    hbar('dChKode', p.dlpd.map((x) => ({ name: 'Kode ' + x.name, n: x.n })), css('--s6'), n);
+    const topT = p.tarif.slice(0, 10).map((x) => ({ name: x.name, n: x.n, v: x.name }));
+    const resT = p.tarif.slice(10);
+    if (resT.length) topT.push({ name: 'Lainnya', n: resT.reduce((s, x) => s + x.n, 0), v: REST });
+    cardChart('dChTarif', topT, css('--s2'), n);
+    $('dTarifHint').textContent = `${p.tarif.length} golongan tarif · 10 terbesar · klik batang atau tombol untuk melihat pelanggannya`;
+    cardChart('dChDaya', p.daya.map((x) => ({ name: x.name, n: x.n, v: x.name })), css('--s1'), n);
+    cardChart('dChBeli', p.beli.map((b) => ({ name: b.idle == null ? b.name : `${b.name} (${b.idle} bln lalu)`, n: b.n, v: b.k })), css('--s4'), n);
+    cardChart('dChMerek', p.merek.map((x) => ({ name: x.name, n: x.n, v: x.name === 'Lainnya' ? REST : x.name })), css('--s3'), n);
+    cardChart('dChUmur', p.umur.map((x) => ({ name: x.name, n: x.n, v: x.name })), css('--s5'), n);
+    cardChart('dChKode', p.dlpd.map((x) => ({ name: 'Kode ' + x.name, n: x.n, v: x.name })), css('--s6'), n);
   }
 
   // ---------- tindak lanjut ----------
@@ -216,16 +232,34 @@
     const opts = (k, all) => `<option value="">${all}</option>` + [...new Set(allRows.map((r) => r[col(cols, k)]))].filter(Boolean).sort().map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
     $('dFU').innerHTML = opts('ulp', 'Semua ULP'); $('dFK').innerHTML = opts('kriteria', 'Semua kriteria'); $('dFT').innerHTML = opts('tarif', 'Semua tarif');
   }
+  const DAYA_GRP = [[450, '≤ 450 VA'], [900, '900 VA'], [1300, '1.300 VA'], [2200, '2.200 VA'], [5500, '3.500 – 5.500 VA'], [1e9, '> 5.500 VA']];
+  const dayaGrp = (d) => (DAYA_GRP.find((g) => d <= g[0]) || DAYA_GRP[5])[1];
+  const umurGrp = (thn) => { if (!thn || thn <= 1990) return 'Tidak diketahui'; const a = +T.ym.slice(0, 4) - thn; return a < 5 ? '< 5 tahun' : a < 10 ? '5 – 9 tahun' : a < 15 ? '10 – 14 tahun' : '≥ 15 tahun'; };
+  function xMatch(r) {
+    const x = F.x; if (!x) return true;
+    const c = (k) => col(cols, k), v = x.val, rest = v === REST;
+    switch (x.kind) {
+      case 'tarif': return rest ? !per().tarif.slice(0, 10).some((t) => t.name === r[c('tarif')]) : r[c('tarif')] === v;
+      case 'daya': return dayaGrp(r[c('daya')]) === v;
+      case 'beli': return v === '-' ? !r[c('beli_akhir')] : String(r[c('beli_akhir')] || '').slice(0, 7).replace('-', '') === v;
+      case 'merek': return rest ? !per().merek.some((m) => m.name !== 'Lainnya' && m.name === (r[c('merek')] || 'Tidak diketahui')) : (r[c('merek')] || 'Tidak diketahui') === v;
+      case 'umur': return umurGrp(r[c('thn_meter')]) === v;
+      case 'kode': return (r[c('dlpd')] || '-') === v;
+    }
+    return true;
+  }
   function applyFilter() {
     const c = (k) => col(cols, k), q = F.q.trim().toLowerCase();
     rows = allRows.filter((r) => (!F.u || r[c('ulp')] === F.u) && (!F.k || r[c('kriteria')] === F.k) && (!F.t || r[c('tarif')] === F.t) &&
       (!F.c || (F.c === 'sudah') === (r[c('ct')] > 0)) && (!F.p || r[c('p2tl')] > 0) && (!F.s || r[c('status')] === F.s) && (!F.d || r[c('daya')] >= 3500) &&
-      (!q || [r[c('idpel')], r[c('nama')], r[c('alamat')], r[c('meter')]].some((v) => String(v).toLowerCase().includes(q))));
+      xMatch(r) && (!q || [r[c('idpel')], r[c('nama')], r[c('alamat')], r[c('meter')]].some((v) => String(v).toLowerCase().includes(q))));
   }
   function syncFilterUi() {
     const m = { dFU: 'u', dFK: 'k', dFT: 't', dFC: 'c', dFP: 'p', dFS: 's', dFD: 'd' };
     Object.entries(m).forEach(([id, k]) => { $(id).value = F[k]; });
     $('dDQ').value = F.q;
+    $('dFx').innerHTML = F.x ? `<span class="d-chip">${esc(F.x.label)}<button type="button" aria-label="Hapus filter" id="dFxClr">✕</button></span>` : '';
+    if (F.x) $('dFxClr').onclick = () => { F.x = null; T.pg = 0; syncFilterUi(); renderDetail(); };
     const hasStatus = !!per().prev;
     $('dFS').closest('label').hidden = !hasStatus;
   }
@@ -263,7 +297,7 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   function openList(o) {
-    Object.keys(F).forEach((k) => { F[k] = ''; });
+    Object.keys(F).forEach((k) => { F[k] = k === 'x' ? null : ''; });
     Object.entries(o).forEach(([k, v]) => { F[k] = v; });
     T.pg = 0;
     show('daftar', true);
@@ -290,7 +324,7 @@
   async function show(page, keepFilter) {
     window.DashSetView('dlpd');
     T.page = page || hashPage();
-    if (!keepFilter && page) { Object.keys(F).forEach((k) => { F[k] = ''; }); T.pg = 0; }
+    if (!keepFilter && page) { Object.keys(F).forEach((k) => { F[k] = k === 'x' ? null : ''; }); T.pg = 0; }
     const h = '#dlpd' + (T.page === 'ringkasan' ? '' : '/' + T.page);
     if (location.hash !== h) history.replaceState(null, '', location.pathname + location.search + h);
     $('dMsg').hidden = false; $('dMsg').textContent = 'Memuat data DLPD Prabayar…';
@@ -303,7 +337,7 @@
   }
 
   function init() {
-    $('dPeriod').onchange = (e) => { T.ym = e.target.value; listKey = ''; Object.keys(F).forEach((k) => { F[k] = ''; }); T.pg = 0; renderAll(); };
+    $('dPeriod').onchange = (e) => { T.ym = e.target.value; listKey = ''; Object.keys(F).forEach((k) => { F[k] = k === 'x' ? null : ''; }); T.pg = 0; renderAll(); };
     ['dKpis', 'dTdKpis', 'dTdTbl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-c],button[data-p],button[data-s],button[data-d],button[data-u]');
       if (b) openList(Object.fromEntries(['u', 'c', 'p', 's', 'd'].filter((k) => b.dataset[k]).map((k) => [k, b.dataset[k]])));
