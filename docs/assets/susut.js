@@ -14,7 +14,8 @@
     document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === v));
     const T = { susut: ['Pengendalian Susut · Laporan Susut', 'Laporan Susut — Dashboard TE'],
       transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'],
-      billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'] };
+      billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
+      dlpd: ['Transaksi Energi · DLPD Prabayar', 'DLPD Prabayar — Dashboard TE'] };
     $('subtitle').textContent = T[v][0];
     document.title = T[v][1];
     document.body.classList.remove('nav-open');
@@ -572,7 +573,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : showTransaksi());
     });
     initSubnav();
     $('sTabs').addEventListener('click', (e) => {
@@ -611,7 +612,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else setView('transaksi');
   }
 
   init();

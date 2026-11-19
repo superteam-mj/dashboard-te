@@ -8,6 +8,7 @@ on:
       - "build_data.py"
       - "build_susut.py"
       - "build_billing.py"
+      - "build_dlpd.py"
       - "requirements.txt"
       - ".github/workflows/sync.yml"
   schedule:
@@ -21,7 +22,7 @@ on:
       only:
         description: "Hanya satu kumpulan data (kosong = semua)"
         type: choice
-        options: ["", "tul", "susut", "billing"]
+        options: ["", "tul", "susut", "billing", "dlpd"]
         default: ""
 
 concurrency:

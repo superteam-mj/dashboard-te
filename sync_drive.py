@@ -38,9 +38,11 @@ CHUNK = 6 * 1024 * 1024  # byte per potongan unduhan
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
 BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
+DLPD_DIR = "transaksi energi/dlpd prabayar/"  # menu DLPD Prabayar; bukan bagian dari 309
 TOP = {
     "tul": ("Transaksi Energi", "309"),
     "billing": ("Transaksi Energi", "Mon Billing"),
+    "dlpd": ("Transaksi Energi", "DLPD PRABAYAR"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
 }
 
@@ -224,6 +226,25 @@ def publish_billing(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_dlpd(sb: Supa, src: Path, work: Path):
+    import build_dlpd as bd
+    summary, detail, warns = bd.build(src)
+    if not summary["order"]:
+        raise RuntimeError("tidak ada data DLPD Prabayar yang terbaca")
+    stamp = now()
+    keep_periods = set(summary["order"][-bd.KEEP_DETAIL:])
+    for key, d in detail.items():
+        if key.split(":")[0] in keep_periods:
+            sb.upsert("tul_data", [{"id": f"dl:{key}", "data": d, "generated_at": stamp}], "id")
+    summary["generated_at"] = stamp
+    sb.upsert("tul_data", [{"id": "dlpd", "data": summary, "generated_at": stamp}], "id")
+    keep = {f"dl:{k}" for k in detail if k.split(":")[0] in keep_periods}
+    for row in sb.select("tul_data", "select=id&id=like.dl:*"):
+        if row["id"] not in keep:
+            sb.delete("tul_data", f"id=eq.{row['id']}")
+    return warns
+
+
 def publish_susut(sb: Supa, src: Path, work: Path):
     out = work / "susut.json"
     build_susut.main(src, out)
@@ -258,9 +279,13 @@ def publish_susut(sb: Supa, src: Path, work: Path):
 
 
 def _belongs(name: str, path_str: str) -> bool:
-    """Folder Mon Billing hanya milik 'billing'; 309 tidak boleh ikut terhitung."""
-    in_billing = path_str.lower().startswith(BILLING_DIR)
-    return in_billing if name == "billing" else (not in_billing if name == "tul" else True)
+    """Mon Billing dan DLPD Prabayar punya folder sendiri; 309 tidak boleh ikut terhitung."""
+    low = path_str.lower()
+    if name == "billing":
+        return low.startswith(BILLING_DIR)
+    if name == "dlpd":
+        return low.startswith(DLPD_DIR)
+    return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR)) if name == "tul" else True
 
 
 def _ci_dir(parent: Path, name: str) -> Path:
@@ -272,7 +297,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd}
 
 
 def main():
@@ -280,7 +305,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)

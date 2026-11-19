@@ -56,6 +56,18 @@
           <button type="button" data-p="pelanggan">Pelanggan baru/hilang</button>
         </div>
       </div>
+      <div class="nav-group" data-g="dlpd">
+        <button type="button" data-v="dlpd" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10v2h-2v3.2l3.6 6.3A4 4 0 0 1 15.1 19H8.9a4 4 0 0 1-3.5-5.5L9 7.2V4H7zm4 2v4l-4 7a2 2 0 0 0 1.9 2.9h6.2A2 2 0 0 0 17 15l-4-7V4z"/></svg><span>DLPD Prabayar</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subDlpd" role="group" aria-label="Halaman DLPD Prabayar">
+          <button type="button" data-p="ringkasan">Ringkasan</button>
+          <button type="button" data-p="karakter">Karakteristik pelanggan</button>
+          <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
+          <button type="button" data-p="tren">Tren &amp; perubahan</button>
+          <button type="button" data-p="daftar">Daftar pelanggan</button>
+        </div>
+      </div>
       <div class="nav-group" data-g="susut">
         <button type="button" data-v="susut" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
@@ -378,6 +390,96 @@
     <footer class="foot" id="bFoot"></footer>
   </main>
 
+  <main class="wrap billing dlpd" id="dlpdApp" aria-label="DLPD Prabayar">
+    <div class="s-head">
+      <div class="crumb" id="dCrumb"></div>
+      <select id="dPeriod" aria-label="Pilih periode" hidden></select>
+    </div>
+    <div class="s-msg" id="dMsg" hidden></div>
+    <div id="dBody" hidden>
+
+      <section class="b-page" data-p="ringkasan">
+        <div class="b-meta" id="dMeta"></div>
+        <section class="kpis b-kpis" id="dKpis" aria-label="Ringkasan DLPD Prabayar"></section>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Per ULP</h2><p class="hint">Pelanggan prabayar yang tidak membeli token menurut kriteria di Excel</p></div></div>
+            <div class="chart" id="dChUlp"></div>
+            <div class="table-wrap"><table id="dUlpTbl" class="b-tbl"></table></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Per kriteria</h2><p class="hint">Satu subfolder Drive = satu kriteria (mis. 4–6 bulan tidak beli token)</p></div></div>
+            <div class="chart" id="dChKrit"></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="karakter" hidden>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Golongan tarif</h2><p class="hint" id="dTarifHint"></p></div></div><div class="chart" id="dChTarif"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Daya tersambung</h2><p class="hint">Kelompok daya pelanggan yang tidak membeli token</p></div></div><div class="chart" id="dChDaya"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Terakhir membeli token</h2><p class="hint">Bulan pembelian token terakhir; makin lama makin besar kemungkinan meter rusak, rumah kosong, atau pelanggan berhenti</p></div></div><div class="chart" id="dChBeli"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek meter</h2></div></div><div class="chart" id="dChMerek"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Umur meter</h2><p class="hint">Periode dikurangi tahun pembuatan meter</p></div></div><div class="chart" id="dChUmur"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Kode DLPD</h2><p class="hint">Kode apa adanya dari kolom <b>dlpd</b> di Excel</p></div></div><div class="chart" id="dChKode"></div></article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="tindak" hidden>
+        <section class="kpis b-kpis b-k4" id="dTdKpis" aria-label="Tindak lanjut"></section>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Tindak lanjut per ULP</h2><p class="hint">Sudah ada CT = kolom <b>jmlCt</b> di Excel lebih dari 0 · Klik angka untuk melihat dan mengunduh daftarnya</p></div></div>
+            <div class="chart" id="dChCt"></div>
+            <div class="table-wrap"><table id="dTdTbl" class="b-tbl b-q"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="tren" hidden>
+        <div id="dTrNote"></div>
+        <div id="dTrBody">
+          <section class="grid">
+            <article class="card span-2">
+              <div class="card-head"><div><h2>Tren jumlah pelanggan per ULP</h2><p class="hint" id="dTrHint"></p></div></div>
+              <div class="chart" id="dChTr" style="height:340px"></div>
+              <div class="table-wrap"><table id="dTrTbl" class="b-tbl b-trend"></table></div>
+            </article>
+            <article class="card span-2">
+              <div class="card-head"><div><h2>Perubahan dari bulan ke bulan</h2><p class="hint">Baru = tidak ada di daftar bulan sebelumnya · Keluar = ada bulan lalu, tidak lagi di daftar (sudah membeli token atau data berubah)</p></div></div>
+              <div class="table-wrap"><table id="dTrChg" class="b-tbl b-trend"></table></div>
+            </article>
+          </section>
+        </div>
+      </section>
+
+      <section class="b-page" data-p="daftar" hidden>
+        <section class="grid b-detailgrid">
+          <article class="card span-2" id="dDetail">
+            <div class="card-head">
+              <div><h2>Daftar pelanggan</h2><p class="hint" id="dDHint"></p></div>
+              <div class="tools"><button type="button" class="btn" id="dDCsv">Unduh Excel (CSV)</button></div>
+            </div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="dFU"></select></label>
+              <label class="field"><span>Kriteria</span><select id="dFK"></select></label>
+              <label class="field"><span>Tarif</span><select id="dFT"></select></label>
+              <label class="field"><span>CT</span><select id="dFC"><option value="">Semua</option><option value="belum">Belum ada CT</option><option value="sudah">Sudah ada CT</option></select></label>
+              <label class="field"><span>P2TL</span><select id="dFP"><option value="">Semua</option><option value="ada">Ada temuan P2TL</option></select></label>
+              <label class="field"><span>Status</span><select id="dFS"><option value="">Semua</option><option value="Baru">Baru bulan ini</option><option value="Berlanjut">Berlanjut</option><option value="Pindah kriteria">Pindah kriteria</option></select></label>
+              <label class="field"><span>Daya</span><select id="dFD"><option value="">Semua</option><option value="big">≥ 3.500 VA</option></select></label>
+              <label class="field b-dq"><span>Cari</span><input type="search" id="dDQ" placeholder="ID pelanggan, nama, alamat, atau nomor meter…" aria-label="Cari pelanggan"></label>
+            </div>
+            <div class="s-msg" id="dDMsg" hidden></div>
+            <div class="table-wrap b-dwrap"><table id="dDTbl" class="b-tbl b-det"></table></div>
+            <div class="b-pager"><button type="button" class="btn ghost" id="dDPrev">‹ Sebelumnya</button><span id="dDPage"></span><button type="button" class="btn ghost" id="dDNext">Berikutnya ›</button></div>
+          </article>
+        </section>
+      </section>
+    </div>
+    <footer class="foot" id="dFoot"></footer>
+  </main>
+
   <main class="wrap susut" id="susutApp" aria-label="Laporan Susut">
     <div class="s-head">
       <div class="crumb" id="sCrumb"></div>
@@ -425,6 +527,7 @@
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
     <script src="assets/app.js"></script>
   <script src="assets/billing.js"></script>
+  <script src="assets/dlpd.js"></script>
   <script src="assets/susut.js"></script>
 </body>
 </html>

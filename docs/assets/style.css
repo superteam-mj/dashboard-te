@@ -317,9 +317,10 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app, body[data-view="dlpd"] #dashFilters, body[data-view="dlpd"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
 body:not([data-view="billing"]) #billingApp { display: none; }
+body:not([data-view="dlpd"]) #dlpdApp { display: none; }
 .susut { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
 .s-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
@@ -496,7 +497,7 @@ body:not([data-view="billing"]) #billingApp { display: none; }
 
 /* ---------- Mon Billing ---------- */
 .billing { padding-top: 22px; animation: rise .5s cubic-bezier(.2, .7, .2, 1) both; }
-.billing #bBody[hidden], .billing .s-msg[hidden] { display: none; }
+.billing #bBody[hidden], .billing #dBody[hidden], .billing .s-msg[hidden] { display: none; }
 .b-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .b-meta .chip { font-size: 12.5px; font-weight: 600; padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--ink-2); }
 .b-meta .chip.warn { color: var(--ink); border-color: var(--s4); }
