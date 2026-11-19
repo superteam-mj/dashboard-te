@@ -1,7 +1,7 @@
 """Monitoring Ganti Meter (H+1) dari Excel harian -> database harian.
 
 Sumber: folder Drive "Pemeliharaan Meter/Ganti Meter H+1/" (nama file bebas, boleh dalam subfolder). Satu file = data satu hari (H+1),
-satu baris = satu pergantian meter. Tanggal ganti meter dibaca dari isi file (kolom tglnyala), bukan dari nama file;
+satu baris = satu pergantian meter. Tanggal ganti meter dibaca dari isi file (kolom tglremaja), bukan dari nama file;
 baris yang sama (noagenda) di beberapa file hanya dihitung sekali (yang tglrekap-nya lebih baru dipakai).
 
 Kategori TUA (kriteria dari pengguna): usia meter lama > 10 tahun untuk prabayar, > 15 tahun untuk pascabayar.
@@ -120,7 +120,7 @@ def build(src: Path):
         used, dates, skipped, sample = Counter(), [], 0, ""
         for r in rows:
             tgl = None
-            for col_ in ("tglnyala", "tglremaja", "tglaktivasi", "tglrekap"):
+            for col_ in ("tglremaja", "tglnyala", "tglaktivasi", "tglrekap"):
                 tgl = _date(r[col_])
                 if tgl:
                     used[col_] += 1
@@ -128,8 +128,8 @@ def build(src: Path):
             if not tgl:
                 skipped += 1
                 continue
-            if used and not _date(r["tglnyala"]) and not sample and _s(r["tglnyala"]):
-                sample = _s(r["tglnyala"])[:30]
+            if used and not _date(r["tglremaja"]) and not sample and _s(r["tglremaja"]):
+                sample = _s(r["tglremaja"])[:30]
             dates.append(tgl)
             key = _s(r["noagenda"])
             rec = _s(r["tglrekap"])
@@ -137,9 +137,9 @@ def build(src: Path):
                 recs[key] = (rec, tgl, r, classify(r, tgl))
         sources.append({"file": p.name, "rows": len(rows), "from": min(dates) if dates else None, "to": max(dates) if dates else None,
                         "used": dict(used), "skipped": skipped})
-        if used.get("tglnyala", 0) < len(rows) - skipped:
-            n_fb = len(rows) - skipped - used.get("tglnyala", 0)
-            warns.append(f"{p.name}: {n_fb} baris tanggal gantinya (tglnyala) tidak terbaca" + (f" (contoh isi: '{sample}')" if sample else "") + "; dipakai tanggal lain (peremajaan/aktivasi/rekap)")
+        if used.get("tglremaja", 0) < len(rows) - skipped:
+            n_fb = len(rows) - skipped - used.get("tglremaja", 0)
+            warns.append(f"{p.name}: {n_fb} baris tanggal gantinya (tglremaja) tidak terbaca" + (f" (contoh isi: '{sample}')" if sample else "") + "; dipakai tanggal lain (tglnyala/aktivasi/rekap)")
         if skipped:
             warns.append(f"{p.name}: {skipped} baris tanpa tanggal sama sekali, dilewati")
     items = sorted(recs.values(), key=lambda x: (x[1], _s(x[2]["noagenda"])))
