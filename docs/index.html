@@ -540,7 +540,7 @@
   <main class="wrap billing gm" id="gmApp" aria-label="Ganti Meter H+1">
     <div class="s-head">
       <div class="crumb" id="gCrumb"></div>
-      <select id="gPeriod" aria-label="Pilih bulan" hidden></select>
+      <select id="gmPeriod" aria-label="Pilih bulan" hidden></select>
     </div>
     <div class="s-msg" id="gMsg" hidden></div>
     <div id="gBody" hidden>
@@ -550,7 +550,7 @@
         <div id="gNote"></div>
         <section class="kpis b-kpis" id="gKpis" aria-label="Ringkasan ganti meter"></section>
         <section class="grid">
-          <article class="card span-2"><div class="card-head"><div><h2>Ganti meter per hari</h2><p class="hint">Merah = kategori tua (usia meter lama di atas batas)</p></div></div><div class="chart" id="gChDay"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2 id="gDayT">Ganti meter per hari</h2><p class="hint">Merah = kategori tua (usia meter lama di atas batas)</p></div></div><div class="chart" id="gChDay"></div></article>
           <article class="card span-2">
             <div class="card-head"><div><h2>Per ULP</h2><p class="hint">Klik angka untuk melihat dan mengunduh daftarnya</p></div></div>
             <div class="chart" id="gChUlp"></div>

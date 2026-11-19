@@ -33,7 +33,47 @@
     }
     return loading;
   }
-  const per = () => D.months[T.ym];
+  // periode: 'yyyymm' = satu bulan, 'Yyyyy' = akumulasi Januari s.d. bulan terakhir pada tahun itu
+  const isAll = () => T.ym[0] === 'Y';
+  const AGG = {};
+  const merge = (arrs, key, fields, keep) => {
+    const mp = new Map();
+    arrs.forEach((a) => (a || []).forEach((x) => {
+      const k = key(x); let o = mp.get(k);
+      if (!o) { o = Object.assign({}, keep(x)); fields.forEach((f) => { o[f] = 0; }); mp.set(k, o); }
+      fields.forEach((f) => { o[f] += x[f] || 0; });
+    }));
+    return [...mp.values()];
+  };
+  function agg(y) {
+    if (AGG[y]) return AGG[y];
+    const ks = D.order.filter((k) => k.startsWith(y)), ms = ks.map((k) => D.months[k]);
+    const sum = (f) => ms.reduce((s, m) => s + (f(m) || 0), 0), A = (f) => ms.map(f);
+    const byN = (a, b) => b.n - a.n || String(a.name).localeCompare(String(b.name));
+    const o = {
+      ym: 'Y' + y, months: ks, label: `Akumulasi ${y} (${MON[+ks[0].slice(4) - 1]}–${MON[+ks[ks.length - 1].slice(4) - 1]})`,
+      n: sum((m) => m.n), hari: sum((m) => m.hari), first: ms.map((m) => m.first).sort()[0], last: ms.map((m) => m.last).sort().pop(),
+      pra: sum((m) => m.pra), pasca: sum((m) => m.pasca), tua: sum((m) => m.tua), tua_pra: sum((m) => m.tua_pra), tua_pasca: sum((m) => m.tua_pasca), unk: sum((m) => m.unk), tera: sum((m) => m.tera),
+      program_tua: { n: sum((m) => m.program_tua.n), tua: sum((m) => m.program_tua.tua), bukan: sum((m) => m.program_tua.bukan), unk: sum((m) => m.program_tua.unk) },
+    };
+    o.ulp = merge(A((m) => m.ulp), (x) => x.code, ['n', 'pra', 'pasca', 'tua', 'unk'], (x) => ({ code: x.code, name: x.name }));
+    o.alasan = merge(A((m) => m.alasan), (x) => x.name, ['n', 'tua'], (x) => ({ id: x.id, name: x.name })).sort(byN);
+    o.ulp_alasan = {};
+    ms.forEach((m) => Object.entries(m.ulp_alasan || {}).forEach(([c, v]) => { const t = (o.ulp_alasan[c] = o.ulp_alasan[c] || {}); Object.entries(v).forEach(([a, n]) => { t[a] = (t[a] || 0) + n; }); }));
+    o.merek_lama = merge(A((m) => m.merek_lama), (x) => x.name, ['n', 'tua'], (x) => ({ name: x.name })).sort(byN);
+    o.merek_baru = merge(A((m) => m.merek_baru), (x) => x.name, ['n'], (x) => ({ name: x.name })).sort(byN);
+    o.tahun_lama = merge(A((m) => m.tahun_lama), (x) => x.y || 0, ['n', 'tua', 'tera'], (x) => ({ y: x.y })).sort((a, b) => (a.y || 9999) - (b.y || 9999));
+    const yrs = new Set(); ms.forEach((m) => (m.merek_tahun.years || []).forEach((v) => yrs.add(v)));
+    const mr = new Map();
+    ms.forEach((m) => m.merek_tahun.rows.forEach((x) => { let t = mr.get(x.name); if (!t) mr.set(x.name, (t = { name: x.name, by: {}, unk: 0 })); Object.entries(x.by).forEach(([yy, n]) => { t.by[yy] = (t.by[yy] || 0) + n; }); t.unk += x.unk || 0; }));
+    const tot = (r) => Object.values(r.by).reduce((a, b) => a + b, 0) + r.unk;
+    o.merek_tahun = { years: [...yrs].sort((a, b) => b - a), rows: [...mr.values()].sort((a, b) => tot(b) - tot(a)) };
+    o.usia = merge(A((m) => m.usia), (x) => x.name + '|' + x.jenis, ['n'], (x) => ({ name: x.name, jenis: x.jenis }));
+    return (AGG[y] = o);
+  }
+  const per = () => (isAll() ? agg(T.ym.slice(1)) : D.months[T.ym]);
+  const validYm = (k) => (k && (k[0] === 'Y' ? D.order.some((m) => m.startsWith(k.slice(1))) : D.months[k]));
+  const periodKeys = (k) => (isAll() ? per().months : [k]);
 
   // ---------- grafik ----------
   function base() {
@@ -123,8 +163,15 @@
     ]);
     $('gNote').innerHTML = (m.tera ? `<div class="s-msg b-note">${fmt(m.tera)} meter lama tidak punya tahun buat di data, jadi usianya dihitung dari <b>tahun tera</b> (usia sebenarnya sama atau lebih tua). Ditandai "tera" di daftar pelanggan.</div>` : '') +
       (m.unk ? `<div class="s-msg b-note">${fmt(m.unk)} meter tidak bisa dinilai tua/tidaknya karena tahun buat dan tahun tera sama-sama kosong.</div>` : '');
-    const days = D.days.filter((x) => x.d.slice(0, 7).replace('-', '') === T.ym);
-    vstack('gChDay', days.map((x) => dayShort(x.d)), days.map((x) => x.tua), days.map((x) => x.n - x.tua), 300);
+    if (isAll()) {
+      const ms = m.months.map((k) => D.months[k]);
+      $('gDayT').textContent = 'Ganti meter per bulan';
+      vstack('gChDay', m.months.map((k) => MON[+k.slice(4) - 1]), ms.map((x) => x.tua), ms.map((x) => x.n - x.tua), 300);
+    } else {
+      const days = D.days.filter((x) => x.d.slice(0, 7).replace('-', '') === T.ym);
+      $('gDayT').textContent = 'Ganti meter per hari';
+      vstack('gChDay', days.map((x) => dayShort(x.d)), days.map((x) => x.tua), days.map((x) => x.n - x.tua), 300);
+    }
     hstack('gChUlp', m.ulp.filter((u) => u.n).map((u) => ({ name: u.name, n: u.n, tua: u.tua })));
     const btn = (v, o) => (v ? `<button type="button" class="qb"${go(o)}><b>${fmt(v)}</b></button>` : '<span class="qb"><b>0</b></span>');
     const row = (name, x, cls, u) => `<tr${cls ? ` class="${cls}"` : ''}><td>${esc(name)}</td><td class="qc">${btn(x.n, { u })}</td><td>${fmt(x.pra)}</td><td>${fmt(x.pasca)}</td><td class="qc">${btn(x.tua, { u, t: 'tua' })}</td><td>${fmt(pc(x.tua, x.n), 1)}%</td></tr>`;
@@ -200,16 +247,19 @@
 
   // ---------- harian ----------
   function renderHarian() {
-    const m = per(), y = +T.ym.slice(0, 4), mo = +T.ym.slice(4), end = T.ym === D.order[D.order.length - 1] ? +D.latest.slice(8) : new Date(y, mo, 0).getDate();
+    const m = per(), y = +T.ym.slice(isAll() ? 1 : 0, isAll() ? 5 : 4), mo = isAll() ? 1 : +T.ym.slice(4);
     const by = Object.fromEntries(D.days.map((x) => [x.d, x]));
     const ulps = m.ulp.filter((u) => u.n), list = [];
-    for (let d = 1; d <= end; d++) { const k = `${T.ym.slice(0, 4)}-${T.ym.slice(4)}-${String(d).padStart(2, '0')}`; list.push([k, by[k]]); }
+    const lastD = new Date(m.last + 'T00:00:00');
+    for (const c = isAll() ? new Date(y, 0, 1) : new Date(y, mo - 1, 1); c <= lastD && (isAll() || c.getMonth() === mo - 1); c.setDate(c.getDate() + 1)) {
+      const k = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`; list.push([k, by[k]]);
+    }
     const miss = list.filter((x) => !x[1]).length;
     $('gHrNote').innerHTML = miss ? `<div class="s-msg b-note">${fmt(miss)} tanggal tidak ada data (ditandai "–"). Bisa berarti file hari itu belum diunggah ke Drive, atau memang tidak ada pergantian meter.</div>` : '';
     $('gHrTbl').innerHTML = `<thead><tr><th>Tanggal</th>${ulps.map((u) => `<th>${esc(u.name.replace('ULP ', ''))}</th>`).join('')}<th>Total</th><th>Prabayar</th><th>Pascabayar</th><th>Tua</th></tr></thead><tbody>` +
       list.slice().reverse().map(([k, x]) => (x ? `<tr><td>${esc(dayLabel(k))}</td>${ulps.map((u) => `<td>${x.ulp[u.code] ? fmt(x.ulp[u.code]) : '<span class="muted">·</span>'}</td>`).join('')}<td><b>${fmt(x.n)}</b></td><td>${fmt(x.pra)}</td><td>${fmt(x.pasca)}</td><td>${fmt(x.tua)}</td></tr>`
         : `<tr class="gap"><td>${esc(dayLabel(k))}</td><td colspan="${ulps.length + 4}" class="muted">– tidak ada data</td></tr>`)).join('') +
-      `<tr class="tot"><td>Total bulan</td>${ulps.map((u) => `<td>${fmt(u.n)}</td>`).join('')}<td>${fmt(m.n)}</td><td>${fmt(m.pra)}</td><td>${fmt(m.pasca)}</td><td>${fmt(m.tua)}</td></tr></tbody>`;
+      `<tr class="tot"><td>${isAll() ? 'Total' : 'Total bulan'}</td>${ulps.map((u) => `<td>${fmt(u.n)}</td>`).join('')}<td>${fmt(m.n)}</td><td>${fmt(m.pra)}</td><td>${fmt(m.pasca)}</td><td>${fmt(m.tua)}</td></tr></tbody>`;
   }
 
   // ---------- daftar ----------
@@ -221,14 +271,20 @@
   const col = (k) => cols.indexOf(k);
   async function ensureRows() {
     if (listKey === T.ym) return;
-    const id = `gml:${T.ym}`;
-    if (!docs.has(id)) {
-      const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', id).maybeSingle();
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error('daftar belum tersedia — tunggu sinkron berikutnya');
-      docs.set(id, data.data);
+    const parts = [];
+    for (const k of periodKeys(T.ym)) {
+      const id = `gml:${k}`;
+      if (!docs.has(id)) {
+        $('gDMsg').textContent = `Memuat daftar ${D.months[k].label}…`;
+        const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', id).maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!data) { if (isAll()) continue; throw new Error('daftar belum tersedia — tunggu sinkron berikutnya'); }
+        docs.set(id, data.data);
+      }
+      parts.push(docs.get(id));
     }
-    const d = docs.get(id); cols = d.cols; allRows = d.rows; listKey = T.ym;
+    if (!parts.length) throw new Error('daftar belum tersedia — tunggu sinkron berikutnya');
+    cols = parts[0].cols; allRows = parts.length === 1 ? parts[0].rows : [].concat(...parts.map((d) => d.rows)); listKey = T.ym;
     const opts = (k, all) => `<option value="">${all}</option>` + [...new Set(allRows.map((r) => r[col(k)]))].filter(Boolean).sort().map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
     $('gFU').innerHTML = opts('ulp', 'Semua ULP'); $('gFA').innerHTML = opts('alasan', 'Semua alasan'); $('gFM').innerHTML = opts('merek_lama', 'Semua merek');
     $('gFD').innerHTML = opts('tgl', 'Semua tanggal');
@@ -280,8 +336,9 @@
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
     $('gCrumb').innerHTML = `<span>Pemeliharaan Meter</span><i>›</i><span>Ganti Meter H+1</span><i>›</i><b>${TITLE[T.page]}</b>`;
-    $('gPeriod').innerHTML = D.order.map((k) => `<option value="${k}"${k === T.ym ? ' selected' : ''}>${esc(D.months[k].label)}</option>`).join('');
-    $('gPeriod').hidden = D.order.length < 2;
+    const yrs = [...new Set(D.order.map((k) => k.slice(0, 4)))], opt = (v, l) => `<option value="${v}"${v === T.ym ? ' selected' : ''}>${esc(l)}</option>`;
+    $('gmPeriod').innerHTML = yrs.filter((y) => D.order.filter((k) => k.startsWith(y)).length > 1).reverse().map((y) => opt('Y' + y, agg(y).label)).join('') + D.order.slice().reverse().map((k) => opt(k, D.months[k].label)).join('');
+    $('gmPeriod').hidden = D.order.length < 2;
     document.querySelectorAll('#gBody .b-page').forEach((el) => { el.hidden = el.dataset.p !== T.page; });
     document.querySelectorAll('#subGm button[data-p]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.p === T.page)));
     PAGES[T.page]();
@@ -298,12 +355,15 @@
     $('gMsg').hidden = false; $('gMsg').textContent = 'Memuat data Ganti Meter H+1…'; $('gBody').hidden = true;
     try { await load(); } catch (e) { $('gMsg').textContent = 'Data Ganti Meter H+1 belum tersedia (' + e.message + ').'; return; }
     $('gMsg').hidden = true; $('gBody').hidden = false;
-    if (!T.ym || !D.months[T.ym]) T.ym = D.order[D.order.length - 1];
+    if (!validYm(T.ym)) {
+      const ly = D.order[D.order.length - 1].slice(0, 4);
+      T.ym = D.order.filter((k) => k.startsWith(ly)).length > 1 ? 'Y' + ly : D.order[D.order.length - 1];
+    }
     renderAll(); window.scrollTo({ top: 0 });
   }
 
   function init() {
-    $('gPeriod').onchange = (e) => { T.ym = e.target.value; listKey = ''; Object.keys(F).forEach((k) => { F[k] = ''; }); T.pg = 0; renderAll(); };
+    $('gmPeriod').onchange = (e) => { T.ym = e.target.value; listKey = ''; Object.keys(F).forEach((k) => { F[k] = ''; }); T.pg = 0; renderAll(); };
     ['gKpis', 'gTuaKpis', 'gUlpTbl', 'gAlTbl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-u],button[data-a],button[data-j],button[data-t],.b-link'); if (!b) return;
       openList(Object.fromEntries(['u', 'a', 'j', 't'].filter((k) => b.dataset[k]).map((k) => [k, b.dataset[k]])));
