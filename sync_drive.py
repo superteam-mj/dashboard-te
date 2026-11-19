@@ -252,6 +252,9 @@ def publish_gm(sb: Supa, src: Path, work: Path):
     summary, detail, warns = bg.build(src)
     if not summary["order"]:
         raise RuntimeError("tidak ada data Ganti Meter yang terbaca")
+    for x in summary.get("sources", []):
+        print(f"    {x['file']}: {x['rows']} baris, tanggal {x['from']} s/d {x['to']}, kolom tanggal dipakai {x['used']}, dilewati {x['skipped']}")
+    print("    bulan terbaca:", {k: v["n"] for k, v in summary["months"].items()})
     stamp = now()
     keep_m = set(summary["order"][-bg.KEEP_DETAIL:])
     for ym, d in detail.items():

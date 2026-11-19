@@ -14,6 +14,7 @@ Keluaran: ringkasan di tul_data id='gm'; daftar per bulan di tul_data id='gml:<y
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -35,12 +36,22 @@ def _s(v) -> str:
 
 
 def _date(v) -> str | None:
+    """Tanggal dari datetime, angka serial Excel, 'yyyy-mm-dd ...', atau 'dd/mm/yyyy' (hari lebih dulu) -> 'yyyy-mm-dd'; selain itu None."""
     if v is None or v == "":
         return None
     if hasattr(v, "year"):
         return f"{v.year:04d}-{v.month:02d}-{v.day:02d}"
-    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", _s(v))
-    return m.group(0) if m else None
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and 30000 < v < 80000:
+        d = date(1899, 12, 30) + timedelta(days=int(v))
+        return d.isoformat()
+    s = _s(v)
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return m.group(0)
+    m = re.match(r"(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})", s)
+    if m and 1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12:
+        return f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
+    return None
 
 
 def _year(v) -> int | None:
@@ -96,7 +107,7 @@ def _top(c: Counter, k: int | None = None):
 
 def build(src: Path):
     """-> (ringkasan, detail{ym: {'cols','rows'}}, peringatan)"""
-    warns, recs = [], {}   # noagenda -> (tglrekap, tgl, baris, klasifikasi)
+    warns, recs, sources = [], {}, []   # recs: noagenda -> (tglrekap, tgl, baris, klasifikasi)
     files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$"))
     nfiles = 0
     for p in files:
@@ -106,15 +117,31 @@ def build(src: Path):
             warns.append(f"{p.name}: dilewati ({e})")
             continue
         nfiles += 1
+        used, dates, skipped, sample = Counter(), [], 0, ""
         for r in rows:
-            tgl = _date(r["tglnyala"]) or _date(r["tglremaja"]) or _date(r["tglaktivasi"]) or _date(r["tglrekap"])
+            tgl = None
+            for col_ in ("tglnyala", "tglremaja", "tglaktivasi", "tglrekap"):
+                tgl = _date(r[col_])
+                if tgl:
+                    used[col_] += 1
+                    break
             if not tgl:
-                warns.append(f"{p.name}: baris {_s(r['noagenda'])} tanpa tanggal, dilewati")
+                skipped += 1
                 continue
+            if used and not _date(r["tglnyala"]) and not sample and _s(r["tglnyala"]):
+                sample = _s(r["tglnyala"])[:30]
+            dates.append(tgl)
             key = _s(r["noagenda"])
             rec = _s(r["tglrekap"])
             if key not in recs or rec >= recs[key][0]:
                 recs[key] = (rec, tgl, r, classify(r, tgl))
+        sources.append({"file": p.name, "rows": len(rows), "from": min(dates) if dates else None, "to": max(dates) if dates else None,
+                        "used": dict(used), "skipped": skipped})
+        if used.get("tglnyala", 0) < len(rows) - skipped:
+            n_fb = len(rows) - skipped - used.get("tglnyala", 0)
+            warns.append(f"{p.name}: {n_fb} baris tanggal gantinya (tglnyala) tidak terbaca" + (f" (contoh isi: '{sample}')" if sample else "") + "; dipakai tanggal lain (peremajaan/aktivasi/rekap)")
+        if skipped:
+            warns.append(f"{p.name}: {skipped} baris tanpa tanggal sama sekali, dilewati")
     items = sorted(recs.values(), key=lambda x: (x[1], _s(x[2]["noagenda"])))
 
     by_day = defaultdict(list)
@@ -202,7 +229,7 @@ def build(src: Path):
                          _s(r["merk_meter_baru"]), _s(r["type_meter_baru"]), _s(r["no_meter_baru"]), _year(r["thbuat_meter_baru"]), _s(r["petugasremaja"])])
         detail[ym] = {"cols": COLS, "rows": rows}
     order = sorted(months)
-    summary = {"order": order, "months": months, "days": days, "rule": LIMIT, "files": nfiles, "warnings": warns, "latest": days[-1]["d"] if days else None,
+    summary = {"order": order, "months": months, "days": days, "rule": LIMIT, "files": nfiles, "sources": sources, "warnings": warns, "latest": days[-1]["d"] if days else None,
                "total": len(items)}
     return summary, detail, warns
 
