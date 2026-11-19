@@ -75,6 +75,20 @@
           <button type="button" data-p="daftar">Daftar pelanggan</button>
         </div>
       </div>
+      <div class="nav-group" data-g="gm">
+        <button type="button" data-v="gm" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22.7 19-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg><span>Pemeliharaan Meter</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subGm" role="group" aria-label="Halaman Ganti Meter H+1">
+          <div class="sub-h">Ganti Meter H+1</div>
+          <button type="button" data-p="ringkasan">Ringkasan</button>
+          <button type="button" data-p="alasan">Alasan penggantian</button>
+          <button type="button" data-p="merek">Merek &amp; tahun meter</button>
+          <button type="button" data-p="tua">Meter tua</button>
+          <button type="button" data-p="harian">Data harian</button>
+          <button type="button" data-p="daftar">Daftar pergantian</button>
+        </div>
+      </div>
       <div class="nav-group" data-g="susut">
         <button type="button" data-v="susut" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
@@ -523,6 +537,88 @@
     <footer class="foot" id="dFoot"></footer>
   </main>
 
+  <main class="wrap billing gm" id="gmApp" aria-label="Ganti Meter H+1">
+    <div class="s-head">
+      <div class="crumb" id="gCrumb"></div>
+      <select id="gPeriod" aria-label="Pilih bulan" hidden></select>
+    </div>
+    <div class="s-msg" id="gMsg" hidden></div>
+    <div id="gBody" hidden>
+
+      <section class="b-page" data-p="ringkasan">
+        <div class="b-meta" id="gMeta"></div>
+        <div id="gNote"></div>
+        <section class="kpis b-kpis" id="gKpis" aria-label="Ringkasan ganti meter"></section>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Ganti meter per hari</h2><p class="hint">Merah = kategori tua (usia meter lama di atas batas)</p></div></div><div class="chart" id="gChDay"></div></article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Per ULP</h2><p class="hint">Klik angka untuk melihat dan mengunduh daftarnya</p></div></div>
+            <div class="chart" id="gChUlp"></div>
+            <div class="table-wrap"><table id="gUlpTbl" class="b-tbl b-q"></table></div>
+          </article>
+          <article class="card span-2" id="gShare"></article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="alasan" hidden>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Alasan penggantian meter</h2><p class="hint">Jumlah per alasan · merah = kategori tua</p></div></div><div class="chart" id="gChAlasan"></div></article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>ULP × alasan</h2><p class="hint">Klik angka untuk melihat daftarnya</p></div></div>
+            <div class="table-wrap"><table id="gAlTbl" class="b-tbl b-q b-wide"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="merek" hidden>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Merek meter lama</h2><p class="hint">Meter yang dicabut · merah = kategori tua. "Tidak tercatat" = data meter lama kosong di sistem</p></div></div><div class="chart" id="gChMerekL"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek meter baru</h2><p class="hint">Meter yang dipasang</p></div></div><div class="chart" id="gChMerekB"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Tahun buat meter lama</h2><p class="hint" id="gTahunHint"></p></div></div><div class="chart" id="gChTahun"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek × tahun buat</h2><p class="hint">Jumlah meter lama menurut merek dan tahun buat</p></div></div><div class="table-wrap"><table id="gMtTbl" class="b-tbl b-trend"></table></div></article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="tua" hidden>
+        <div class="s-msg b-note" id="gRule"></div>
+        <section class="kpis b-kpis b-k4" id="gTuaKpis" aria-label="Meter tua"></section>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Meter tua per ULP</h2></div></div><div class="chart" id="gChTuaUlp"></div></article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Sebaran usia meter lama</h2><p class="hint" id="gProg"></p></div></div>
+            <div class="table-wrap"><table id="gUsiaTbl" class="b-tbl"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="harian" hidden>
+        <div id="gHrNote"></div>
+        <section class="grid"><article class="card span-2"><div class="card-head"><div><h2>Database harian</h2><p class="hint">Jumlah pergantian meter per tanggal dan ULP, terbaru di atas</p></div></div><div class="table-wrap"><table id="gHrTbl" class="b-tbl b-trend"></table></div></article></section>
+      </section>
+
+      <section class="b-page" data-p="daftar" hidden>
+        <section class="grid b-detailgrid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Daftar pergantian meter</h2><p class="hint" id="gDHint"></p></div><div class="tools"><button type="button" class="btn" id="gDCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>Tanggal</span><select id="gFD"></select></label>
+              <label class="field"><span>ULP</span><select id="gFU"></select></label>
+              <label class="field"><span>Jenis</span><select id="gFJ"><option value="">Semua</option><option value="Prabayar">Prabayar</option><option value="Pascabayar">Pascabayar</option></select></label>
+              <label class="field"><span>Kategori tua</span><select id="gFT"><option value="">Semua</option><option value="tua">Tua</option><option value="bukan">Bukan tua</option><option value="unk">Tidak diketahui</option></select></label>
+              <label class="field"><span>Alasan</span><select id="gFA"></select></label>
+              <label class="field"><span>Merek lama</span><select id="gFM"></select></label>
+              <label class="field b-dq"><span>Cari</span><input type="search" id="gDQ" placeholder="ID pelanggan, nama, alamat, atau nomor meter…" aria-label="Cari"></label>
+            </div>
+            <div class="s-msg" id="gDMsg" hidden></div>
+            <div class="table-wrap b-dwrap"><table id="gDTbl" class="b-tbl b-det"></table></div>
+            <div class="b-pager"><button type="button" class="btn ghost" id="gDPrev">‹ Sebelumnya</button><span id="gDPage"></span><button type="button" class="btn ghost" id="gDNext">Berikutnya ›</button></div>
+          </article>
+        </section>
+      </section>
+    </div>
+    <footer class="foot" id="gFoot"></footer>
+  </main>
+
   <main class="wrap susut" id="susutApp" aria-label="Laporan Susut">
     <div class="s-head">
       <div class="crumb" id="sCrumb"></div>
@@ -573,6 +669,7 @@
   <script src="assets/share.js"></script>
   <script src="assets/billing.js"></script>
   <script src="assets/dlpd.js"></script>
+  <script src="assets/gm.js"></script>
   <script src="assets/beranda.js"></script>
   <script src="assets/susut.js"></script>
 </body>

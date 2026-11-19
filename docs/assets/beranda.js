@@ -20,6 +20,7 @@
     penandaNaik: 20,        // kenaikan penanda billing / anomali dibanding bulan lalu (%)
     dlpdNaik: 5, dlpdNaikBesar: 15,  // kenaikan pelanggan DLPD (%): peringatan / genting
     dlpdUlpNaik: 15,        // kenaikan DLPD per ULP (%)
+    gmBasi: 3,              // data ganti meter terakhir lebih tua dari N hari -> peringatan (file harian belum diunggah)
     belumCt: 60,            // porsi DLPD belum ada CT (%) -> informasi
   };
   const S = { data: null, loading: null, alerts: [] };
@@ -38,6 +39,7 @@
         return s.data.data;
       },
       billing: async () => { const r = await sb.from('tul_data').select('data').eq('id', 'billing').maybeSingle(); if (r.error || !r.data || !(r.data.data.order || []).length) throw new Error('belum ada data'); return r.data.data; },
+      gm: async () => { const r = await sb.from('tul_data').select('data').eq('id', 'gm').maybeSingle(); if (r.error || !r.data || !(r.data.data.order || []).length) throw new Error('belum ada data'); return r.data.data; },
       dlpd: async () => { const r = await sb.from('tul_data').select('data').eq('id', 'dlpd').maybeSingle(); if (r.error || !r.data || !(r.data.data.order || []).length) throw new Error('belum ada data'); return r.data.data; },
     };
     await Promise.all(Object.entries(jobs).map(async ([k, fn]) => { try { out[k] = await fn(); } catch (e) { out[k] = null; (out._err = out._err || {})[k] = e.message; } }));
@@ -95,6 +97,11 @@
       }
       const bp = tot.n ? (tot.n - tot.ct) / tot.n * 100 : 0;
       if (bp > TH.belumCt) add('info', 'DLPD Prabayar', 'Banyak pelanggan belum ada CT', `${fmt(tot.n - tot.ct)} pelanggan (${fmt(bp, 1)}%) belum ada CT pada ${p.label}.`, '#dlpd/daftar');
+    }
+    const g = d.gm;
+    if (g && g.latest) {
+      const age = Math.floor((Date.now() - new Date(g.latest + 'T00:00:00').getTime()) / 864e5);
+      if (age > TH.gmBasi) add(age > TH.gmBasi * 2 ? 'bad' : 'warn', 'Ganti Meter', 'Data ganti meter H+1 belum diperbarui', `Data terakhir tanggal ${g.latest.split('-').reverse().join('/')} (${age} hari lalu). Unggah file harian ke Drive.`, '#gm/harian');
     }
     const rank = { bad: 0, warn: 1, info: 2 };
     return A.sort((a, b) => rank[a.lv] - rank[b.lv]);
@@ -167,6 +174,17 @@
         stat('ULP terbanyak', (() => { const m = p.ulp.slice().sort((a, c) => c.n - a.n)[0]; return m ? `${esc(m.name)} (${fmt(m.n)})` : '–'; })()),
       ]));
     } else cards.push(missing('DLPD Prabayar', E.dlpd));
+
+    const gm = d.gm;
+    if (gm) {
+      const m = gm.months[gm.order[gm.order.length - 1]], ld = gm.days.find((x) => x.d === m.last);
+      cards.push(card('c5', 'Ganti meter H+1', `Pemeliharaan Meter · ${esc(m.label)}`, '#gm', [
+        stat('Total ganti meter', fmt(m.n) + ' meter'),
+        stat(`Hari terakhir (${esc(m.last.split('-').reverse().join('/'))})`, fmt(ld ? ld.n : 0) + ' meter'),
+        stat('Kategori tua', `${fmt(m.tua)} (${fmt(m.n ? m.tua / m.n * 100 : 0, 1)}%)`),
+        stat('Prabayar / Pascabayar', `${fmt(m.pra)} / ${fmt(m.pasca)}`),
+      ]));
+    } else cards.push(missing('Ganti meter H+1', E.gm));
     $('hCards').innerHTML = cards.join('');
     renderAlerts();
   }
@@ -182,6 +200,7 @@
       `kWh terjual (penjualan atau billing) turun lebih dari ${TH.kwhTurun}% dari bulan lalu`, `Pelanggan tertagih turun lebih dari ${TH.pelangganTurun}%`,
       `Penanda kualitas pembacaan atau anomali berulang naik lebih dari ${TH.penandaNaik}% (minimal 20 pelanggan bulan lalu)`,
       `Pelanggan tidak beli token naik lebih dari ${TH.dlpdNaik}% (genting di atas ${TH.dlpdNaikBesar}%), atau satu ULP naik lebih dari ${TH.dlpdUlpNaik}%`,
+      `Data ganti meter H+1 terakhir lebih tua dari ${TH.gmBasi} hari (file harian belum diunggah)`,
       `Informasi: lebih dari ${TH.belumCt}% pelanggan DLPD belum ada CT`,
     ].map((r) => `<li>${esc(r)}</li>`).join('');
   }

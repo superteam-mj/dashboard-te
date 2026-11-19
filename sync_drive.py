@@ -39,10 +39,12 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
 BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
 DLPD_DIR = "transaksi energi/dlpd prabayar/"  # menu DLPD Prabayar; bukan bagian dari 309
+GM_DIR = "pemeliharaan meter/ganti meter h+1/"  # menu Pemeliharaan Meter > Ganti Meter H+1
 TOP = {
     "tul": ("Transaksi Energi", "309"),
     "billing": ("Transaksi Energi", "Mon Billing"),
     "dlpd": ("Transaksi Energi", "DLPD PRABAYAR"),
+    "gm": ("Pemeliharaan Meter", "Ganti Meter H+1"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
 }
 
@@ -245,6 +247,24 @@ def publish_dlpd(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_gm(sb: Supa, src: Path, work: Path):
+    import build_gm as bg
+    summary, detail, warns = bg.build(src)
+    if not summary["order"]:
+        raise RuntimeError("tidak ada data Ganti Meter yang terbaca")
+    stamp = now()
+    keep_m = set(summary["order"][-bg.KEEP_DETAIL:])
+    for ym, d in detail.items():
+        if ym in keep_m:
+            sb.upsert("tul_data", [{"id": f"gml:{ym}", "data": d, "generated_at": stamp}], "id")
+    summary["generated_at"] = stamp
+    sb.upsert("tul_data", [{"id": "gm", "data": summary, "generated_at": stamp}], "id")
+    for row in sb.select("tul_data", "select=id&id=like.gml:*"):
+        if row["id"] not in {f"gml:{m}" for m in keep_m}:
+            sb.delete("tul_data", f"id=eq.{row['id']}")
+    return warns
+
+
 def publish_susut(sb: Supa, src: Path, work: Path):
     out = work / "susut.json"
     build_susut.main(src, out)
@@ -285,6 +305,8 @@ def _belongs(name: str, path_str: str) -> bool:
         return low.startswith(BILLING_DIR)
     if name == "dlpd":
         return low.startswith(DLPD_DIR)
+    if name == "gm":
+        return low.startswith(GM_DIR)
     return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR)) if name == "tul" else True
 
 
@@ -297,7 +319,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm}
 
 
 def main():
@@ -305,7 +327,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)

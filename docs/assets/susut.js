@@ -16,6 +16,7 @@
       transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'],
       billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
       dlpd: ['Transaksi Energi · DLPD Prabayar', 'DLPD Prabayar — Dashboard TE'],
+      gm: ['Pemeliharaan Meter · Ganti Meter H+1', 'Ganti Meter H+1 — Dashboard TE'],
       beranda: ['Beranda · Ringkasan semua menu', 'Beranda — Dashboard TE'] };
     $('subtitle').textContent = T[v][0];
     document.title = T[v][1];
@@ -574,7 +575,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : showTransaksi());
     });
     initSubnav();
     $('sTabs').addEventListener('click', (e) => {
@@ -613,7 +614,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
   }
 
   init();
