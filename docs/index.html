@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
     try { if (localStorage.getItem('sideHidden') === '1') document.documentElement.classList.add('side-hidden'); } catch (e) {}
@@ -29,6 +30,11 @@
     </div>
     <div class="side-label">Menu</div>
     <nav class="side-nav" id="sections" aria-label="Menu utama">
+      <div class="nav-group" data-g="beranda">
+        <button type="button" data-v="beranda" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg><span>Beranda</span>
+        </button>
+      </div>
       <div class="nav-group open" data-g="transaksi">
         <button type="button" data-v="transaksi" aria-pressed="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span><i class="chev" aria-hidden="true"></i>
@@ -65,6 +71,7 @@
           <button type="button" data-p="karakter">Karakteristik pelanggan</button>
           <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
           <button type="button" data-p="tren">Tren &amp; perubahan</button>
+          <button type="button" data-p="peta">Peta pelanggan</button>
           <button type="button" data-p="daftar">Daftar pelanggan</button>
         </div>
       </div>
@@ -89,6 +96,10 @@
         <p class="sub" id="subtitle">Laporan TUL III-09</p>
       </div>
       <div class="top-actions">
+        <button class="icon-btn bell" id="alertBtn" type="button" aria-label="Peringatan" title="Peringatan">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+          <span class="bell-n" id="alertN" hidden>0</span>
+        </button>
         <span class="usermail" id="userMail"></span>
         <button class="btn-out" id="logoutBtn" type="button" title="Keluar">Keluar</button>
         <button class="icon-btn" id="themeBtn" type="button" aria-label="Ganti tema terang/gelap" title="Ganti tema">
@@ -238,6 +249,19 @@
     <footer class="foot" id="foot"></footer>
   </main>
 
+  <main class="wrap billing beranda" id="berandaApp" aria-label="Beranda">
+    <div class="s-head"><div class="crumb"><b>Beranda</b><i>›</i><span>Ringkasan semua menu</span></div></div>
+    <div class="s-msg" id="hMsg" hidden></div>
+    <div id="hBody" hidden>
+      <article class="card" id="hAlertCard">
+        <div class="card-head" id="hAlertHead"></div>
+        <ul class="h-alerts" id="hAlerts"></ul>
+        <details class="s-help"><summary>Aturan peringatan yang dipakai</summary><ul id="hRules"></ul></details>
+      </article>
+      <section class="h-grid" id="hCards" aria-label="Angka kunci per menu"></section>
+    </div>
+  </main>
+
   <main class="wrap billing" id="billingApp" aria-label="Mon Billing">
     <div class="s-head">
       <div class="crumb" id="bCrumb"></div>
@@ -281,6 +305,7 @@
             <h3 class="b-sub">Status pembacaan (DLPD)</h3>
             <div class="chart" id="bChDlpd"></div>
           </article>
+          <article class="card span-2" id="bShare"></article>
         </section>
       </section>
 
@@ -411,6 +436,7 @@
             <div class="card-head"><div><h2>Per kriteria</h2><p class="hint">Satu subfolder Drive = satu kriteria (mis. 4–6 bulan tidak beli token)</p></div></div>
             <div class="chart" id="dChKrit"></div>
           </article>
+          <article class="card span-2" id="dShare"></article>
         </section>
       </section>
 
@@ -451,6 +477,22 @@
             </article>
           </section>
         </div>
+      </section>
+
+      <section class="b-page" data-p="peta" hidden>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Peta pelanggan</h2><p class="hint" id="dMapHint"></p></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="dMU"></select></label>
+              <label class="field"><span>CT</span><select id="dMC"><option value="">Semua</option><option value="belum">Belum ada CT</option><option value="sudah">Sudah ada CT</option></select></label>
+              <label class="field"><span>Lama tidak beli token</span><select id="dMI"><option value="">Semua</option><option value="3">≤ 3 bulan</option><option value="4">4 bulan</option><option value="5">5 bulan</option><option value="6">≥ 6 bulan</option></select></label>
+            </div>
+            <div class="d-legend" id="dMapLegend"></div>
+            <div class="s-msg" id="dMapMsg" hidden></div>
+            <div id="dMap" class="d-map" role="application" aria-label="Peta pelanggan tidak beli token"></div>
+          </article>
+        </section>
       </section>
 
       <section class="b-page" data-p="daftar" hidden>
@@ -527,8 +569,11 @@
   <script src="assets/auth.js"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
     <script src="assets/app.js"></script>
+  <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
+  <script src="assets/share.js"></script>
   <script src="assets/billing.js"></script>
   <script src="assets/dlpd.js"></script>
+  <script src="assets/beranda.js"></script>
   <script src="assets/susut.js"></script>
 </body>
 </html>

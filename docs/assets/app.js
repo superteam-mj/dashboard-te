@@ -789,6 +789,25 @@
   }
 
   // ---------- muat data ----------
+  // dibaca halaman Beranda: ringkasan penjualan UP3 (tidak bergantung pada filter yang sedang dipilih)
+  let tulResolve;
+  window.DashTulReady = new Promise((res) => { tulResolve = res; });
+  window.DashTulKpi = () => {
+    if (!DATA) return null;
+    const unit = realUnits('UP')[0], u = unit && DATA.levels.UP[unit];
+    if (!u) return null;
+    const yms = Object.keys(u.months).sort(), ym = yms[yms.length - 1];
+    if (!ym) return null;
+    const sum = (m, jenis) => { const s = zero(); for (const r of Object.values(rowsFor(m, jenis, u))) for (let i = 0; i < s.length; i++) s[i] += r[i]; return s; };
+    const pick = (s) => ({ kwh: s[F.kwh], rp: s[F.rp], c: s[F.c], va: s[F.va] });
+    const cur = sum(ym, 'TOTAL'), pm = yms[yms.length - 2], prev = pm ? sum(pm, 'TOTAL') : null;
+    const kum = zero();
+    for (const m of yms) if (m.startsWith(ym.slice(0, 4)) && m <= ym) { const a = sum(m, 'TOTAL'); for (let i = 0; i < kum.length; i++) kum[i] += a[i]; }
+    const split = !!(u.months[ym].NORMAL && u.months[ym].LPB);
+    return { unit, ym, label: ymLabel(ym), prevLabel: pm ? ymLabel(pm) : null, cur: pick(cur), prev: prev && pick(prev), kum: pick(kum),
+      bpp: kum[F.kwh] ? kum[F.rp] / kum[F.kwh] : 0, pasca: split ? sum(ym, 'NORMAL')[F.c] : null, pra: split ? sum(ym, 'LPB')[F.c] : null, generated_at: DATA.generated_at };
+  };
+
   const clone = (o) => JSON.parse(JSON.stringify(o));
 
   function setData(d) {
@@ -809,6 +828,7 @@
       if (error) throw new Error(error.message);
       if (!data) throw new Error('data belum tersedia — sinkronisasi pertama dari Drive belum berjalan');
       setData(data.data);
+      tulResolve(true);
       readHash();
       bind();
       render();

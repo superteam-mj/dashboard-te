@@ -565,3 +565,44 @@ body:not([data-view="dlpd"]) #dlpdApp { display: none; }
 .d-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; padding: 4px 6px 4px 12px; margin-bottom: 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .d-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 13px; padding: 0 6px; }
 #dChTarif, #dChDaya, #dChBeli, #dChMerek, #dChUmur, #dChKode { cursor: pointer; }
+
+/* ---- Beranda, peringatan, peta ---- */
+body[data-view="beranda"] #dashFilters, body[data-view="beranda"] #app { display: none !important; }
+body:not([data-view="beranda"]) #berandaApp { display: none; }
+.billing #hBody[hidden] { display: none; }
+.bell { position: relative; }
+.bell.has svg { fill: var(--down); }
+.bell-n { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--down); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.bell-n[hidden] { display: none; }
+.h-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+@media (max-width: 800px) { .h-grid { grid-template-columns: minmax(0, 1fr); } }
+.h-card .card-head { margin-bottom: 4px; }
+.h-stat { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); font-size: 13.5px; }
+.h-stat:last-child { border-bottom: 0; }
+.h-stat span:first-child { color: var(--ink-2); flex: 1; }
+.h-stat b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.h-stat .delta { font-size: 11.5px; font-weight: 650; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.h-stat .delta.up { color: var(--up); background: var(--up-bg); }
+.h-stat .delta.down { color: var(--down); background: var(--down-bg); }
+.h-stat .delta.flat { color: var(--muted); background: var(--flat-bg); }
+.h-card.miss { opacity: .75; }
+.h-alerts { list-style: none; margin: 0; padding: 0; }
+.h-alert { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--grid); }
+.h-alert .h-at { flex: 1; min-width: 0; }
+.h-alert .h-at p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; }
+.h-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--s1); }
+.h-alert.bad .h-dot { background: var(--down); }
+.h-alert.warn .h-dot { background: var(--s4); }
+.h-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.h-alert.bad .h-tag { color: var(--down); }
+.h-src { font-size: 11.5px; color: var(--muted); }
+.h-ok { padding: 14px 0 4px; color: var(--up); font-weight: 650; }
+.d-map { height: 620px; border-radius: 12px; border: 1px solid var(--border); position: relative; z-index: 0; isolation: isolate; }
+.d-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 10px; font-size: 12.5px; color: var(--ink-2); }
+.d-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.d-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.d-pop { font: 13px/1.45 Inter, system-ui, sans-serif; min-width: 200px; }
+.d-pop b { font-size: 14px; }
+.d-pop a { font-weight: 650; }
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9); }
+@media (max-width: 560px) { .d-map { height: 480px; } }

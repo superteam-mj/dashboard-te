@@ -110,6 +110,34 @@
     $('dUlpTbl').innerHTML = `<thead><tr><th>ULP</th><th>Pelanggan</th><th>Porsi</th><th>Belum CT</th><th>Sudah CT</th><th>% CT</th><th>P2TL</th>${pv ? '<th>Baru</th><th>Keluar</th>' : ''}</tr></thead><tbody>` +
       p.ulp.map((u) => row(u.name, u)).join('') + row('UP3 Mamuju', t, 'tot') + '</tbody>';
     hbar('dChKrit', p.kriteria.map((k) => ({ name: k.name.replace(/^[a-z]\.\s*/i, ''), n: k.n })), css('--s3'), t.n);
+    shareDlpd(p, pv);
+  }
+
+  function shareDlpd(p, pv) {
+    const C = DashShare.COL, t = p.total, lb = pv ? pv.label : '';
+    const ch = (v, q) => (pv && q != null ? `${v >= q ? '▲' : '▼'} ${fmt(Math.abs(v - q))} vs ${lb}` : '');
+    const L = (k, v) => `${k} : ${v}`;
+    const top1 = p.ulp.slice().sort((a, b) => b.n - a.n)[0];
+    const text = [`*DLPD PRABAYAR* — ${p.label}`, 'Pelanggan prabayar tidak membeli token · UP3 Mamuju', '',
+      L('Tidak membeli token', fmt(t.n) + ' plg'), L('Belum ada CT', `${fmt(t.n - t.ct)} (${fmt(pc(t.n - t.ct, t.n), 1)}%)`), L('Sudah ada CT', `${fmt(t.ct)} (${fmt(pc(t.ct, t.n), 1)}%)`),
+      L('Ada temuan P2TL', fmt(t.p2tl)), L('Daya ≥ 3.500 VA', fmt(bigN(p)))]
+      .concat(pv ? [L('Baru / keluar dari daftar', `${fmt(t.baru)} / ${fmt(t.keluar)}`)] : [])
+      .concat(['', '*PER ULP*']).concat(p.ulp.map((u) => `${u.name} : ${fmt(u.n)} plg (belum CT ${fmt(u.n - u.ct)})`)).join('\n');
+    DashShare.set($('dShare'), {
+      title: 'DLPD Prabayar', subtitle: `Pelanggan tidak membeli token · UP3 Mamuju · ${p.label}`, tag: 'Transaksi Energi', file: `dlpd-prabayar-${p.ym}`, foot: 'Sumber: Excel DLPD Prabayar · PLN UP3 Mamuju · Dashboard TE', text,
+      hero: [
+        { t: 'Tidak membeli token', u: 'pelanggan', v: fmt(t.n), s: ch(t.n, pv && pv.total.n), c: C.BLUE },
+        { t: 'Belum ada CT', u: 'pelanggan', v: fmt(t.n - t.ct), s: fmt(pc(t.n - t.ct, t.n), 1) + '% dari pelanggan', c: C.RED },
+        { t: 'Sudah ada CT', u: 'pelanggan', v: fmt(t.ct), s: fmt(pc(t.ct, t.n), 1) + '% dari pelanggan', c: C.GRN },
+      ],
+      tilesTitle: 'Rincian',
+      tiles: [
+        { t: 'Ada temuan P2TL', v: fmt(t.p2tl), u: 'pelanggan', c: C.VIO }, { t: 'Daya ≥ 3.500 VA', v: fmt(bigN(p)), u: 'pelanggan', c: C.AMB },
+        { t: pv ? 'Baru bulan ini' : 'Jumlah ULP', v: pv ? fmt(t.baru) : fmt(p.ulp.filter((u) => u.n).length), u: pv ? 'pelanggan' : 'unit', c: C.ORG },
+        { t: pv ? 'Keluar dari daftar' : 'File Excel', v: pv ? fmt(t.keluar) : fmt(p.files.length), u: pv ? 'pelanggan' : 'file', c: C.GRN },
+        { t: 'ULP terbanyak', v: top1 ? top1.name.replace('ULP ', '') : '–', u: top1 ? fmt(top1.n) + ' pelanggan' : '', c: C.BLUE },
+      ],
+    });
   }
 
   // grafik karakteristik: tiap batang & tombol di bawahnya membuka Daftar pelanggan terfilter
@@ -303,9 +331,64 @@
     show('daftar', true);
   }
 
+  // ---------- peta ----------
+  const M = { u: '', c: '', i: '' };
+  let map = null, mlayer = null, mPeriod = '';
+  const BUCKET = [['≤ 3 bulan', '#eda100'], ['4 bulan', '#eb6834'], ['5 bulan', '#d6453a'], ['≥ 6 bulan', '#7a1fa2'], ['Tidak ada data', '#94a3b8']];
+  const bucket = (i) => (i == null ? 4 : i <= 3 ? 0 : i === 4 ? 1 : i === 5 ? 2 : 3);
+  const inArea = (la, ln) => la > -5 && la < 1 && ln > 117 && ln < 121;  // kira-kira wilayah Sulawesi Barat; titik di luar dianggap salah input
+  function popupHtml(r) {
+    const c = (k) => r[col(cols, k)], la = c('lat'), ln = c('lng');
+    return `<div class="d-pop"><b>${esc(c('nama') || '-')}</b><br>${esc(c('idpel'))}<br>${esc(c('alamat') || '')}<br>` +
+      `${esc(c('ulp'))} · ${esc(c('tarif'))} · ${fmt(c('daya'))} VA<br>Terakhir beli token: ${esc(c('beli_akhir') || '–')}${c('idle') != null ? ` (${c('idle')} bln)` : ''}<br>` +
+      `CT: ${c('ct') > 0 ? 'ada (' + c('ct') + ')' : 'belum ada'} · P2TL: ${c('p2tl') > 0 ? c('p2tl') : '0'}${c('status') ? ' · ' + esc(c('status')) : ''}<br>` +
+      `<a href="https://www.google.com/maps/dir/?api=1&destination=${la},${ln}" target="_blank" rel="noopener noreferrer">Navigasi di Google Maps ›</a></div>`;
+  }
+  function drawMap(fit) {
+    const c = (k) => col(cols, k), il = c('lat'), ig = c('lng'), iu = c('ulp'), ic = c('ct'), ii = c('idle');
+    let nocoord = 0, outside = 0;
+    const pts = [];
+    allRows.forEach((r) => {
+      if ((M.u && r[iu] !== M.u) || (M.c && (M.c === 'sudah') !== (r[ic] > 0))) return;
+      if (M.i && !(M.i === '6' ? r[ii] >= 6 : M.i === '3' ? r[ii] != null && r[ii] <= 3 : r[ii] === +M.i)) return;
+      if (r[il] == null || r[ig] == null) { nocoord++; return; }
+      if (!inArea(r[il], r[ig])) { outside++; return; }
+      pts.push(r);
+    });
+    if (mlayer) mlayer.remove();
+    mlayer = L.layerGroup();
+    const cnt = [0, 0, 0, 0, 0];
+    pts.forEach((r) => {
+      const k = bucket(r[ii]); cnt[k]++;
+      L.circleMarker([r[il], r[ig]], { radius: 5, weight: 1, color: '#fff', fillColor: BUCKET[k][1], fillOpacity: 0.9 }).bindPopup(() => popupHtml(r)).addTo(mlayer);
+    });
+    mlayer.addTo(map);
+    if (fit && pts.length) map.fitBounds(L.latLngBounds(pts.map((r) => [r[il], r[ig]])), { padding: [30, 30], maxZoom: 15 });
+    $('dMapLegend').innerHTML = BUCKET.map((b, k) => (cnt[k] ? `<span><i style="background:${b[1]}"></i>${b[0]} <b>${fmt(cnt[k])}</b></span>` : '')).join('');
+    $('dMapHint').textContent = `${per().label} · ${fmt(pts.length)} titik di peta` + (nocoord ? ` · ${fmt(nocoord)} tanpa koordinat` : '') + (outside ? ` · ${fmt(outside)} koordinat di luar wilayah (diabaikan)` : '') + ' · klik titik untuk detail dan navigasi';
+  }
+  async function renderPeta() {
+    const msg = $('dMapMsg');
+    if (typeof L === 'undefined') { msg.hidden = false; msg.textContent = 'Pustaka peta tidak dapat dimuat.'; return; }
+    msg.hidden = false; msg.textContent = 'Memuat data pelanggan…';
+    try { await ensureRows(); } catch (e) { listKey = ''; msg.textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    msg.hidden = true;
+    if (mPeriod !== T.ym) {
+      mPeriod = T.ym;
+      $('dMU').innerHTML = '<option value="">Semua ULP</option>' + per().ulp.filter((u) => u.n).map((u) => `<option value="${esc(u.name)}">${esc(u.name)}</option>`).join('');
+      M.u = ''; M.c = ''; M.i = ''; $('dMC').value = ''; $('dMI').value = '';
+    }
+    if (!map) {
+      map = L.map('dMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    }
+    map.invalidateSize();
+    drawMap(true);
+  }
+
   // ---------- halaman ----------
-  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, daftar: renderDaftar };
-  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', daftar: 'Daftar pelanggan' };
+  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, peta: renderPeta, daftar: renderDaftar };
+  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', daftar: 'Daftar pelanggan' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
     $('dCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><span>DLPD Prabayar</span><i>›</i><b>${TITLE[T.page]}</b>`;
@@ -350,6 +433,7 @@
     $('dDPrev').onclick = () => { T.pg = Math.max(0, T.pg - 1); renderDetail(); };
     $('dDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('dDCsv').onclick = csvDetail;
+    ['dMU:u', 'dMC:c', 'dMI:i'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { M[k] = e.target.value; if (map) drawMap(true); }; });
     $('subDlpd').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');

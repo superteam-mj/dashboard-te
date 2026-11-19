@@ -319,8 +319,33 @@
       ps.map((k) => { const x = A.pairs[k].total; return `<tr class="${k === B.ym ? 'curr' : ''}"><td>${ymShort(k)}</td><td>${fmt(x.baru.n)}</td><td>${fmt(x.hilang.n)}</td><td class="dc ${x.baru.n - x.hilang.n >= 0 ? 'up' : 'down'}">${sgn(x.baru.n - x.hilang.n)}</td><td>${fmt(x.ganti_tarif)}</td><td>${fmt(x.ganti_daya)}</td></tr>`; }).join('') + '</tbody>';
   }
 
+  // ---------- bagikan (WhatsApp / gambar untuk PPT) ----------
+  function shareBilling(p, pv) {
+    const C = DashShare.COL, t = p.total, fl = (k) => (p.flags.find((f) => f.k === k) || { n: 0 }).n;
+    const ch = (v, q) => (pv && q ? `${v >= q ? '▲' : '▼'} ${fmt(Math.abs((v - q) / Math.abs(q) * 100), 1)}% vs ${pv.label}` : '');
+    const L = (k, v) => `${k} : ${v}`;
+    const text = [`*MON BILLING* — ${p.label}`, 'UP3 Mamuju', '',
+      L('Pelanggan', fmt(t.n)), L('Energi terjual (kWh)', fmt(t.kwh)), L('Pendapatan listrik (Rp)', fmt(t.rppln)), L('Tagihan (Rp)', fmt(t.rptag)),
+      L('Rp/kWh', fmt(rpkwh(t), 2)), L('Daya (kVA)', fmt(t.kva)), '', '*PER ULP*']
+      .concat(p.ulp.map((u) => `${u.name} : ${fmt(u.n)} plg · ${fmt(u.kwh)} kWh`))
+      .concat(['', '*KUALITAS PEMBACAAN*']).concat(p.flags.map((f) => `${f.label} : ${fmt(f.n)}`)).join('\n');
+    DashShare.set($('bShare'), {
+      title: 'Mon Billing', subtitle: `UP3 Mamuju · ${p.label}`, tag: 'Transaksi Energi', file: `mon-billing-${p.ym}`, foot: 'Sumber: Monitoring Billing · PLN UP3 Mamuju · Dashboard TE', text,
+      hero: [
+        { t: 'Pelanggan', u: 'plg', v: fmt(t.n), s: ch(t.n, pv && pv.total.n), c: C.BLUE },
+        { t: 'Energi terjual', u: 'GWh', v: fmt(t.kwh / 1e6, 2), s: ch(t.kwh, pv && pv.total.kwh), c: C.GRN },
+        { t: 'Pendapatan listrik', u: 'Rp miliar', v: fmt(t.rppln / 1e9, 2), s: ch(t.rppln, pv && pv.total.rppln), c: C.ORG },
+      ],
+      tilesTitle: 'Kualitas pembacaan & ringkasan',
+      tiles: [
+        { t: 'Harga jual rata-rata', v: fmt(rpkwh(t), 2), u: 'Rp/kWh', c: C.VIO }, { t: 'Daya tersambung', v: fmt(t.kva / 1e3, 2), u: 'MVA', c: C.AMB },
+        { t: 'kWh nol', v: fmt(fl('nol')), u: 'pelanggan', c: C.RED }, { t: 'Jam nyala > 600', v: fmt(fl('jn600')), u: 'pelanggan', c: C.ORG }, { t: 'Selisih > 50%', v: fmt(fl('dev50')), u: 'pelanggan', c: C.BLUE },
+      ],
+    });
+  }
+
   // ---------- halaman ----------
-  const PAGES = { ringkasan: () => { const p = per(); renderKpis(p, prevP()); renderUlp(p); renderTarif(p); renderQual(p); $('bMeta').innerHTML = `<span class="chip">Periode ${esc(p.label)}</span><span class="chip">${fmt(p.total.n)} pelanggan</span>` + (p.dup ? `<span class="chip warn">${fmt(p.dup)} baris ganda dilewati</span>` : ''); },
+  const PAGES = { ringkasan: () => { const p = per(); renderKpis(p, prevP()); renderUlp(p); renderTarif(p); renderQual(p); shareBilling(p, prevP()); $('bMeta').innerHTML = `<span class="chip">Periode ${esc(p.label)}</span><span class="chip">${fmt(p.total.n)} pelanggan</span>` + (p.dup ? `<span class="chip warn">${fmt(p.dup)} baris ganda dilewati</span>` : ''); },
     tren: renderTren, sebab: renderSebab, anomali: renderAnomali, pelanggan: renderPelanggan };
   const TITLE = { ringkasan: 'Ringkasan', tren: 'Tren & perbandingan bulan', sebab: 'Penyebab naik/turun kWh', anomali: 'Anomali berulang', pelanggan: 'Pelanggan baru, hilang, berubah' };
   function renderAll() {
