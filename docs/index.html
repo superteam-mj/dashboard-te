@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=3">
+  <link rel="stylesheet" href="assets/style.css?v=4">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -77,14 +77,22 @@
         <button type="button" data-v="gm" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22.7 19-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg><span>Pemeliharaan Meter</span><i class="chev" aria-hidden="true"></i>
         </button>
-        <div class="sub-nav" id="subGm" role="group" aria-label="Halaman Ganti Meter H+1">
-          <div class="sub-h">Ganti Meter H+1</div>
-          <button type="button" data-p="ringkasan">Ringkasan</button>
-          <button type="button" data-p="alasan">Alasan penggantian</button>
-          <button type="button" data-p="merek">Merek &amp; tahun meter</button>
-          <button type="button" data-p="tua">Meter tua</button>
-          <button type="button" data-p="harian">Data harian</button>
-          <button type="button" data-p="daftar">Daftar pergantian</button>
+        <div class="sub-groups">
+          <div class="sub-group" data-sg="gm">
+            <button type="button" class="sg-h" data-v="gm" aria-pressed="false"><span>Ganti Meter</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subGm" role="group" aria-label="Halaman Ganti Meter">
+            <button type="button" data-p="ringkasan">Ringkasan</button>
+            <button type="button" data-p="alasan">Alasan penggantian</button>
+            <button type="button" data-p="merek">Merek &amp; tahun meter</button>
+            <button type="button" data-p="tua">Meter tua</button>
+            <button type="button" data-p="harian">Data harian</button>
+            <button type="button" data-p="daftar">Daftar pergantian</button>
+            </div>
+          </div>
+          <div class="sub-group" data-sg="amr">
+            <button type="button" class="sg-h" data-v="amr" aria-pressed="false"><span>Automatic Meter Reading</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subAmr" role="group" aria-label="Halaman Automatic Meter Reading"></div>
+          </div>
         </div>
       </div>
       <div class="nav-group" data-g="susut">
@@ -595,6 +603,11 @@
     <footer class="foot" id="dFoot"></footer>
   </main>
 
+  <main class="wrap billing" id="amrApp" aria-label="Automatic Meter Reading">
+    <div class="s-head"><div class="crumb"><span>Pemeliharaan Meter</span><i>›</i><b>Automatic Meter Reading</b></div></div>
+    <article class="card"><p class="hint">Halaman ini masih kosong dan akan diisi.</p></article>
+  </main>
+
   <main class="wrap billing gm" id="gmApp" aria-label="Ganti Meter H+1">
     <div class="s-head">
       <div class="crumb" id="gCrumb"></div>
@@ -800,19 +813,19 @@
 
   <div class="loading" id="loading">Memuat data…</div>
 
-  <script src="assets/supabase.js?v=3"></script><!-- supabase-js 2.45.4 (MIT) -->
-  <script src="assets/config.js?v=3"></script>
-  <script src="assets/auth.js?v=3"></script>
+  <script src="assets/supabase.js?v=4"></script><!-- supabase-js 2.45.4 (MIT) -->
+  <script src="assets/config.js?v=4"></script>
+  <script src="assets/auth.js?v=4"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
-    <script src="assets/app.js?v=3"></script>
+    <script src="assets/app.js?v=4"></script>
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
-  <script src="assets/share.js?v=3"></script>
-  <script src="assets/billing.js?v=3"></script>
-  <script src="assets/dlpd.js?v=3"></script>
-  <script src="assets/gm.js?v=3"></script>
-  <script src="assets/pju-plan.js?v=3"></script>
-  <script src="assets/pju.js?v=3"></script>
-  <script src="assets/beranda.js?v=3"></script>
-  <script src="assets/susut.js?v=3"></script>
+  <script src="assets/share.js?v=4"></script>
+  <script src="assets/billing.js?v=4"></script>
+  <script src="assets/dlpd.js?v=4"></script>
+  <script src="assets/gm.js?v=4"></script>
+  <script src="assets/pju-plan.js?v=4"></script>
+  <script src="assets/pju.js?v=4"></script>
+  <script src="assets/beranda.js?v=4"></script>
+  <script src="assets/susut.js?v=4"></script>
 </body>
 </html>

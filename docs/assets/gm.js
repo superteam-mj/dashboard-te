@@ -335,7 +335,7 @@
   const TITLE = { ringkasan: 'Ringkasan', alasan: 'Alasan penggantian', merek: 'Merek & tahun meter', tua: 'Meter tua', harian: 'Data harian', daftar: 'Daftar pergantian' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
-    $('gCrumb').innerHTML = `<span>Pemeliharaan Meter</span><i>›</i><span>Ganti Meter H+1</span><i>›</i><b>${TITLE[T.page]}</b>`;
+    $('gCrumb').innerHTML = `<span>Pemeliharaan Meter</span><i>›</i><span>Ganti Meter</span><i>›</i><b>${TITLE[T.page]}</b>`;
     const yrs = [...new Set(D.order.map((k) => k.slice(0, 4)))], opt = (v, l) => `<option value="${v}"${v === T.ym ? ' selected' : ''}>${esc(l)}</option>`;
     $('gmPeriod').innerHTML = yrs.filter((y) => D.order.filter((k) => k.startsWith(y)).length > 1).reverse().map((y) => opt('Y' + y, agg(y).label)).join('') + D.order.slice().reverse().map((k) => opt(k, D.months[k].label)).join('');
     $('gmPeriod').hidden = D.order.length < 2;

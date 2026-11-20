@@ -11,7 +11,7 @@
   function setView(v) {
     document.body.dataset.view = v;
     // menu induk: transaksi = Penjualan + Mon Billing + DLPD; susut = Susut Distribusi + PJU Non Meter
-    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', gm: 'gm', beranda: 'beranda' };
+    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', gm: 'gm', amr: 'gm', beranda: 'beranda' };
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === v : b.dataset.v === TOP[v] && !b.closest('.sub-groups')));
     });
@@ -22,7 +22,8 @@
       billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
       dlpd: ['Transaksi Energi · DLPD Prabayar', 'DLPD Prabayar — Dashboard TE'],
       pju: ['Pengendalian Susut · PJU Non Meter', 'PJU Non Meter — Dashboard TE'],
-      gm: ['Pemeliharaan Meter · Ganti Meter H+1', 'Ganti Meter H+1 — Dashboard TE'],
+      gm: ['Pemeliharaan Meter · Ganti Meter', 'Ganti Meter — Dashboard TE'],
+      amr: ['Pemeliharaan Meter · Automatic Meter Reading', 'Automatic Meter Reading — Dashboard TE'],
       beranda: ['Beranda · Ringkasan semua menu', 'Beranda — Dashboard TE'] };
     $('subtitle').textContent = T[v][0];
     document.title = T[v][1];
@@ -542,6 +543,12 @@
     renderHead(); renderSheet(); writeHash();
   }
 
+  function showAmr() {
+    setView('amr');
+    if (location.hash !== '#amr') history.replaceState(null, '', location.pathname + location.search + '#amr');
+    window.scrollTo({ top: 0 });
+  }
+
   function showTransaksi() {
     setView('transaksi');
     if (location.hash.startsWith('#susut') || location.hash.startsWith('#billing')) history.replaceState(null, '', location.pathname + location.search);
@@ -581,7 +588,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'amr' ? showAmr() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
     });
     initSubnav();
     // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
@@ -636,7 +643,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#amr')) showAmr(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
   }
 
   init();

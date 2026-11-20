@@ -325,12 +325,13 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app, body[data-view="dlpd"] #dashFilters, body[data-view="dlpd"] #app, body[data-view="gm"] #dashFilters, body[data-view="gm"] #app, body[data-view="pju"] #dashFilters, body[data-view="pju"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app, body[data-view="dlpd"] #dashFilters, body[data-view="dlpd"] #app, body[data-view="gm"] #dashFilters, body[data-view="gm"] #app, body[data-view="pju"] #dashFilters, body[data-view="pju"] #app, body[data-view="amr"] #dashFilters, body[data-view="amr"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
 body:not([data-view="billing"]) #billingApp { display: none; }
 body:not([data-view="dlpd"]) #dlpdApp { display: none; }
 body:not([data-view="gm"]) #gmApp { display: none; }
 body:not([data-view="pju"]) #pjuApp { display: none; }
+body:not([data-view="amr"]) #amrApp { display: none; }
 .pj-assume { margin-bottom: 14px; }
 .leaflet-tooltip.pj-tip { background: transparent; border: 0; box-shadow: none; padding: 0; font-weight: 750; font-size: 10.5px; color: #111; }
 .leaflet-tooltip.pj-tip::before { display: none; }
