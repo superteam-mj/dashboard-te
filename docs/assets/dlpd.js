@@ -386,9 +386,96 @@
     drawMap(true);
   }
 
+  // ---------- peta Target Operasi (TO) P2TL ----------
+  // Skor potensi (maks. 90) dihitung di peta dari kolom daftar: lama tidak beli token, daya, status CT, riwayat P2TL.
+  const TO = { u: '', l: '0', c: '' };
+  const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
+  let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {};
+  function toScore(r) {
+    const c = (k) => r[col(cols, k)], idle = c('idle'), d = c('daya') || 0;
+    const a = idle == null ? 0 : idle >= 6 ? 40 : idle === 5 ? 30 : idle === 4 ? 20 : 10;
+    const b = d >= 3500 ? 25 : d >= 2200 ? 15 : d >= 1300 ? 8 : 3;
+    const ct = c('ct') > 0 ? 0 : 15, p = c('p2tl') > 0 ? 10 : 0;
+    return { s: a + b + ct + p, a, b, ct, p };
+  }
+  const toLevel = (s) => (s >= 65 ? 2 : s >= 50 ? 1 : 0);
+  const LV = ['Biasa', 'Tinggi', 'Sangat tinggi'], LVC = ['#6a7380', '#eb6834', '#d6232a'];
+  function toPopup(r, sc) {
+    const c = (k) => r[col(cols, k)], lv = toLevel(sc.s);
+    return `<div class="d-pop"><b>${esc(c('nama') || '-')}</b><br>${esc(c('idpel'))}<br>${esc(c('alamat') || '')}<br>${esc(c('ulp'))} · ${esc(c('tarif'))} · ${fmt(c('daya'))} VA<br>` +
+      `Terakhir beli token: ${esc(c('beli_akhir') || '–')}${c('idle') != null ? ` (${c('idle')} bln)` : ''}<br>CT: ${c('ct') > 0 ? 'ada' : 'belum ada'} · P2TL: ${c('p2tl') > 0 ? c('p2tl') : '0'}<br>` +
+      `<span class="to-badge" style="background:${LVC[lv]}">${LV[lv]} · skor ${sc.s}</span> <small>(lama ${sc.a} + daya ${sc.b} + belum CT ${sc.ct} + riwayat P2TL ${sc.p})</small><br>` +
+      `<a href="https://www.google.com/maps/dir/?api=1&destination=${c('lat')},${c('lng')}" target="_blank" rel="noopener noreferrer">Navigasi di Google Maps ›</a></div>`;
+  }
+  function drawTo(fit) {
+    const c = (k) => col(cols, k), il = c('lat'), ig = c('lng'), iu = c('ulp'), ic = c('ct');
+    const pts = [];
+    allRows.forEach((r) => {
+      if ((TO.u && r[iu] !== TO.u) || (TO.c && (TO.c === 'sudah') !== (r[ic] > 0))) return;
+      if (r[il] == null || r[ig] == null || !inArea(r[il], r[ig])) return;
+      const sc = toScore(r);
+      if (toLevel(sc.s) < +TO.l) return;
+      pts.push({ r, sc });
+    });
+    if (tlayer) tlayer.remove();
+    tlayer = L.layerGroup();
+    // titik panas: sel ~0,005° (±550 m) dengan jumlah skor terbesar
+    const cells = new Map();
+    pts.forEach((p) => {
+      const k = Math.floor(p.r[il] / 0.005) + ':' + Math.floor(p.r[ig] / 0.005);
+      let e = cells.get(k); if (!e) cells.set(k, e = { n: 0, sum: 0, hi: 0, la: 0, ln: 0, u: {} });
+      e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.r[il]; e.ln += p.r[ig]; e.u[p.r[iu]] = (e.u[p.r[iu]] || 0) + 1;
+    });
+    const hot = [...cells.values()].filter((e) => e.n >= 3).sort((a, b) => b.sum - a.sum).slice(0, 10);
+    hot.forEach((e, i) => { e.la /= e.n; e.ln /= e.n; e.rank = i + 1; });
+    hot.slice().reverse().forEach((e) => {
+      L.circle([e.la, e.ln], { radius: 450, color: '#d6232a', weight: 2, dashArray: '6 5', fillColor: '#d6232a', fillOpacity: 0.12, className: 'to-pulse', interactive: false }).addTo(tlayer);
+    });
+    // titik per pelanggan: warna = ULP; ukuran + cincin merah = tingkat potensi
+    pts.slice().sort((a, b) => a.sc.s - b.sc.s).forEach((p) => {
+      const lv = toLevel(p.sc.s), fc = ULP_COL[tUlpIdx[p.r[iu]] % ULP_COL.length];
+      L.circleMarker([p.r[il], p.r[ig]], { radius: lv === 2 ? 9 : lv === 1 ? 6.5 : 4, weight: lv === 2 ? 3 : lv === 1 ? 1.5 : 1, color: lv === 2 ? '#d6232a' : '#fff', fillColor: fc, fillOpacity: lv === 0 ? 0.65 : 0.95 })
+        .bindPopup(() => toPopup(p.r, p.sc)).addTo(tlayer);
+    });
+    hot.forEach((e) => L.marker([e.la, e.ln], { icon: L.divIcon({ className: '', html: `<div class="to-pin">${e.rank}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 })
+      .bindPopup(`<div class="d-pop"><b>Titik panas #${e.rank}</b><br>${e.n} pelanggan · ${e.hi} potensi sangat tinggi<br>Total skor ${fmt(e.sum)}</div>`).addTo(tlayer));
+    tlayer.addTo(tmap);
+    if (fit && pts.length) tmap.fitBounds(L.latLngBounds(pts.map((p) => [p.r[il], p.r[ig]])), { padding: [30, 30], maxZoom: 15 });
+    const cnt = {}; pts.forEach((p) => { cnt[p.r[iu]] = (cnt[p.r[iu]] || 0) + 1; });
+    $('dToLegend').innerHTML = per().ulp.filter((u) => u.n).map((u) => `<span><i style="background:${ULP_COL[tUlpIdx[u.name] % ULP_COL.length]}"></i>${esc(u.name)} <b>${fmt(cnt[u.name] || 0)}</b></span>`).join('') +
+      `<span><i style="background:#fff;border:3px solid #d6232a;box-sizing:border-box"></i>Cincin merah = potensi sangat tinggi <b>${fmt(pts.filter((p) => toLevel(p.sc.s) === 2).length)}</b></span>` +
+      '<span><i style="background:#d6232a;opacity:.25"></i>Lingkaran putus-putus = titik panas</span>';
+    $('dToHint').textContent = `${per().label} · ${fmt(pts.length)} pelanggan di peta · warna titik = ULP · ukuran titik = tingkat potensi`;
+    $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
+    const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.r[c('daya')] - a.r[c('daya')]).slice(0, 15);
+    $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.r[il]}" data-ln="${p.r[ig]}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.r[c('nama')] || '-')}</b> · skor ${p.sc.s}<small>${esc(p.r[c('ulp')])} · ${fmt(p.r[c('daya')])} VA · ${p.r[c('idle')] != null ? p.r[c('idle')] + ' bln tidak beli' : 'tanpa data beli'}${p.r[c('ct')] > 0 ? '' : ' · belum CT'}</small></span></button></li>`).join('');
+    $('dToNote').textContent = 'Skor potensi (maks. 90) = lama tidak beli token (≥6 bln 40 · 5 bln 30 · 4 bln 20 · lainnya 10) + daya (≥3.500 VA 25 · ≥2.200 15 · ≥1.300 8 · lainnya 3) + belum ada CT 15 + pernah ada temuan P2TL 10. ' +
+      'Sangat tinggi ≥ 65, tinggi 50–64. Skor ini alat bantu memilih TO, bukan bukti pelanggaran; verifikasi tetap lewat pemeriksaan lapangan. Data DLPD pascabayar belum tampil karena file Mon Billing tidak memuat koordinat.';
+  }
+  async function renderTo() {
+    const msg = $('dToMsg');
+    if (typeof L === 'undefined') { msg.hidden = false; msg.textContent = 'Pustaka peta tidak dapat dimuat.'; return; }
+    msg.hidden = false; msg.textContent = 'Memuat data pelanggan…';
+    try { await ensureRows(); } catch (e) { listKey = ''; msg.textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    msg.hidden = true;
+    if (tPeriod !== T.ym) {
+      tPeriod = T.ym;
+      const us = per().ulp.filter((u) => u.n);
+      tUlpIdx = {}; us.forEach((u, i) => { tUlpIdx[u.name] = i; });
+      $('dToU').innerHTML = '<option value="">Semua ULP</option>' + us.map((u) => `<option value="${esc(u.name)}">${esc(u.name)}</option>`).join('');
+      TO.u = ''; TO.l = '0'; TO.c = ''; $('dToL').value = '0'; $('dToC').value = '';
+    }
+    if (!tmap) {
+      tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(tmap);
+    }
+    tmap.invalidateSize();
+    drawTo(true);
+  }
+
   // ---------- halaman ----------
-  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, peta: renderPeta, daftar: renderDaftar };
-  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', daftar: 'Daftar pelanggan' };
+  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, peta: renderPeta, to: renderTo, daftar: renderDaftar };
+  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', to: 'Peta Target Operasi P2TL', daftar: 'Daftar pelanggan' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
     $('dCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><span>DLPD Prabayar</span><i>›</i><b>${TITLE[T.page]}</b>`;
@@ -434,6 +521,10 @@
     $('dDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('dDCsv').onclick = csvDetail;
     ['dMU:u', 'dMC:c', 'dMI:i'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { M[k] = e.target.value; if (map) drawMap(true); }; });
+    ['dToU:u', 'dToL:l', 'dToC:c'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
+    document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
+    });
     $('subDlpd').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');

@@ -72,6 +72,7 @@
           <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
           <button type="button" data-p="tren">Tren &amp; perubahan</button>
           <button type="button" data-p="peta">Peta pelanggan</button>
+          <button type="button" data-p="to">Peta Target Operasi P2TL</button>
           <button type="button" data-p="daftar">Daftar pelanggan</button>
         </div>
       </div>
@@ -505,6 +506,31 @@
             <div class="d-legend" id="dMapLegend"></div>
             <div class="s-msg" id="dMapMsg" hidden></div>
             <div id="dMap" class="d-map" role="application" aria-label="Peta pelanggan tidak beli token"></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="to" hidden>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Peta potensi Target Operasi (TO) P2TL</h2><p class="hint" id="dToHint"></p></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="dToU"></select></label>
+              <label class="field"><span>Tingkat potensi</span><select id="dToL"><option value="0">Semua pelanggan</option><option value="1">Tinggi &amp; sangat tinggi</option><option value="2">Sangat tinggi saja</option></select></label>
+              <label class="field"><span>CT</span><select id="dToC"><option value="">Semua</option><option value="belum">Belum ada CT</option><option value="sudah">Sudah ada CT</option></select></label>
+            </div>
+            <div class="d-legend" id="dToLegend"></div>
+            <div class="s-msg" id="dToMsg" hidden></div>
+            <div class="to-wrap">
+              <div id="dToMap" class="d-map" role="application" aria-label="Peta potensi target operasi P2TL"></div>
+              <aside class="to-side">
+                <h3>Titik panas terbesar</h3><p class="hint">Area ±500 m dengan total skor potensi tertinggi. Klik untuk memperbesar.</p>
+                <ol id="dToHot" class="to-list"></ol>
+                <h3>Pelanggan potensi tertinggi</h3>
+                <ol id="dToTop" class="to-list"></ol>
+              </aside>
+            </div>
+            <p class="hint to-note" id="dToNote"></p>
           </article>
         </section>
       </section>

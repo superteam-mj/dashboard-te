@@ -614,3 +614,18 @@ body:not([data-view="beranda"]) #berandaApp { display: none; }
 .b-wide th { white-space: normal; min-width: 96px; vertical-align: bottom; }
 .b-trend tr.gap td { color: var(--muted); background: var(--flat-bg); }
 .billing .s-msg.b-note { padding: 10px 14px; text-align: left; margin: 0 0 12px; font-size: 13px; line-height: 1.5; min-height: 0; }
+
+/* Peta Target Operasi P2TL */
+.to-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.to-side { max-height: 620px; overflow: auto; padding-right: 4px; }
+.to-side h3 { font-size: 13.5px; margin: 2px 0 4px; }
+.to-list { list-style: none; margin: 6px 0 14px; padding: 0; display: grid; gap: 6px; }
+.to-list li button { width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 7px 10px; font: 12.5px/1.35 Inter, system-ui, sans-serif; cursor: pointer; display: flex; gap: 9px; align-items: flex-start; }
+.to-list li button:hover { border-color: var(--s8); }
+.to-rank { flex: none; min-width: 22px; height: 22px; border-radius: 11px; background: #d6232a; color: #fff; font-weight: 700; font-size: 11.5px; display: grid; place-items: center; }
+.to-list small { display: block; color: var(--muted); }
+.to-badge { display: inline-block; border-radius: 6px; padding: 0 6px; font-size: 11px; font-weight: 700; color: #fff; }
+.to-pin { width: 26px; height: 26px; border-radius: 13px; background: #d6232a; color: #fff; border: 2px solid #fff; font: 700 12px/22px Inter, system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 3px rgba(214,35,42,.35); }
+.to-pulse { animation: toPulse 1.8s ease-in-out infinite; }
+@keyframes toPulse { 0%, 100% { stroke-opacity: .95; } 50% { stroke-opacity: .25; } }
+@media (max-width: 900px) { .to-wrap { grid-template-columns: 1fr; } .to-side { max-height: none; } }
