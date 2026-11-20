@@ -592,7 +592,7 @@
     });
     initSubnav();
     // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
-    document.querySelectorAll('#sections .nav-group > button[data-v]').forEach((b) => {
+    document.querySelectorAll('#sections .nav-group:has(> .sub-groups) > button[data-v]').forEach((b) => {
       b.onclick = () => b.parentElement.classList.toggle('open');
     });
     // submenu tingkat dua: buka halamannya; bila sudah terbuka, klik lagi = tutup
