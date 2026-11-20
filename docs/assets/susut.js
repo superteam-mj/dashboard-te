@@ -584,6 +584,22 @@
       b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
     });
     initSubnav();
+    // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
+    document.querySelectorAll('#sections .nav-group > button[data-v]').forEach((b) => {
+      b.onclick = () => b.parentElement.classList.toggle('open');
+    });
+    // submenu tingkat dua: buka halamannya; bila sudah terbuka, klik lagi = tutup
+    document.querySelectorAll('#sections .sg-h').forEach((b) => {
+      const go = b.onclick;
+      b.onclick = (e) => {
+        const g = b.parentElement;
+        if (g.classList.contains('open') && document.body.dataset.view === b.dataset.v) { g.classList.remove('open'); return; }
+        go.call(b, e);
+      };
+    });
+    const home = () => window.DashBeranda.show();
+    $('brandHome').addEventListener('click', (e) => { if (!e.target.closest('#sideHide')) home(); });
+    $('brandHome').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.target.closest('#sideHide')) home(); });
     $('sTabs').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-i]');
       if (!b) return;

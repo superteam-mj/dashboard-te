@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/style.css?v=3">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,7 +18,7 @@
 </head>
 <body>
   <aside class="sidebar" id="sidebar" aria-label="Navigasi">
-    <div class="brand">
+    <div class="brand" id="brandHome" role="link" tabindex="0" title="Ke Beranda" style="cursor:pointer">
       <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
       <div>
         <h1>Dashboard TE</h1>
@@ -30,11 +30,6 @@
     </div>
     <div class="side-label">Menu</div>
     <nav class="side-nav" id="sections" aria-label="Menu utama">
-      <div class="nav-group" data-g="beranda">
-        <button type="button" data-v="beranda" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg><span>Beranda</span>
-        </button>
-      </div>
       <div class="nav-group open" data-g="transaksi">
         <button type="button" data-v="transaksi" aria-pressed="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span><i class="chev" aria-hidden="true"></i>
@@ -805,19 +800,19 @@
 
   <div class="loading" id="loading">Memuat data…</div>
 
-  <script src="assets/supabase.js"></script><!-- supabase-js 2.45.4 (MIT) -->
-  <script src="assets/config.js"></script>
-  <script src="assets/auth.js"></script>
+  <script src="assets/supabase.js?v=3"></script><!-- supabase-js 2.45.4 (MIT) -->
+  <script src="assets/config.js?v=3"></script>
+  <script src="assets/auth.js?v=3"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
-    <script src="assets/app.js"></script>
+    <script src="assets/app.js?v=3"></script>
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
-  <script src="assets/share.js"></script>
-  <script src="assets/billing.js"></script>
-  <script src="assets/dlpd.js"></script>
-  <script src="assets/gm.js"></script>
-  <script src="assets/pju-plan.js"></script>
-  <script src="assets/pju.js"></script>
-  <script src="assets/beranda.js"></script>
-  <script src="assets/susut.js"></script>
+  <script src="assets/share.js?v=3"></script>
+  <script src="assets/billing.js?v=3"></script>
+  <script src="assets/dlpd.js?v=3"></script>
+  <script src="assets/gm.js?v=3"></script>
+  <script src="assets/pju-plan.js?v=3"></script>
+  <script src="assets/pju.js?v=3"></script>
+  <script src="assets/beranda.js?v=3"></script>
+  <script src="assets/susut.js?v=3"></script>
 </body>
 </html>
