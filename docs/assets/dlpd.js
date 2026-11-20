@@ -388,7 +388,7 @@
 
   // ---------- peta Target Operasi (TO) P2TL ----------
   // Skor potensi (maks. 90) dihitung di peta dari kolom daftar: lama tidak beli token, daya, status CT, riwayat P2TL.
-  const TO = { u: '', l: '0', c: '', k: '' };
+  const TO = { u: '', l: '0', c: '', k: '', h: '' };
   let pasca = null, pascaErr = '';
   const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400' };
   const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
@@ -408,6 +408,73 @@
       `Terakhir beli token: ${esc(c('beli_akhir') || '–')}${c('idle') != null ? ` (${c('idle')} bln)` : ''}<br>CT: ${c('ct') > 0 ? 'ada' : 'belum ada'} · P2TL: ${c('p2tl') > 0 ? c('p2tl') : '0'}<br>` +
       `<span class="to-badge" style="background:${LVC[lv]}">${LV[lv]} · skor ${sc.s}</span> <small>(lama ${sc.a} + daya ${sc.b} + belum CT ${sc.ct} + riwayat P2TL ${sc.p})</small><br>` +
       `<a href="https://www.google.com/maps/dir/?api=1&destination=${c('lat')},${c('lng')}" target="_blank" rel="noopener noreferrer">Navigasi di Google Maps ›</a></div>`;
+  }
+  // ---- hasil pemeriksaan TO (tabel to_inspections). Hasil normal / temuan / kosong menyembunyikan titik selama 3 bulan; 'akses' tetap tampil.
+  const HASIL = { normal: 'Normal', temuan: 'Temuan P2TL', kosong: 'Pelanggan tidak ditemukan / bangunan kosong', akses: 'Tidak bisa diakses' };
+  const HIDES = new Set(['normal', 'temuan', 'kosong']);
+  let insp = new Map(), inspErr = '', isEditor = false, inspLoaded = false, userMail = '';
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+  const inspActive = (r) => { const d = new Date(r.tanggal + 'T00:00:00'); d.setMonth(d.getMonth() + 3); return new Date() <= d; };  // muncul lagi setelah > 3 bulan
+  const inspHides = (idpel) => { const r = insp.get(String(idpel)); return !!r && HIDES.has(r.hasil) && inspActive(r); };
+  async function loadInsp(force) {
+    if (inspLoaded && !force) return;
+    inspErr = '';
+    try {
+      const sb = DashAuth.sb;
+      const { data: ses } = await sb.auth.getSession();
+      userMail = ((ses.session && ses.session.user.email) || '').toLowerCase();
+      const since = new Date(); since.setDate(since.getDate() - 130);
+      const m = new Map();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from('to_inspections').select('id,idpel,jenis,hasil,catatan,tanggal,created_by')
+          .gte('tanggal', since.toISOString().slice(0, 10)).order('tanggal', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
+        if (error) throw new Error(error.message);
+        data.forEach((r) => { if (!m.has(r.idpel)) m.set(r.idpel, r); });
+        if (data.length < 1000) break;
+      }
+      insp = m;
+      const { data: ed } = await sb.from('to_editors').select('email').maybeSingle();
+      isEditor = !!ed;
+      inspLoaded = true;
+    } catch (e) { inspErr = e.message; isEditor = false; insp = new Map(); }
+  }
+  function inspBlock(p) {
+    const id = String(p.id), r = insp.get(id);
+    let h = '';
+    if (r) {
+      h += `<div class="to-insp-last"><b>Pemeriksaan terakhir:</b> ${esc(HASIL[r.hasil] || r.hasil)} · ${esc(r.tanggal)}${r.catatan ? '<br>' + esc(r.catatan) : ''}` +
+        (HIDES.has(r.hasil) ? (inspActive(r) ? '<br><small>Disembunyikan dari peta sampai > 3 bulan sejak tanggal ini.</small>' : '<br><small>Sudah lewat 3 bulan, muncul kembali.</small>') : '') +
+        (isEditor ? ` <button type="button" class="b-link ti-del" data-id="${r.id}">Hapus catatan</button>` : '') + '</div>';
+    }
+    if (isEditor) {
+      h += '<div class="to-insp"><b>Input hasil pemeriksaan</b><select class="ti-h">' + Object.entries(HASIL).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('') + '</select>' +
+        `<input class="ti-d" type="date" value="${todayIso()}" max="${todayIso()}"><input class="ti-n" type="text" maxlength="300" placeholder="Catatan (opsional)"><button type="button" class="btn ti-s">Simpan</button><span class="ti-m"></span></div>`;
+    }
+    return h;
+  }
+  function popupFor(p) {
+    let html = p.kind === 'pasca' ? popupPasca(p.r) : toPopup(p.r, p.sc);
+    const extra = inspBlock(p);
+    if (!extra) return html;
+    html = html.replace(/<\/div>$/, extra + '</div>');
+    if (!isEditor) return html;
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    const msg = el.querySelector('.ti-m'), save = el.querySelector('.ti-s'), del = el.querySelector('.ti-del');
+    save.onclick = async () => {
+      save.disabled = true; msg.textContent = 'Menyimpan…';
+      const row = { idpel: String(p.id), jenis: p.kind, hasil: el.querySelector('.ti-h').value, catatan: el.querySelector('.ti-n').value.trim() || null, tanggal: el.querySelector('.ti-d').value || todayIso() };
+      const { error } = await DashAuth.sb.from('to_inspections').insert(row);
+      if (error) { save.disabled = false; msg.textContent = 'Gagal: ' + error.message; return; }
+      await loadInsp(true); tmap.closePopup(); drawTo(false);
+    };
+    if (del) del.onclick = async () => {
+      if (!confirm('Hapus catatan pemeriksaan ini?')) return;
+      const { error } = await DashAuth.sb.from('to_inspections').delete().eq('id', +del.dataset.id);
+      if (error) { msg.textContent = 'Gagal: ' + error.message; return; }
+      await loadInsp(true); tmap.closePopup(); drawTo(false);
+    };
+    return el;
   }
   function popupPasca(r) {
     const c = (k) => r[pasca.cols.indexOf(k)], lv = toLevel(c('s')), sd = c('sd');
@@ -432,7 +499,7 @@
       if (r[il] == null || r[ig] == null || !inArea(r[il], r[ig])) return;
       const sc = toScore(r);
       if (toLevel(sc.s) < +TO.l) return;
-      pts.push({ r, sc, kind: 'pra', la: r[il], ln: r[ig], u: r[iu], nm: r[c('nama')], dy: r[c('daya')],
+      pts.push({ r, sc, kind: 'pra', id: r[c('idpel')], la: r[il], ln: r[ig], u: r[iu], nm: r[c('nama')], dy: r[c('daya')],
         sub: `${r[c('idle')] != null ? r[c('idle')] + ' bln tidak beli' : 'tanpa data beli'}${r[c('ct')] > 0 ? '' : ' · belum CT'}` });
     });
     if (pasca && TO.k !== 'pra' && !TO.c) {
@@ -440,9 +507,11 @@
       pasca.rows.forEach((r) => {
         const u = g(r, 'ulp'), s_ = g(r, 's');
         if ((TO.u && u !== TO.u) || toLevel(s_) < +TO.l) return;
-        pts.push({ r, sc: { s: s_ }, kind: 'pasca', la: g(r, 'lat'), ln: g(r, 'lng'), u, nm: g(r, 'nama'), dy: g(r, 'daya'), sub: 'Pasca · ' + g(r, 'flags').map((f) => FLAG_LBL[f] || f).slice(0, 2).join(', ') });
+        pts.push({ r, sc: { s: s_ }, kind: 'pasca', id: g(r, 'idpel'), la: g(r, 'lat'), ln: g(r, 'lng'), u, nm: g(r, 'nama'), dy: g(r, 'daya'), sub: 'Pasca · ' + g(r, 'flags').map((f) => FLAG_LBL[f] || f).slice(0, 2).join(', ') });
       });
     }
+    let hidden = 0;
+    if (TO.h !== 'tampil') { for (let i = pts.length - 1; i >= 0; i--) if (inspHides(pts[i].id)) { pts.splice(i, 1); hidden++; } }
     if (tlayer) tlayer.remove();
     tlayer = L.layerGroup();
     // titik panas: sel ~0,005° (±550 m) dengan jumlah skor terbesar
@@ -459,9 +528,10 @@
     });
     // titik per pelanggan: warna = ULP; ukuran + cincin merah = tingkat potensi
     pts.slice().sort((a, b) => a.sc.s - b.sc.s).forEach((p) => {
+      const ri = insp.get(String(p.id)), tried = ri && ri.hasil === 'akses' && inspActive(ri);
       const lv = toLevel(p.sc.s), fc = ULP_COL[(tUlpIdx[p.u] || 0) % ULP_COL.length], Mk = p.kind === 'pasca' ? Diamond : L.CircleMarker;
-      new Mk([p.la, p.ln], { radius: lv === 2 ? 9 : lv === 1 ? 6.5 : 4, weight: lv === 2 ? 3 : lv === 1 ? 1.5 : 1, color: lv === 2 ? '#d6232a' : '#fff', fillColor: fc, fillOpacity: lv === 0 ? 0.65 : 0.95 })
-        .bindPopup(() => (p.kind === 'pasca' ? popupPasca(p.r) : toPopup(p.r, p.sc))).addTo(tlayer);
+      new Mk([p.la, p.ln], { radius: lv === 2 ? 9 : lv === 1 ? 6.5 : 4, weight: lv === 2 ? 3 : lv === 1 ? 1.5 : 1, color: lv === 2 ? '#d6232a' : '#fff', fillColor: fc, fillOpacity: lv === 0 ? 0.65 : 0.95, dashArray: tried ? '2 3' : null })
+        .bindPopup(() => popupFor(p), { maxWidth: 320 }).addTo(tlayer);
     });
     hot.forEach((e) => L.marker([e.la, e.ln], { icon: L.divIcon({ className: '', html: `<div class="to-pin">${e.rank}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 })
       .bindPopup(`<div class="d-pop"><b>Titik panas #${e.rank}</b><br>${e.n} pelanggan · ${e.hi} potensi sangat tinggi<br>Total skor ${fmt(e.sum)}</div>`).addTo(tlayer));
@@ -473,13 +543,14 @@
       `<span><i style="background:#fff;border:3px solid #d6232a;box-sizing:border-box"></i>Cincin merah = potensi sangat tinggi <b>${fmt(pts.filter((p) => toLevel(p.sc.s) === 2).length)}</b></span>` +
       '<span><i style="background:#d6232a;opacity:.25"></i>Lingkaran putus-putus = titik panas</span>';
     const nP = pts.filter((p) => p.kind === 'pasca').length;
-    $('dToHint').textContent = `Prabayar ${per().label}: ${fmt(pts.length - nP)} · Pascabayar ${pasca ? pasca.label : '(belum tersedia)'}: ${fmt(nP)} · warna = ULP · ukuran = tingkat potensi`;
+    $('dToHint').textContent = `Prabayar ${per().label}: ${fmt(pts.length - nP)} · Pascabayar ${pasca ? pasca.label : '(belum tersedia)'}: ${fmt(nP)} · warna = ULP · ukuran = tingkat potensi`
+      + (TO.h === 'tampil' ? '' : ` · ${fmt(hidden)} disembunyikan (sudah diperiksa)`) + (inspErr ? ' · hasil pemeriksaan tidak dapat dimuat' : '');
     $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
     const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.dy - a.dy).slice(0, 15);
     $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.la}" data-ln="${p.ln}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.nm || '-')}</b> · skor ${p.sc.s}<small>${esc(p.u)} · ${fmt(p.dy)} VA · ${esc(p.sub)}</small></span></button></li>`).join('');
     $('dToNote').textContent = 'Skor potensi (maks. 90) = lama tidak beli token (≥6 bln 40 · 5 bln 30 · 4 bln 20 · lainnya 10) + daya (≥3.500 VA 25 · ≥2.200 15 · ≥1.300 8 · lainnya 3) + belum ada CT 15 + pernah ada temuan P2TL 10. ' +
       'Sangat tinggi ≥ 65, tinggi 50–64. Skor ini alat bantu memilih TO, bukan bukti pelanggaran; verifikasi tetap lewat pemeriksaan lapangan.';
-    $('dToNote').textContent += ' Pascabayar (belah ketupat): skor = penanda DLPD Mon Billing terberat (kWh nol 45 · stand mundur 40 · <40 jam 35 · selisih >50% 25 · kVArh 20 · pecahan 15 · jam nyala >600 15 · >400 10) + 5 per penanda tambahan (maks. 15) + daya (sama seperti prabayar) + 10 bila bulan lalu juga tidak normal. Koordinat dari file DIL' + (pasca ? `; ${fmt(pasca.nocoord)} dari ${fmt(pasca.flagged)} pelanggan ber-penanda tidak punya koordinat` + (pasca.cut ? `; ${fmt(pasca.cut)} skor terendah tidak ditampilkan` : '') : '; data pascabayar belum tersedia (' + pascaErr + ')') + '.';
+    $('dToNote').textContent += ' Hasil pemeriksaan Normal, Temuan P2TL, dan Tidak ditemukan/kosong menyembunyikan titik selama 3 bulan (setelah itu muncul lagi bila masih masuk DLPD bulan berjalan); Tidak bisa diakses tetap tampil dengan garis putus-putus.' + (isEditor ? ' Klik titik untuk menginput hasil.' : '') + ' Pascabayar (belah ketupat): skor = penanda DLPD Mon Billing terberat (kWh nol 45 · stand mundur 40 · <40 jam 35 · selisih >50% 25 · kVArh 20 · pecahan 15 · jam nyala >600 15 · >400 10) + 5 per penanda tambahan (maks. 15) + daya (sama seperti prabayar) + 10 bila bulan lalu juga tidak normal. Koordinat dari file DIL' + (pasca ? `; ${fmt(pasca.nocoord)} dari ${fmt(pasca.flagged)} pelanggan ber-penanda tidak punya koordinat` + (pasca.cut ? `; ${fmt(pasca.cut)} skor terendah tidak ditampilkan` : '') : '; data pascabayar belum tersedia (' + pascaErr + ')') + '.';
   }
   async function renderTo() {
     const msg = $('dToMsg');
@@ -493,6 +564,7 @@
         if (data && data.data) pasca = data.data; else pascaErr = 'belum ada';
       } catch (e) { pascaErr = e.message; }
     }
+    await loadInsp();
     msg.hidden = true;
     if (tPeriod !== T.ym) {
       tPeriod = T.ym;
@@ -500,7 +572,7 @@
       const names = new Set(us.map((u) => u.name)); if (pasca) Object.keys(pasca.ulp_total || {}).forEach((n) => names.add(n));
       tUlpIdx = {}; [...names].sort().forEach((n, i) => { tUlpIdx[n] = i; });
       $('dToU').innerHTML = '<option value="">Semua ULP</option>' + Object.keys(tUlpIdx).map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-      TO.u = ''; TO.l = '0'; TO.c = ''; TO.k = ''; $('dToL').value = '0'; $('dToC').value = ''; $('dToK').value = '';
+      TO.u = ''; TO.l = '0'; TO.c = ''; TO.k = ''; TO.h = ''; $('dToL').value = '0'; $('dToC').value = ''; $('dToK').value = ''; $('dToH').value = '';
     }
     if (!tmap) {
       tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
@@ -558,7 +630,7 @@
     $('dDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('dDCsv').onclick = csvDetail;
     ['dMU:u', 'dMC:c', 'dMI:i'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { M[k] = e.target.value; if (map) drawMap(true); }; });
-    ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
+    ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k', 'dToH:h'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
     document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
     });
