@@ -367,6 +367,37 @@
     $('dMapLegend').innerHTML = BUCKET.map((b, k) => (cnt[k] ? `<span><i style="background:${b[1]}"></i>${b[0]} <b>${fmt(cnt[k])}</b></span>` : '')).join('');
     $('dMapHint').textContent = `${per().label} · ${fmt(pts.length)} titik di peta` + (nocoord ? ` · ${fmt(nocoord)} tanpa koordinat` : '') + (outside ? ` · ${fmt(outside)} koordinat di luar wilayah (diabaikan)` : '') + ' · klik titik untuk detail dan navigasi';
   }
+  // ---------- lokasi saya (GPS) pada peta ----------
+  function addLocate(m) {
+    const ctl = L.control({ position: 'topleft' });
+    ctl.onAdd = () => {
+      const b = L.DomUtil.create('a', 'leaflet-bar');
+      b.href = '#'; b.textContent = '◎';
+      b.style.cssText = 'background:#fff;width:34px;height:34px;line-height:34px;text-align:center;font-size:22px;color:#2a78d6;text-decoration:none;cursor:pointer';
+      L.DomEvent.disableClickPropagation(b);
+      let wid = null, dot = null, ring = null, first = true;
+      const stop = () => { if (wid != null) navigator.geolocation.clearWatch(wid); wid = null; if (dot) { m.removeLayer(dot); m.removeLayer(ring); dot = ring = null; } b.style.background = '#fff'; b.style.color = '#2a78d6'; };
+      L.DomEvent.on(b, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        if (!navigator.geolocation) { alert('Peramban tidak mendukung lokasi.'); return; }
+        if (wid != null) { if (dot) m.setView(dot.getLatLng(), Math.max(m.getZoom(), 16)); return; }
+        b.style.background = '#2a78d6'; b.style.color = '#fff'; first = true;
+        wid = navigator.geolocation.watchPosition((p) => {
+          const ll = [p.coords.latitude, p.coords.longitude];
+          if (!dot) {
+            ring = L.circle(ll, { radius: p.coords.accuracy, weight: 1, color: '#2a78d6', fillOpacity: 0.12, interactive: false }).addTo(m);
+            dot = L.circleMarker(ll, { radius: 8, weight: 3, color: '#fff', fillColor: '#2a78d6', fillOpacity: 1 }).addTo(m).bindTooltip('Lokasi saya');
+          } else { dot.setLatLng(ll); ring.setLatLng(ll); ring.setRadius(p.coords.accuracy); }
+          if (first) { first = false; m.setView(ll, 16); }
+        }, (er) => { stop(); alert('Lokasi tidak dapat diakses: ' + (er.code === 1 ? 'izin ditolak. Aktifkan izin lokasi untuk situs ini.' : er.message)); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+      });
+      L.DomEvent.on(b, 'dblclick', (e) => { L.DomEvent.stop(e); stop(); });
+      b.title = 'Lokasi saya (klik dua kali untuk mematikan)';
+      return b;
+    };
+    ctl.addTo(m);
+  }
+
   async function renderPeta() {
     const msg = $('dMapMsg');
     if (typeof L === 'undefined') { msg.hidden = false; msg.textContent = 'Pustaka peta tidak dapat dimuat.'; return; }
@@ -381,6 +412,7 @@
     if (!map) {
       map = L.map('dMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+      addLocate(map);
     }
     map.invalidateSize();
     drawMap(true);
@@ -577,6 +609,7 @@
     if (!tmap) {
       tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(tmap);
+      addLocate(tmap);
     }
     tmap.invalidateSize();
     drawTo(true);
