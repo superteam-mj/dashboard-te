@@ -91,6 +91,17 @@
           <button type="button" data-p="daftar">Daftar pergantian</button>
         </div>
       </div>
+      <div class="nav-group" data-g="pju">
+        <button type="button" data-v="pju" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1H9zm3-19a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/></svg><span>PJU Non Meter</span><i class="chev" aria-hidden="true"></i>
+        </button>
+        <div class="sub-nav" id="subPju" role="group" aria-label="Halaman PJU Non Meter">
+          <div class="sub-h">PJU Non Meter</div>
+          <button type="button" data-p="peta">Peta titik PJU</button>
+          <button type="button" data-p="rencana">Rencana kWh meter</button>
+          <button type="button" data-p="rab">RAB meterisasi</button>
+        </div>
+      </div>
       <div class="nav-group" data-g="susut">
         <button type="button" data-v="susut" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
@@ -667,6 +678,88 @@
     <footer class="foot" id="gFoot"></footer>
   </main>
 
+  <main class="wrap billing gm pju" id="pjuApp" aria-label="PJU Non Meter">
+    <div class="s-head"><div class="crumb" id="pjCrumb"></div></div>
+    <div class="s-msg" id="pjMsg" hidden></div>
+    <div id="pjBody" hidden>
+
+      <section class="card pj-assume" id="pjAssume" hidden>
+        <div class="card-head"><div><h2>Asumsi perencanaan</h2><p class="hint">Dihitung ulang langsung saat diubah · tersimpan di peramban ini</p></div><div class="tools"><button type="button" class="btn ghost" id="pjReset">Kembalikan awal</button></div></div>
+        <div class="b-dfilters">
+          <label class="field"><span>Radius per kWh meter (m)</span><input type="number" id="pjRadius" min="100" max="3000" step="50"></label>
+          <label class="field"><span>Faktor daya (cos φ)</span><input type="number" id="pjPf" min="0.5" max="1" step="0.01"></label>
+          <label class="field"><span>Harga kabel + aksesoris (Rp/m)</span><input type="number" id="pjCable" min="0" step="500"></label>
+          <label class="field"><span>Faktor lintasan kabel</span><input type="number" id="pjRoute" min="1" max="3" step="0.05" title="1 = garis lurus antar tiang; naikkan bila rute mengikuti jalan"></label>
+          <label class="field"><span>ROK (% dari NIDI+SLO)</span><input type="number" id="pjRok" min="0" max="100" step="1"></label>
+        </div>
+      </section>
+
+      <section class="b-page" data-p="peta">
+        <section class="kpis b-kpis b-k4" id="pjKpis" aria-label="Ringkasan titik PJU"></section>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Peta titik PJU Non Meter</h2><p class="hint" id="pjMapHint"></p></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="pjMU"></select></label>
+              <label class="field"><span>Jenis lampu</span><select id="pjMJ"></select></label>
+              <label class="field"><span>Warna titik</span><select id="pjMC"><option value="ulp">Menurut ULP</option><option value="watt">Menurut watt</option></select></label>
+            </div>
+            <div class="d-legend" id="pjMapLegend"></div>
+            <div id="pjMap" class="d-map" role="application" aria-label="Peta titik PJU Non Meter"></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Per ULP</h2><p class="hint">Titik "Tidak Ada" (0 W) tidak ikut rencana kWh meter</p></div></div>
+            <div class="table-wrap"><table id="pjUlpTbl" class="b-tbl"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="rencana" hidden>
+        <section class="kpis b-kpis b-k4" id="pjRKpis" aria-label="Ringkasan rencana kWh meter"></section>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Peta rencana kWh meter</h2><p class="hint" id="pjRHint"></p></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="pjRU"></select></label>
+              <label class="field"><span>Radius</span><select id="pjRR"><option value="0">Sembunyikan</option><option value="1">Tampilkan lingkaran radius</option></select></label>
+            </div>
+            <div class="d-legend" id="pjRLegend"></div>
+            <div id="pjRMap" class="d-map" role="application" aria-label="Peta rencana titik kWh meter"></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Kebutuhan daya per tangga PLN</h2><p class="hint">Total watt lampu ÷ faktor daya, dibulatkan ke tangga daya PLN di atasnya</p></div></div>
+            <div class="table-wrap"><table id="pjTierTbl" class="b-tbl"></table></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Daftar titik kWh meter</h2><p class="hint" id="pjMetHint"></p></div><div class="tools"><button type="button" class="btn" id="pjMetCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="table-wrap b-dwrap"><table id="pjMetTbl" class="b-tbl b-det"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="rab" hidden>
+        <div class="s-msg b-note" id="pjRabNote"></div>
+        <section class="kpis b-kpis b-k4" id="pjBKpis" aria-label="Ringkasan RAB"></section>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>RAB per ULP</h2><p class="hint">NIDI + SLO + ROK, ditambah biaya kabel penghubung lampu</p></div><div class="tools"><button type="button" class="btn" id="pjRabCsv">Unduh RAB (CSV)</button></div></div>
+            <div class="table-wrap"><table id="pjBUlp" class="b-tbl b-wide"></table></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Tarif NIDI &amp; SLO per tangga daya</h2><p class="hint">SLO: batas atas biaya pemeriksaan &amp; pengujian instalasi tegangan rendah (Permen ESDM 2/2025, Lampiran III). Isi tarif NIDI sesuai ketentuan yang berlaku.</p></div></div>
+            <div class="table-wrap"><table id="pjTarif" class="b-tbl"></table></div>
+          </article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>RAB per titik kWh meter</h2><p class="hint" id="pjBHint"></p></div></div>
+            <div class="b-dfilters"><label class="field"><span>ULP</span><select id="pjBU"></select></label></div>
+            <div class="table-wrap b-dwrap"><table id="pjBTbl" class="b-tbl b-det"></table></div>
+          </article>
+        </section>
+      </section>
+    </div>
+    <footer class="foot" id="pjFoot"></footer>
+  </main>
+
   <main class="wrap susut" id="susutApp" aria-label="Laporan Susut">
     <div class="s-head">
       <div class="crumb" id="sCrumb"></div>
@@ -718,6 +811,8 @@
   <script src="assets/billing.js"></script>
   <script src="assets/dlpd.js"></script>
   <script src="assets/gm.js"></script>
+  <script src="assets/pju-plan.js"></script>
+  <script src="assets/pju.js"></script>
   <script src="assets/beranda.js"></script>
   <script src="assets/susut.js"></script>
 </body>

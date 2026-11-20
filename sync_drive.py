@@ -40,6 +40,7 @@ FOLDER = "application/vnd.google-apps.folder"
 BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
 DLPD_DIR = "transaksi energi/dlpd prabayar/"  # menu DLPD Prabayar; bukan bagian dari 309
 DIL_DIR = "transaksi energi/dil/"  # koordinat pelanggan (untuk peta TO); bukan bagian dari 309
+PJU_DIR = "pengendalian susut/pju/"  # menu PJU Non Meter; bukan bagian dari Laporan Susut
 GM_DIR = "pemeliharaan meter/ganti meter h+1/"  # menu Pemeliharaan Meter > Ganti Meter H+1
 TOP = {
     "tul": ("Transaksi Energi", "309"),
@@ -48,6 +49,7 @@ TOP = {
     "gm": ("Pemeliharaan Meter", "Ganti Meter H+1"),
     "koordinat": ("Transaksi Energi", "DIL"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
+    "pju": ("Pengendalian Susut", "PJU"),
 }
 
 
@@ -298,6 +300,15 @@ def publish_gm(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_pju(sb: Supa, src: Path, work: Path):
+    import build_pju as bp
+    doc, warns = bp.build(src)
+    for x in doc["files"]:
+        print(f"    {x['file']}: {x['rows']} titik")
+    sb.upsert("tul_data", [{"id": "pju", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    return warns
+
+
 def publish_susut(sb: Supa, src: Path, work: Path):
     out = work / "susut.json"
     build_susut.main(src, out)
@@ -342,6 +353,10 @@ def _belongs(name: str, path_str: str) -> bool:
         return low.startswith(GM_DIR)
     if name == "koordinat":
         return low.startswith(DIL_DIR)
+    if name == "pju":
+        return low.startswith(PJU_DIR)
+    if name == "susut":
+        return not low.startswith(PJU_DIR)
     return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR) or low.startswith(DIL_DIR)) if name == "tul" else True
 
 
@@ -354,7 +369,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "koordinat": publish_koordinat}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "koordinat": publish_koordinat}
 
 
 def main():
@@ -362,7 +377,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
