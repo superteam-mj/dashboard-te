@@ -8,15 +8,16 @@
   let DATA = null, loading = null, TOTAL = 0;
   const S = { rep: 0, sheet: 0 };
 
-  function setView(v) {
+  function setView(v, page) {
     document.body.dataset.view = v;
+    const nv = v === 'dlpd' && (page === 'to' || page === 'hasil') ? 'p2tl' : v; // P2TL = halaman DLPD yang ditampilkan di menu Pengendalian Susut
     // menu induk: transaksi = Penjualan + Mon Billing + DLPD; susut = Susut Distribusi + PJU Non Meter
-    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', gm: 'gm', amr: 'gm', beranda: 'beranda' };
+    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', p2tl: 'susut', gm: 'gm', amr: 'gm', beranda: 'beranda' };
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === v : b.dataset.v === TOP[v] && !b.closest('.sub-groups')));
+      b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === nv : b.dataset.v === TOP[nv] && !b.closest('.sub-groups')));
     });
-    document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === TOP[v]));
-    document.querySelectorAll('#sections .sub-group').forEach((g) => g.classList.toggle('open', g.dataset.sg === v));
+    document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === TOP[nv]));
+    document.querySelectorAll('#sections .sub-group').forEach((g) => g.classList.toggle('open', g.dataset.sg === nv));
     const T = { susut: ['Pengendalian Susut · Susut Distribusi', 'Laporan Susut — Dashboard TE'],
       transaksi: ['Transaksi Energi · Penjualan', 'Dashboard Penjualan Listrik'],
       billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
@@ -25,8 +26,9 @@
       gm: ['Pemeliharaan Meter · Ganti Meter', 'Ganti Meter — Dashboard TE'],
       amr: ['Pemeliharaan Meter · Automatic Meter Reading', 'Automatic Meter Reading — Dashboard TE'],
       beranda: ['Beranda · Ringkasan semua menu', 'Beranda — Dashboard TE'] };
-    $('subtitle').textContent = T[v][0];
-    document.title = T[v][1];
+    T.p2tl = ['Pengendalian Susut · P2TL', 'P2TL — Dashboard TE'];
+    $('subtitle').textContent = T[nv][0];
+    document.title = T[nv][1];
     document.body.classList.remove('nav-open');
   }
 
@@ -588,7 +590,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'amr' ? showAmr() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'p2tl' ? window.DashDlpd.show('to') : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'amr' ? showAmr() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
     });
     initSubnav();
     // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
@@ -600,7 +602,7 @@
       const go = b.onclick;
       b.onclick = (e) => {
         const g = b.parentElement;
-        if (g.classList.contains('open') && document.body.dataset.view === b.dataset.v) { g.classList.remove('open'); return; }
+        if (g.classList.contains('open') && b.getAttribute('aria-pressed') === 'true') { g.classList.remove('open'); return; }
         go.call(b, e);
       };
     });

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=5">
+  <link rel="stylesheet" href="assets/style.css?v=6">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -71,8 +71,6 @@
             <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
             <button type="button" data-p="tren">Tren &amp; perubahan</button>
             <button type="button" data-p="peta">Peta pelanggan</button>
-            <button type="button" data-p="to">Peta Target Operasi P2TL</button>
-            <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
             <button type="button" data-p="daftar">Daftar pelanggan</button>
             </div>
           </div>
@@ -116,6 +114,13 @@
               <button type="button" data-p="peta">Peta titik PJU</button>
               <button type="button" data-p="rencana">Rencana kWh meter</button>
               <button type="button" data-p="rab">RAB meterisasi</button>
+            </div>
+          </div>
+          <div class="sub-group" data-sg="p2tl">
+            <button type="button" class="sg-h" data-v="p2tl" aria-pressed="false"><span>P2TL</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subP2tl" role="group" aria-label="Halaman P2TL">
+              <button type="button" data-p="to">Peta Target Operasi P2TL</button>
+              <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
             </div>
           </div>
         </div>
@@ -818,19 +823,19 @@
 
   <div class="loading" id="loading">Memuat data…</div>
 
-  <script src="assets/supabase.js?v=5"></script><!-- supabase-js 2.45.4 (MIT) -->
-  <script src="assets/config.js?v=5"></script>
-  <script src="assets/auth.js?v=5"></script>
+  <script src="assets/supabase.js?v=6"></script><!-- supabase-js 2.45.4 (MIT) -->
+  <script src="assets/config.js?v=6"></script>
+  <script src="assets/auth.js?v=6"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
-    <script src="assets/app.js?v=5"></script>
+    <script src="assets/app.js?v=6"></script>
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
-  <script src="assets/share.js?v=5"></script>
-  <script src="assets/billing.js?v=5"></script>
-  <script src="assets/dlpd.js?v=5"></script>
-  <script src="assets/gm.js?v=5"></script>
-  <script src="assets/pju-plan.js?v=5"></script>
-  <script src="assets/pju.js?v=5"></script>
-  <script src="assets/beranda.js?v=5"></script>
-  <script src="assets/susut.js?v=5"></script>
+  <script src="assets/share.js?v=6"></script>
+  <script src="assets/billing.js?v=6"></script>
+  <script src="assets/dlpd.js?v=6"></script>
+  <script src="assets/gm.js?v=6"></script>
+  <script src="assets/pju-plan.js?v=6"></script>
+  <script src="assets/pju.js?v=6"></script>
+  <script src="assets/beranda.js?v=6"></script>
+  <script src="assets/susut.js?v=6"></script>
 </body>
 </html>

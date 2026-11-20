@@ -665,12 +665,12 @@
   const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', to: 'Peta Target Operasi P2TL', hasil: 'Hasil pemeriksaan TO', daftar: 'Daftar pelanggan' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
-    $('dCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><span>DLPD Prabayar</span><i>›</i><b>${TITLE[T.page]}</b>`;
+    $('dCrumb').innerHTML = (T.page === 'to' || T.page === 'hasil' ? '<span>Pengendalian Susut</span><i>›</i><span>P2TL</span>' : '<span>Transaksi Energi</span><i>›</i><span>DLPD Prabayar</span>') + `<i>›</i><b>${TITLE[T.page]}</b>`;
     const sel = $('dPeriod');
     sel.innerHTML = D.order.map((k) => `<option value="${k}"${k === T.ym ? ' selected' : ''}>${esc(D.periods[k].label)}</option>`).join('');
     sel.hidden = D.order.length < 2 || T.page === 'tren';
     document.querySelectorAll('#dBody .b-page').forEach((el) => { el.hidden = el.dataset.p !== T.page; });
-    document.querySelectorAll('#subDlpd button[data-p]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.p === T.page)));
+    document.querySelectorAll('#subDlpd button[data-p], #subP2tl button[data-p]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.p === T.page)));
     PAGES[T.page]();
     const gen = new Date(D.generated_at);
     $('dFoot').innerHTML = `Sumber: Excel DLPD Prabayar (${esc(per().files.length)} file, ${esc(per().label)}) · CT dan P2TL mengikuti kolom jmlCt dan jmlP2tl · Data diperbarui ${gen.toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}`;
@@ -679,8 +679,8 @@
 
   const hashPage = () => { const m = location.hash.match(/^#dlpd(?:\/(\w+))?/); return m && PAGES[m[1]] ? m[1] : 'ringkasan'; };
   async function show(page, keepFilter) {
-    window.DashSetView('dlpd');
     T.page = page || hashPage();
+    window.DashSetView('dlpd', T.page);
     if (!keepFilter && page) { Object.keys(F).forEach((k) => { F[k] = k === 'x' ? null : ''; }); T.pg = 0; }
     const h = '#dlpd' + (T.page === 'ringkasan' ? '' : '/' + T.page);
     if (location.hash !== h) history.replaceState(null, '', location.pathname + location.search + h);
@@ -712,11 +712,11 @@
     document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
     });
-    $('subDlpd').addEventListener('click', (e) => {
+    ['subDlpd', 'subP2tl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');
       show(b.dataset.p);
-    });
+    }));
     window.addEventListener('resize', () => Object.values(charts).forEach((c) => c.getDom() && c.getDom().isConnected && c.resize()));
     new MutationObserver(() => { if (D && document.body.dataset.view === 'dlpd') renderAll(); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
