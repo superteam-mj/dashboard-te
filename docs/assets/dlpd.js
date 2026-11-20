@@ -367,6 +367,37 @@
     $('dMapLegend').innerHTML = BUCKET.map((b, k) => (cnt[k] ? `<span><i style="background:${b[1]}"></i>${b[0]} <b>${fmt(cnt[k])}</b></span>` : '')).join('');
     $('dMapHint').textContent = `${per().label} · ${fmt(pts.length)} titik di peta` + (nocoord ? ` · ${fmt(nocoord)} tanpa koordinat` : '') + (outside ? ` · ${fmt(outside)} koordinat di luar wilayah (diabaikan)` : '') + ' · klik titik untuk detail dan navigasi';
   }
+  // ---------- lokasi saya (GPS) pada peta ----------
+  function addLocate(m) {
+    const ctl = L.control({ position: 'topleft' });
+    ctl.onAdd = () => {
+      const b = L.DomUtil.create('a', 'leaflet-bar');
+      b.href = '#'; b.textContent = '◎';
+      b.style.cssText = 'background:#fff;width:34px;height:34px;line-height:34px;text-align:center;font-size:22px;color:#2a78d6;text-decoration:none;cursor:pointer';
+      L.DomEvent.disableClickPropagation(b);
+      let wid = null, dot = null, ring = null, first = true;
+      const stop = () => { if (wid != null) navigator.geolocation.clearWatch(wid); wid = null; if (dot) { m.removeLayer(dot); m.removeLayer(ring); dot = ring = null; } b.style.background = '#fff'; b.style.color = '#2a78d6'; };
+      L.DomEvent.on(b, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        if (!navigator.geolocation) { alert('Peramban tidak mendukung lokasi.'); return; }
+        if (wid != null) { if (dot) m.setView(dot.getLatLng(), Math.max(m.getZoom(), 16)); return; }
+        b.style.background = '#2a78d6'; b.style.color = '#fff'; first = true;
+        wid = navigator.geolocation.watchPosition((p) => {
+          const ll = [p.coords.latitude, p.coords.longitude];
+          if (!dot) {
+            ring = L.circle(ll, { radius: p.coords.accuracy, weight: 1, color: '#2a78d6', fillOpacity: 0.12, interactive: false }).addTo(m);
+            dot = L.circleMarker(ll, { radius: 8, weight: 3, color: '#fff', fillColor: '#2a78d6', fillOpacity: 1 }).addTo(m).bindTooltip('Lokasi saya');
+          } else { dot.setLatLng(ll); ring.setLatLng(ll); ring.setRadius(p.coords.accuracy); }
+          if (first) { first = false; m.setView(ll, 16); }
+        }, (er) => { stop(); alert('Lokasi tidak dapat diakses: ' + (er.code === 1 ? 'izin ditolak. Aktifkan izin lokasi untuk situs ini.' : er.message)); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+      });
+      L.DomEvent.on(b, 'dblclick', (e) => { L.DomEvent.stop(e); stop(); });
+      b.title = 'Lokasi saya (klik dua kali untuk mematikan)';
+      return b;
+    };
+    ctl.addTo(m);
+  }
+
   async function renderPeta() {
     const msg = $('dMapMsg');
     if (typeof L === 'undefined') { msg.hidden = false; msg.textContent = 'Pustaka peta tidak dapat dimuat.'; return; }
@@ -381,6 +412,7 @@
     if (!map) {
       map = L.map('dMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+      addLocate(map);
     }
     map.invalidateSize();
     drawMap(true);
@@ -577,14 +609,60 @@
     if (!tmap) {
       tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(tmap);
+      addLocate(tmap);
     }
     tmap.invalidateSize();
     drawTo(true);
   }
 
+  // ---------- hasil pemeriksaan TO ----------
+  let hsRows = null, hsBound = false;
+  async function renderHasil() {
+    const msg = $('dHsMsg');
+    if (!hsBound) {
+      hsBound = true;
+      $('dHsH').innerHTML = '<option value="">Semua hasil</option>' + Object.entries(HASIL).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+      ['dHsH', 'dHsJ', 'dHsD1', 'dHsD2'].forEach((i) => $(i).addEventListener('change', drawHasil));
+      $('dHsQ').addEventListener('input', drawHasil);
+      $('dHsCsv').addEventListener('click', () => {
+        const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const csv = '﻿Tanggal,IDPEL,Jenis,Hasil,Catatan,Penginput\n' + hsFiltered().map((r) => [r.tanggal, r.idpel, r.jenis === 'pasca' ? 'Pascabayar' : 'Prabayar', HASIL[r.hasil] || r.hasil, r.catatan, r.created_by].map(q).join(',')).join('\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'hasil-pemeriksaan-to.csv'; a.click();
+      });
+    }
+    msg.hidden = false; msg.textContent = 'Memuat hasil pemeriksaan…';
+    try {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await DashAuth.sb.from('to_inspections').select('id,idpel,jenis,hasil,catatan,tanggal,created_by')
+          .order('tanggal', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
+        if (error) throw new Error(error.message);
+        out.push(...data);
+        if (data.length < 1000) break;
+      }
+      hsRows = out; msg.hidden = true;
+    } catch (e) { hsRows = null; msg.textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    drawHasil();
+  }
+  function hsFiltered() {
+    const h = $('dHsH').value, j = $('dHsJ').value, d1 = $('dHsD1').value, d2 = $('dHsD2').value, q = $('dHsQ').value.trim().toLowerCase();
+    return (hsRows || []).filter((r) => (!h || r.hasil === h) && (!j || r.jenis === j) && (!d1 || r.tanggal >= d1) && (!d2 || r.tanggal <= d2) &&
+      (!q || String(r.idpel).toLowerCase().includes(q) || (r.catatan || '').toLowerCase().includes(q)));
+  }
+  function drawHasil() {
+    const rows = hsFiltered(), cnt = {};
+    rows.forEach((r) => { cnt[r.hasil] = (cnt[r.hasil] || 0) + 1; });
+    $('dHsHint').textContent = `${fmt(rows.length)} dari ${fmt((hsRows || []).length)} catatan pemeriksaan`;
+    $('dHsSum').innerHTML = Object.entries(HASIL).map(([k, v]) => `<span style="margin-right:14px"><b>${fmt(cnt[k] || 0)}</b> ${esc(v)}</span>`).join('');
+    const shown = rows.slice(0, 500);
+    $('dHsTbl').innerHTML = '<thead><tr><th>Tanggal</th><th>IDPEL</th><th>Jenis</th><th>Hasil</th><th>Catatan</th><th>Penginput</th></tr></thead><tbody>' +
+      (shown.map((r) => `<tr><td>${esc(r.tanggal)}</td><td>${esc(r.idpel)}</td><td>${r.jenis === 'pasca' ? 'Pascabayar' : 'Prabayar'}</td><td>${esc(HASIL[r.hasil] || r.hasil)}</td><td>${esc(r.catatan || '')}</td><td>${esc(r.created_by || '')}</td></tr>`).join('') || '<tr><td colspan="6">Belum ada data.</td></tr>') +
+      '</tbody>' + (rows.length > 500 ? `<tfoot><tr><td colspan="6">Menampilkan 500 teratas; persempit filter atau unduh CSV untuk semuanya (${fmt(rows.length)}).</td></tr></tfoot>` : '');
+  }
+
   // ---------- halaman ----------
-  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, peta: renderPeta, to: renderTo, daftar: renderDaftar };
-  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', to: 'Peta Target Operasi P2TL', daftar: 'Daftar pelanggan' };
+  const PAGES = { ringkasan: renderRingkasan, karakter: renderKarakter, tindak: renderTindak, tren: renderTren, peta: renderPeta, to: renderTo, hasil: renderHasil, daftar: renderDaftar };
+  const TITLE = { ringkasan: 'Ringkasan', karakter: 'Karakteristik pelanggan', tindak: 'Tindak lanjut (CT & P2TL)', tren: 'Tren & perubahan', peta: 'Peta pelanggan', to: 'Peta Target Operasi P2TL', hasil: 'Hasil pemeriksaan TO', daftar: 'Daftar pelanggan' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
     $('dCrumb').innerHTML = `<span>Transaksi Energi</span><i>›</i><span>DLPD Prabayar</span><i>›</i><b>${TITLE[T.page]}</b>`;
