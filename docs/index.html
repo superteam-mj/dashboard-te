@@ -39,42 +39,43 @@
         <button type="button" data-v="transaksi" aria-pressed="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>Transaksi Energi</span><i class="chev" aria-hidden="true"></i>
         </button>
-        <div class="sub-nav" id="subTransaksi" role="group" aria-label="Bagian Transaksi Energi">
-          <button type="button" data-t="#kpis">Ringkasan</button>
-          <button type="button" data-t="#cardPng">Data Pengusahaan</button>
-          <button type="button" data-t="#chTrend">Tren bulanan</button>
-          <button type="button" data-t="#cardCmp">Perbandingan antar unit</button>
-          <button type="button" data-t="#chGol">Komposisi golongan</button>
-          <button type="button" data-t="#chMix">Pascabayar vs Prabayar</button>
-          <button type="button" data-t="#chTop">10 tarif terbesar</button>
-          <button type="button" data-t="#tbl">Detail per tarif</button>
-        </div>
-      </div>
-      <div class="nav-group" data-g="billing">
-        <button type="button" data-v="billing" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zm8 1.5V8h4.5zM9 12h8v1.5H9zm0 3.5h8V17H9zM9 19h5v1.5H9z"/></svg><span>Mon Billing</span><i class="chev" aria-hidden="true"></i>
-        </button>
-        <div class="sub-nav" id="subBilling" role="group" aria-label="Halaman Mon Billing">
-          <button type="button" data-p="ringkasan">Ringkasan</button>
-          <button type="button" data-p="tren">Tren &amp; perbandingan</button>
-          <button type="button" data-p="sebab">Penyebab naik/turun kWh</button>
-          <button type="button" data-p="anomali">Anomali berulang</button>
-          <button type="button" data-p="pelanggan">Pelanggan baru/hilang</button>
-        </div>
-      </div>
-      <div class="nav-group" data-g="dlpd">
-        <button type="button" data-v="dlpd" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10v2h-2v3.2l3.6 6.3A4 4 0 0 1 15.1 19H8.9a4 4 0 0 1-3.5-5.5L9 7.2V4H7zm4 2v4l-4 7a2 2 0 0 0 1.9 2.9h6.2A2 2 0 0 0 17 15l-4-7V4z"/></svg><span>DLPD Prabayar</span><i class="chev" aria-hidden="true"></i>
-        </button>
-        <div class="sub-nav" id="subDlpd" role="group" aria-label="Halaman DLPD Prabayar">
-          <button type="button" data-p="ringkasan">Ringkasan</button>
-          <button type="button" data-p="karakter">Karakteristik pelanggan</button>
-          <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
-          <button type="button" data-p="tren">Tren &amp; perubahan</button>
-          <button type="button" data-p="peta">Peta pelanggan</button>
-          <button type="button" data-p="to">Peta Target Operasi P2TL</button>
-          <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
-          <button type="button" data-p="daftar">Daftar pelanggan</button>
+        <div class="sub-groups">
+          <div class="sub-group open" data-sg="transaksi">
+            <button type="button" class="sg-h" data-v="transaksi" aria-pressed="false"><span>Penjualan</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subTransaksi" role="group" aria-label="Bagian Penjualan">
+            <button type="button" data-t="#kpis">Ringkasan</button>
+            <button type="button" data-t="#cardPng">Data Pengusahaan</button>
+            <button type="button" data-t="#chTrend">Tren bulanan</button>
+            <button type="button" data-t="#cardCmp">Perbandingan antar unit</button>
+            <button type="button" data-t="#chGol">Komposisi golongan</button>
+            <button type="button" data-t="#chMix">Pascabayar vs Prabayar</button>
+            <button type="button" data-t="#chTop">10 tarif terbesar</button>
+            <button type="button" data-t="#tbl">Detail per tarif</button>
+            </div>
+          </div>
+          <div class="sub-group" data-sg="billing">
+            <button type="button" class="sg-h" data-v="billing" aria-pressed="false"><span>Mon Billing</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subBilling" role="group" aria-label="Halaman Mon Billing">
+            <button type="button" data-p="ringkasan">Ringkasan</button>
+            <button type="button" data-p="tren">Tren &amp; perbandingan</button>
+            <button type="button" data-p="sebab">Penyebab naik/turun kWh</button>
+            <button type="button" data-p="anomali">Anomali berulang</button>
+            <button type="button" data-p="pelanggan">Pelanggan baru/hilang</button>
+            </div>
+          </div>
+          <div class="sub-group" data-sg="dlpd">
+            <button type="button" class="sg-h" data-v="dlpd" aria-pressed="false"><span>DLPD Prabayar</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subDlpd" role="group" aria-label="Halaman DLPD Prabayar">
+            <button type="button" data-p="ringkasan">Ringkasan</button>
+            <button type="button" data-p="karakter">Karakteristik pelanggan</button>
+            <button type="button" data-p="tindak">Tindak lanjut (CT &amp; P2TL)</button>
+            <button type="button" data-p="tren">Tren &amp; perubahan</button>
+            <button type="button" data-p="peta">Peta pelanggan</button>
+            <button type="button" data-p="to">Peta Target Operasi P2TL</button>
+            <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
+            <button type="button" data-p="daftar">Daftar pelanggan</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="nav-group" data-g="gm">
@@ -91,22 +92,25 @@
           <button type="button" data-p="daftar">Daftar pergantian</button>
         </div>
       </div>
-      <div class="nav-group" data-g="pju">
-        <button type="button" data-v="pju" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1H9zm3-19a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/></svg><span>PJU Non Meter</span><i class="chev" aria-hidden="true"></i>
-        </button>
-        <div class="sub-nav" id="subPju" role="group" aria-label="Halaman PJU Non Meter">
-          <div class="sub-h">PJU Non Meter</div>
-          <button type="button" data-p="peta">Peta titik PJU</button>
-          <button type="button" data-p="rencana">Rencana kWh meter</button>
-          <button type="button" data-p="rab">RAB meterisasi</button>
-        </div>
-      </div>
       <div class="nav-group" data-g="susut">
         <button type="button" data-v="susut" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h2v12h14v2zm4-4V9h3v6zm5 0V6h3v9zm5 0v-4h3v4z"/></svg><span>Pengendalian Susut</span><i class="chev" aria-hidden="true"></i>
         </button>
-        <div class="sub-nav" id="subSusut" role="group" aria-label="Halaman Laporan Susut"></div>
+        <div class="sub-groups">
+          <div class="sub-group" data-sg="susut">
+            <button type="button" class="sg-h" data-v="susut" aria-pressed="false"><span>Susut Distribusi</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subSusut" role="group" aria-label="Halaman Laporan Susut">
+            </div>
+          </div>
+          <div class="sub-group" data-sg="pju">
+            <button type="button" class="sg-h" data-v="pju" aria-pressed="false"><span>PJU Non Meter</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subPju" role="group" aria-label="Halaman PJU Non Meter">
+              <button type="button" data-p="peta">Peta titik PJU</button>
+              <button type="button" data-p="rencana">Rencana kWh meter</button>
+              <button type="button" data-p="rab">RAB meterisasi</button>
+            </div>
+          </div>
+        </div>
       </div>
     </nav>
   </aside>

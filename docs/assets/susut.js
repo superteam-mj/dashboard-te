@@ -10,10 +10,15 @@
 
   function setView(v) {
     document.body.dataset.view = v;
-    document.querySelectorAll('#sections button[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
-    document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === v));
-    const T = { susut: ['Pengendalian Susut · Laporan Susut', 'Laporan Susut — Dashboard TE'],
-      transaksi: ['Transaksi Energi · Laporan TUL III-09', 'Dashboard Penjualan Listrik'],
+    // menu induk: transaksi = Penjualan + Mon Billing + DLPD; susut = Susut Distribusi + PJU Non Meter
+    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', gm: 'gm', beranda: 'beranda' };
+    document.querySelectorAll('#sections button[data-v]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === v : b.dataset.v === TOP[v] && !b.closest('.sub-groups')));
+    });
+    document.querySelectorAll('#sections .nav-group').forEach((g) => g.classList.toggle('open', g.dataset.g === TOP[v]));
+    document.querySelectorAll('#sections .sub-group').forEach((g) => g.classList.toggle('open', g.dataset.sg === v));
+    const T = { susut: ['Pengendalian Susut · Susut Distribusi', 'Laporan Susut — Dashboard TE'],
+      transaksi: ['Transaksi Energi · Penjualan', 'Dashboard Penjualan Listrik'],
       billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
       dlpd: ['Transaksi Energi · DLPD Prabayar', 'DLPD Prabayar — Dashboard TE'],
       pju: ['Pengendalian Susut · PJU Non Meter', 'PJU Non Meter — Dashboard TE'],

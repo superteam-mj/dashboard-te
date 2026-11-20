@@ -98,7 +98,15 @@ h2 { font-size: 15.5px; }
 .side-nav .chev { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); opacity: .55; transition: transform .2s; flex: none; }
 .nav-group.open > button .chev { transform: rotate(45deg); }
 .sub-nav { display: none; flex-direction: column; gap: 1px; margin: 4px 0 6px 21px; padding-left: 12px; border-left: 2px solid var(--grid); }
-.nav-group.open .sub-nav { display: flex; }
+.nav-group.open > .sub-nav { display: flex; }
+.sub-groups { display: none; flex-direction: column; gap: 2px; margin: 4px 0 6px 21px; padding-left: 12px; border-left: 2px solid var(--grid); }
+.nav-group.open > .sub-groups { display: flex; }
+.sub-group .sub-nav { margin: 2px 0 6px 12px; }
+.sub-group.open > .sub-nav { display: flex; }
+.side-nav .sg-h { height: 36px; padding: 0 10px; gap: 8px; border-radius: 9px; font-size: 13.5px; font-weight: 650; }
+.side-nav .sg-h .chev { width: 7px; height: 7px; }
+.sub-group.open > .sg-h .chev { transform: rotate(45deg); }
+.side-nav .sg-h[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); box-shadow: none; }
 .sub-nav button {
   height: 34px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 550;
   text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .15s, background .15s;
