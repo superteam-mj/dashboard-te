@@ -73,6 +73,7 @@
           <button type="button" data-p="tren">Tren &amp; perubahan</button>
           <button type="button" data-p="peta">Peta pelanggan</button>
           <button type="button" data-p="to">Peta Target Operasi P2TL</button>
+          <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
           <button type="button" data-p="daftar">Daftar pelanggan</button>
         </div>
       </div>
@@ -533,6 +534,25 @@
               </aside>
             </div>
             <p class="hint to-note" id="dToNote"></p>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="hasil" hidden>
+        <section class="grid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Hasil pemeriksaan Target Operasi (TO)</h2><p class="hint" id="dHsHint"></p></div>
+              <div class="tools"><button type="button" class="btn" id="dHsCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>Hasil</span><select id="dHsH"></select></label>
+              <label class="field"><span>Jenis pelanggan</span><select id="dHsJ"><option value="">Prabayar &amp; pascabayar</option><option value="pra">Prabayar</option><option value="pasca">Pascabayar</option></select></label>
+              <label class="field"><span>Dari tanggal</span><input type="date" id="dHsD1"></label>
+              <label class="field"><span>Sampai tanggal</span><input type="date" id="dHsD2"></label>
+              <label class="field"><span>Cari IDPEL / catatan</span><input type="search" id="dHsQ" placeholder="ketik…"></label>
+            </div>
+            <div class="d-legend" id="dHsSum"></div>
+            <div class="s-msg" id="dHsMsg" hidden></div>
+            <div class="s-wrap" tabindex="0"><table class="s-tbl" id="dHsTbl"></table></div>
           </article>
         </section>
       </section>
