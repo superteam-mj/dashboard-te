@@ -39,12 +39,14 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
 BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
 DLPD_DIR = "transaksi energi/dlpd prabayar/"  # menu DLPD Prabayar; bukan bagian dari 309
+DIL_DIR = "transaksi energi/dil/"  # koordinat pelanggan (untuk peta TO); bukan bagian dari 309
 GM_DIR = "pemeliharaan meter/ganti meter h+1/"  # menu Pemeliharaan Meter > Ganti Meter H+1
 TOP = {
     "tul": ("Transaksi Energi", "309"),
     "billing": ("Transaksi Energi", "Mon Billing"),
     "dlpd": ("Transaksi Energi", "DLPD PRABAYAR"),
     "gm": ("Pemeliharaan Meter", "Ganti Meter H+1"),
+    "koordinat": ("Transaksi Energi", "DIL"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
 }
 
@@ -247,6 +249,34 @@ def publish_dlpd(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_koordinat(sb: Supa, src: Path, work: Path):
+    """Gabungkan koordinat DIL dengan pelanggan pascabayar ber-penanda DLPD (Mon Billing) -> tul_data id='to:pasca'."""
+    import build_billing as bb
+    import build_to as bt
+    coords, info, warns = bt.load_coords(src)
+    print("    koordinat:", {i["file"]: i["ok"] for i in info}, f"total {len(coords)}")
+    if not coords:
+        raise RuntimeError("tidak ada koordinat yang terbaca")
+    b = sb.select("tul_data", "select=data&id=eq.billing")
+    order = ((b[0].get("data") or {}).get("order") or []) if b else []
+    if not order:
+        if sb.dry:
+            return warns
+        raise RuntimeError("data Mon Billing belum ada; peta TO pascabayar menunggu sinkron Mon Billing")
+    ym = order[-1]
+    lists = {}
+    for k, _ in bb.FLAGS:
+        r = sb.select("tul_data", f"select=data&id=eq.bd:{ym}:{k}")
+        if r:
+            lists[k] = r[0]["data"]
+    doc = bt.build_pasca(ym, lists, coords)
+    doc["files"] = info
+    doc["generated_at"] = now()
+    print(f"    pascabayar {ym}: {doc['flagged']} ber-penanda, {len(doc['rows'])} di peta, {doc['nocoord']} tanpa koordinat")
+    sb.upsert("tul_data", [{"id": "to:pasca", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    return warns
+
+
 def publish_gm(sb: Supa, src: Path, work: Path):
     import build_gm as bg
     summary, detail, warns = bg.build(src)
@@ -310,7 +340,9 @@ def _belongs(name: str, path_str: str) -> bool:
         return low.startswith(DLPD_DIR)
     if name == "gm":
         return low.startswith(GM_DIR)
-    return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR)) if name == "tul" else True
+    if name == "koordinat":
+        return low.startswith(DIL_DIR)
+    return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR) or low.startswith(DIL_DIR)) if name == "tul" else True
 
 
 def _ci_dir(parent: Path, name: str) -> Path:
@@ -322,7 +354,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "koordinat": publish_koordinat}
 
 
 def main():
@@ -330,7 +362,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
@@ -382,7 +414,11 @@ def main():
             if not listing:
                 print("  Tidak ada file .xlsx — dilewati.")
                 continue
-            manifest = manifest_of({k: v[0] for k, v in listing.items()})
+            marks = {k: v[0] for k, v in listing.items()}
+            if name == "koordinat":  # hasil gabungan juga bergantung pada data Mon Billing -> ikut dibangun ulang bila itu berubah
+                b = sb.select("tul_data", "select=generated_at&id=eq.billing")
+                marks["_mon_billing"] = (b[0].get("generated_at") if b else "") or ""
+            manifest = manifest_of(marks)
             if not a.force and state.get(f"manifest_{name}", {}).get("files") == manifest:
                 print(f"  {len(listing)} file, tidak ada perubahan.")
                 continue

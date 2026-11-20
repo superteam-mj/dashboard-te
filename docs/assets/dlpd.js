@@ -388,7 +388,9 @@
 
   // ---------- peta Target Operasi (TO) P2TL ----------
   // Skor potensi (maks. 90) dihitung di peta dari kolom daftar: lama tidak beli token, daya, status CT, riwayat P2TL.
-  const TO = { u: '', l: '0', c: '' };
+  const TO = { u: '', l: '0', c: '', k: '' };
+  let pasca = null, pascaErr = '';
+  const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400' };
   const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
   let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {};
   function toScore(r) {
@@ -407,24 +409,48 @@
       `<span class="to-badge" style="background:${LVC[lv]}">${LV[lv]} · skor ${sc.s}</span> <small>(lama ${sc.a} + daya ${sc.b} + belum CT ${sc.ct} + riwayat P2TL ${sc.p})</small><br>` +
       `<a href="https://www.google.com/maps/dir/?api=1&destination=${c('lat')},${c('lng')}" target="_blank" rel="noopener noreferrer">Navigasi di Google Maps ›</a></div>`;
   }
+  function popupPasca(r) {
+    const c = (k) => r[pasca.cols.indexOf(k)], lv = toLevel(c('s')), sd = c('sd');
+    return `<div class="d-pop"><b>${esc(c('nama') || '-')}</b> <small>(pascabayar)</small><br>${esc(c('idpel'))}<br>${esc(c('alamat') || '')}<br>${esc(c('ulp'))} · ${esc(c('tarif'))} · ${fmt(c('daya'))} VA<br>` +
+      `Penanda: ${c('flags').map((f) => esc(FLAG_LBL[f] || f)).join(', ')}<br>Status ${esc(pasca.label)}: ${esc(c('status') || '–')} · bulan lalu: ${esc(c('status_lalu') || '–')}<br>kWh ${fmt(c('kwh'))} · jam nyala ${fmt(c('jam'))}<br>` +
+      `<span class="to-badge" style="background:${LVC[lv]}">${LV[lv]} · skor ${c('s')}</span> <small>(penanda ${sd[0]} + penanda lain ${sd[1]} + daya ${sd[2]} + berlanjut ${sd[3]})</small><br>` +
+      `<a href="https://www.google.com/maps/dir/?api=1&destination=${c('lat')},${c('lng')}" target="_blank" rel="noopener noreferrer">Navigasi di Google Maps ›</a></div>`;
+  }
+  // penanda pascabayar = belah ketupat (prabayar = lingkaran), digambar lewat kanvas Leaflet
+  const Diamond = L.CircleMarker.extend({ _updatePath() { this._renderer._updateDiamond(this); } });
+  L.Canvas.include({ _updateDiamond(layer) {
+    if (!this._drawing || layer._empty()) return;
+    const p = layer._point, r = Math.max(layer._radius, 1) * 1.25, ctx = this._ctx;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y); ctx.lineTo(p.x, p.y + r); ctx.lineTo(p.x - r, p.y); ctx.closePath();
+    this._fillStroke(ctx, layer);
+  } });
   function drawTo(fit) {
     const c = (k) => col(cols, k), il = c('lat'), ig = c('lng'), iu = c('ulp'), ic = c('ct');
     const pts = [];
-    allRows.forEach((r) => {
+    if (TO.k !== 'pasca') allRows.forEach((r) => {
       if ((TO.u && r[iu] !== TO.u) || (TO.c && (TO.c === 'sudah') !== (r[ic] > 0))) return;
       if (r[il] == null || r[ig] == null || !inArea(r[il], r[ig])) return;
       const sc = toScore(r);
       if (toLevel(sc.s) < +TO.l) return;
-      pts.push({ r, sc });
+      pts.push({ r, sc, kind: 'pra', la: r[il], ln: r[ig], u: r[iu], nm: r[c('nama')], dy: r[c('daya')],
+        sub: `${r[c('idle')] != null ? r[c('idle')] + ' bln tidak beli' : 'tanpa data beli'}${r[c('ct')] > 0 ? '' : ' · belum CT'}` });
     });
+    if (pasca && TO.k !== 'pra' && !TO.c) {
+      const g = (r, k) => r[pasca.cols.indexOf(k)];
+      pasca.rows.forEach((r) => {
+        const u = g(r, 'ulp'), s_ = g(r, 's');
+        if ((TO.u && u !== TO.u) || toLevel(s_) < +TO.l) return;
+        pts.push({ r, sc: { s: s_ }, kind: 'pasca', la: g(r, 'lat'), ln: g(r, 'lng'), u, nm: g(r, 'nama'), dy: g(r, 'daya'), sub: 'Pasca · ' + g(r, 'flags').map((f) => FLAG_LBL[f] || f).slice(0, 2).join(', ') });
+      });
+    }
     if (tlayer) tlayer.remove();
     tlayer = L.layerGroup();
     // titik panas: sel ~0,005° (±550 m) dengan jumlah skor terbesar
     const cells = new Map();
     pts.forEach((p) => {
-      const k = Math.floor(p.r[il] / 0.005) + ':' + Math.floor(p.r[ig] / 0.005);
+      const k = Math.floor(p.la / 0.005) + ':' + Math.floor(p.ln / 0.005);
       let e = cells.get(k); if (!e) cells.set(k, e = { n: 0, sum: 0, hi: 0, la: 0, ln: 0, u: {} });
-      e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.r[il]; e.ln += p.r[ig]; e.u[p.r[iu]] = (e.u[p.r[iu]] || 0) + 1;
+      e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.la; e.ln += p.ln; e.u[p.u] = (e.u[p.u] || 0) + 1;
     });
     const hot = [...cells.values()].filter((e) => e.n >= 3).sort((a, b) => b.sum - a.sum).slice(0, 10);
     hot.forEach((e, i) => { e.la /= e.n; e.ln /= e.n; e.rank = i + 1; });
@@ -433,37 +459,48 @@
     });
     // titik per pelanggan: warna = ULP; ukuran + cincin merah = tingkat potensi
     pts.slice().sort((a, b) => a.sc.s - b.sc.s).forEach((p) => {
-      const lv = toLevel(p.sc.s), fc = ULP_COL[tUlpIdx[p.r[iu]] % ULP_COL.length];
-      L.circleMarker([p.r[il], p.r[ig]], { radius: lv === 2 ? 9 : lv === 1 ? 6.5 : 4, weight: lv === 2 ? 3 : lv === 1 ? 1.5 : 1, color: lv === 2 ? '#d6232a' : '#fff', fillColor: fc, fillOpacity: lv === 0 ? 0.65 : 0.95 })
-        .bindPopup(() => toPopup(p.r, p.sc)).addTo(tlayer);
+      const lv = toLevel(p.sc.s), fc = ULP_COL[(tUlpIdx[p.u] || 0) % ULP_COL.length], Mk = p.kind === 'pasca' ? Diamond : L.CircleMarker;
+      new Mk([p.la, p.ln], { radius: lv === 2 ? 9 : lv === 1 ? 6.5 : 4, weight: lv === 2 ? 3 : lv === 1 ? 1.5 : 1, color: lv === 2 ? '#d6232a' : '#fff', fillColor: fc, fillOpacity: lv === 0 ? 0.65 : 0.95 })
+        .bindPopup(() => (p.kind === 'pasca' ? popupPasca(p.r) : toPopup(p.r, p.sc))).addTo(tlayer);
     });
     hot.forEach((e) => L.marker([e.la, e.ln], { icon: L.divIcon({ className: '', html: `<div class="to-pin">${e.rank}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 })
       .bindPopup(`<div class="d-pop"><b>Titik panas #${e.rank}</b><br>${e.n} pelanggan · ${e.hi} potensi sangat tinggi<br>Total skor ${fmt(e.sum)}</div>`).addTo(tlayer));
     tlayer.addTo(tmap);
-    if (fit && pts.length) tmap.fitBounds(L.latLngBounds(pts.map((p) => [p.r[il], p.r[ig]])), { padding: [30, 30], maxZoom: 15 });
-    const cnt = {}; pts.forEach((p) => { cnt[p.r[iu]] = (cnt[p.r[iu]] || 0) + 1; });
-    $('dToLegend').innerHTML = per().ulp.filter((u) => u.n).map((u) => `<span><i style="background:${ULP_COL[tUlpIdx[u.name] % ULP_COL.length]}"></i>${esc(u.name)} <b>${fmt(cnt[u.name] || 0)}</b></span>`).join('') +
+    if (fit && pts.length) tmap.fitBounds(L.latLngBounds(pts.map((p) => [p.la, p.ln])), { padding: [30, 30], maxZoom: 15 });
+    const cnt = {}; pts.forEach((p) => { cnt[p.u] = (cnt[p.u] || 0) + 1; });
+    $('dToLegend').innerHTML = Object.keys(tUlpIdx).map((n) => `<span><i style="background:${ULP_COL[tUlpIdx[n] % ULP_COL.length]}"></i>${esc(n)} <b>${fmt(cnt[n] || 0)}</b></span>`).join('') +
+      '<span>● prabayar · ◆ pascabayar</span>' +
       `<span><i style="background:#fff;border:3px solid #d6232a;box-sizing:border-box"></i>Cincin merah = potensi sangat tinggi <b>${fmt(pts.filter((p) => toLevel(p.sc.s) === 2).length)}</b></span>` +
       '<span><i style="background:#d6232a;opacity:.25"></i>Lingkaran putus-putus = titik panas</span>';
-    $('dToHint').textContent = `${per().label} · ${fmt(pts.length)} pelanggan di peta · warna titik = ULP · ukuran titik = tingkat potensi`;
+    const nP = pts.filter((p) => p.kind === 'pasca').length;
+    $('dToHint').textContent = `Prabayar ${per().label}: ${fmt(pts.length - nP)} · Pascabayar ${pasca ? pasca.label : '(belum tersedia)'}: ${fmt(nP)} · warna = ULP · ukuran = tingkat potensi`;
     $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
-    const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.r[c('daya')] - a.r[c('daya')]).slice(0, 15);
-    $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.r[il]}" data-ln="${p.r[ig]}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.r[c('nama')] || '-')}</b> · skor ${p.sc.s}<small>${esc(p.r[c('ulp')])} · ${fmt(p.r[c('daya')])} VA · ${p.r[c('idle')] != null ? p.r[c('idle')] + ' bln tidak beli' : 'tanpa data beli'}${p.r[c('ct')] > 0 ? '' : ' · belum CT'}</small></span></button></li>`).join('');
+    const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.dy - a.dy).slice(0, 15);
+    $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.la}" data-ln="${p.ln}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.nm || '-')}</b> · skor ${p.sc.s}<small>${esc(p.u)} · ${fmt(p.dy)} VA · ${esc(p.sub)}</small></span></button></li>`).join('');
     $('dToNote').textContent = 'Skor potensi (maks. 90) = lama tidak beli token (≥6 bln 40 · 5 bln 30 · 4 bln 20 · lainnya 10) + daya (≥3.500 VA 25 · ≥2.200 15 · ≥1.300 8 · lainnya 3) + belum ada CT 15 + pernah ada temuan P2TL 10. ' +
-      'Sangat tinggi ≥ 65, tinggi 50–64. Skor ini alat bantu memilih TO, bukan bukti pelanggaran; verifikasi tetap lewat pemeriksaan lapangan. Data DLPD pascabayar belum tampil karena file Mon Billing tidak memuat koordinat.';
+      'Sangat tinggi ≥ 65, tinggi 50–64. Skor ini alat bantu memilih TO, bukan bukti pelanggaran; verifikasi tetap lewat pemeriksaan lapangan.';
+    $('dToNote').textContent += ' Pascabayar (belah ketupat): skor = penanda DLPD Mon Billing terberat (kWh nol 45 · stand mundur 40 · <40 jam 35 · selisih >50% 25 · kVArh 20 · pecahan 15 · jam nyala >600 15 · >400 10) + 5 per penanda tambahan (maks. 15) + daya (sama seperti prabayar) + 10 bila bulan lalu juga tidak normal. Koordinat dari file DIL' + (pasca ? `; ${fmt(pasca.nocoord)} dari ${fmt(pasca.flagged)} pelanggan ber-penanda tidak punya koordinat` + (pasca.cut ? `; ${fmt(pasca.cut)} skor terendah tidak ditampilkan` : '') : '; data pascabayar belum tersedia (' + pascaErr + ')') + '.';
   }
   async function renderTo() {
     const msg = $('dToMsg');
     if (typeof L === 'undefined') { msg.hidden = false; msg.textContent = 'Pustaka peta tidak dapat dimuat.'; return; }
     msg.hidden = false; msg.textContent = 'Memuat data pelanggan…';
     try { await ensureRows(); } catch (e) { listKey = ''; msg.textContent = 'Gagal memuat (' + e.message + ').'; return; }
+    if (!pasca && !pascaErr) {
+      try {
+        const { data, error } = await DashAuth.sb.from('tul_data').select('data').eq('id', 'to:pasca').maybeSingle();
+        if (error) throw new Error(error.message);
+        if (data && data.data) pasca = data.data; else pascaErr = 'belum ada';
+      } catch (e) { pascaErr = e.message; }
+    }
     msg.hidden = true;
     if (tPeriod !== T.ym) {
       tPeriod = T.ym;
       const us = per().ulp.filter((u) => u.n);
-      tUlpIdx = {}; us.forEach((u, i) => { tUlpIdx[u.name] = i; });
-      $('dToU').innerHTML = '<option value="">Semua ULP</option>' + us.map((u) => `<option value="${esc(u.name)}">${esc(u.name)}</option>`).join('');
-      TO.u = ''; TO.l = '0'; TO.c = ''; $('dToL').value = '0'; $('dToC').value = '';
+      const names = new Set(us.map((u) => u.name)); if (pasca) Object.keys(pasca.ulp_total || {}).forEach((n) => names.add(n));
+      tUlpIdx = {}; [...names].sort().forEach((n, i) => { tUlpIdx[n] = i; });
+      $('dToU').innerHTML = '<option value="">Semua ULP</option>' + Object.keys(tUlpIdx).map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      TO.u = ''; TO.l = '0'; TO.c = ''; TO.k = ''; $('dToL').value = '0'; $('dToC').value = ''; $('dToK').value = '';
     }
     if (!tmap) {
       tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
@@ -521,7 +558,7 @@
     $('dDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('dDCsv').onclick = csvDetail;
     ['dMU:u', 'dMC:c', 'dMI:i'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { M[k] = e.target.value; if (map) drawMap(true); }; });
-    ['dToU:u', 'dToL:l', 'dToC:c'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
+    ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
     document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
     });
