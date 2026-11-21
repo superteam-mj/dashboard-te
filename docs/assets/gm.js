@@ -152,7 +152,7 @@
 
   function renderRingkasan() {
     const m = per(), n = m.n, ld = lastDay();
-    $('gMeta').innerHTML = `<span class="chip">Periode ${esc(m.label)}</span><span class="chip">${fmt(m.hari)} hari ada data</span><span class="chip">${esc(dayShort(m.first))} – ${esc(dayShort(m.last))}</span><span class="chip">${fmt(D.files)} file Excel</span>`;
+    $('gMeta').innerHTML = `<span class="chip">Periode ${esc(m.label)}</span><span class="chip">${fmt(m.hari)} hari ada data</span><span class="chip">${esc(dayShort(m.first))} – ${esc(dayShort(m.last))}</span><span class="chip">${fmt(D.files)} file Excel</span>${(D.failed || []).length ? `<span class="chip" style="color:#b45309;border-color:#f59e0b" title="${esc(D.failed.join(', '))}">⚠ ${fmt(D.failed.length)} file gagal dibaca (dicoba ulang otomatis)</span>` : ''}`;
     $('gKpis').innerHTML = kpiHtml([
       { i: 'n', l: 'Total ganti meter', v: n, u: 'meter', sub: `${esc(m.label)} · ${fmt(m.hari)} hari ada data` },
       { i: 'cal', l: `Hari terakhir (${esc(dayShort(m.last))})`, v: ld ? ld.n : 0, u: 'meter', sub: `${fmt(ld ? ld.tua : 0)} kategori tua` },

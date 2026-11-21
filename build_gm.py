@@ -143,7 +143,7 @@ def build(src: Path):
 def build_all(src: Path, prior: dict | None = None):
     """prior = recs dari simpanan (sinkron inkremental: hanya file baru/berubah yang ada di src).
     -> (ringkasan, detail, peringatan, recs, bulan_tersentuh)"""
-    warns, sources = [], []
+    warns, sources, failed = [], [], []
     recs = dict(prior) if prior else {}   # recs: noagenda -> (tglrekap, tgl, baris, klasifikasi)
     touched = set()
     files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$")) if src.exists() else []
@@ -152,7 +152,8 @@ def build_all(src: Path, prior: dict | None = None):
         try:
             rows = read_file(p)
         except Exception as e:  # satu file rusak tidak menggagalkan yang lain
-            warns.append(f"{p.name}: dilewati ({e})")
+            warns.append(f"{p.name}: dilewati ({e}) - akan dicoba ulang di sinkron berikutnya")
+            failed.append(p.name)
             continue
         nfiles += 1
         used, dates, skipped, sample = Counter(), [], 0, ""
@@ -270,7 +271,7 @@ def build_all(src: Path, prior: dict | None = None):
                          _s(r["merk_meter_baru"]), _s(r["type_meter_baru"]), _s(r["no_meter_baru"]), _year(r["thbuat_meter_baru"]), _s(r["petugasremaja"])])
         detail[ym] = {"cols": COLS, "rows": rows}
     order = sorted(months)
-    summary = {"order": order, "months": months, "days": days, "rule": LIMIT, "files": nfiles, "sources": sources, "warnings": warns, "latest": days[-1]["d"] if days else None,
+    summary = {"order": order, "months": months, "days": days, "rule": LIMIT, "files": nfiles, "sources": sources, "warnings": warns, "failed": failed, "latest": days[-1]["d"] if days else None,
                "total": len(items)}
     return summary, detail, warns, recs, touched
 

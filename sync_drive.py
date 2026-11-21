@@ -279,7 +279,7 @@ def publish_koordinat(sb: Supa, src: Path, work: Path):
     return warns
 
 
-_GM = {"full": True, "total": 0}   # full=True: baca semua file; False: inkremental (hanya file baru/berubah, sisanya dari simpanan)
+_GM = {"full": True, "total": 0, "failed": set()}   # full=True: baca semua file; False: inkremental (hanya file baru/berubah, sisanya dari simpanan)
 
 
 def publish_gm(sb: Supa, src: Path, work: Path):
@@ -291,6 +291,7 @@ def publish_gm(sb: Supa, src: Path, work: Path):
         prior = bg.unpack(stored)
         print(f"    inkremental: {len(prior)} baris dari simpanan + file baru/berubah")
     summary, detail, warns, recs, touched = bg.build_all(src, prior)
+    _GM["failed"] = set(summary.get("failed", []))   # file gagal dibaca: tidak dicatat selesai, dicoba lagi di sinkron berikutnya
     if not summary["order"]:
         raise RuntimeError("tidak ada data Ganti Meter yang terbaca")
     for x in summary.get("sources", []):
@@ -492,6 +493,9 @@ def main():
                 if _PARTIAL.get(name):
                     print("  Sebagian selesai — manifest tidak disimpan agar sinkron berikutnya melanjutkan.")
                     continue
+                if name == "gm" and _GM["failed"]:
+                    manifest = {k: v for k, v in manifest.items() if k.rsplit("/", 1)[-1] not in _GM["failed"]}
+                    print(f"  {len(_GM['failed'])} file gagal dibaca, dicoba ulang di sinkron berikutnya: {', '.join(sorted(_GM['failed']))}")
                 state_row = {"files": manifest, "warnings": warns, "synced_at": now(), "ok": True, **({"incr": True} if name == "gm" else {})}
                 sb.upsert("sync_state", [{"key": f"manifest_{name}", "value": state_row, "updated_at": now()}], "key")
                 print(f"  Selesai. Peringatan: {len(warns)}")
