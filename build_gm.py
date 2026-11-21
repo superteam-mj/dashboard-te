@@ -77,7 +77,7 @@ def read_file(p: Path):
     wb = openpyxl.load_workbook(p, read_only=True, data_only=True)
     try:
         it = wb.worksheets[0].iter_rows(values_only=True)
-        head = [_s(h) for h in next(it)]
+        head = [_s(h).lower() for h in next(it)]   # header boleh huruf besar/kecil (file harian baru memakai HURUF BESAR)
         ix = {h: i for i, h in enumerate(head)}
         miss = [c for c in ("noagenda", "unitup", "kdpembmeter", "alasan_ganti_meter", "thbuat_meter_lama") if c not in ix]
         if miss:
