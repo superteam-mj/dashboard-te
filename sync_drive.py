@@ -279,18 +279,37 @@ def publish_koordinat(sb: Supa, src: Path, work: Path):
     return warns
 
 
+_GM = {"full": True, "total": 0}   # full=True: baca semua file; False: inkremental (hanya file baru/berubah, sisanya dari simpanan)
+
+
 def publish_gm(sb: Supa, src: Path, work: Path):
     import build_gm as bg
-    summary, detail, warns = bg.build(src)
+    full = _GM["full"]
+    prior = None
+    if not full:
+        stored = [r["value"] for r in sb.select("sync_state", "select=key,value&key=like.gmrec:*")]
+        prior = bg.unpack(stored)
+        print(f"    inkremental: {len(prior)} baris dari simpanan + file baru/berubah")
+    summary, detail, warns, recs, touched = bg.build_all(src, prior)
     if not summary["order"]:
         raise RuntimeError("tidak ada data Ganti Meter yang terbaca")
     for x in summary.get("sources", []):
         print(f"    {x['file']}: {x['rows']} baris, tanggal {x['from']} s/d {x['to']}, kolom tanggal dipakai {x['used']}, dilewati {x['skipped']}")
     print("    bulan terbaca:", {k: v["n"] for k, v in summary["months"].items()})
     stamp = now()
+    if _GM["total"]:
+        summary["files"] = _GM["total"]   # jumlah seluruh file di Drive (mode inkremental hanya membaca sebagian)
+    # simpanan baris per bulan (tabel sync_state: tertutup untuk pengguna web)
+    for ym, doc in bg.pack(recs, None if full else touched).items():
+        sb.upsert("sync_state", [{"key": f"gmrec:{ym}", "value": doc, "updated_at": stamp}], "key")
+    if full:
+        keep_rec = {f"gmrec:{ym}" for ym in summary["order"]}
+        for row in sb.select("sync_state", "select=key&key=like.gmrec:*"):
+            if row["key"] not in keep_rec:
+                sb.delete("sync_state", f"key=eq.{row['key']}")
     keep_m = set(summary["order"][-bg.KEEP_DETAIL:])
     for ym, d in detail.items():
-        if ym in keep_m:
+        if ym in keep_m and (full or ym in touched):
             sb.upsert("tul_data", [{"id": f"gml:{ym}", "data": d, "generated_at": stamp}], "id")
     summary["generated_at"] = stamp
     sb.upsert("tul_data", [{"id": "gm", "data": summary, "generated_at": stamp}], "id")
@@ -401,7 +420,7 @@ def main():
                 sys.exit(f"GAGAL: {e}")
             print(f"Drive: {len(all_remote)} file .xlsx ditemukan.")
 
-        state = {r["key"]: r["value"] for r in sb.select("sync_state", "select=key,value")}
+        state = {r["key"]: r["value"] for r in sb.select("sync_state", "select=key,value&key=not.like.gmrec:*")}
 
         for name, (top, sub) in TOP.items():
             if a.only and a.only != name:
@@ -437,13 +456,28 @@ def main():
             if not a.force and state.get(f"manifest_{name}", {}).get("files") == manifest:
                 print(f"  {len(listing)} file, tidak ada perubahan.")
                 continue
-            print(f"  {len(listing)} file, ada perubahan -> memproses.")
+            changed = None   # None = proses semua file; himpunan = hanya file ini (inkremental, saat ini hanya Ganti Meter)
+            if name == "gm" and not a.force:
+                old = state.get("manifest_gm", {})
+                if old.get("incr") and old.get("files"):
+                    changed = {k for k, m in marks.items() if old["files"].get(k) != m}
+            _GM["full"], _GM["total"] = changed is None, len(listing)
+            if changed is None:
+                print(f"  {len(listing)} file, ada perubahan -> memproses.")
+            elif not changed:
+                print("  Tidak ada file baru/berubah (hanya ada yang dihapus); data lama dipertahankan. Gunakan force untuk membangun ulang.")
+                sb.upsert("sync_state", [{"key": "manifest_gm", "value": {**old, "files": manifest, "synced_at": now()}, "updated_at": now()}], "key")
+                continue
+            else:
+                print(f"  {len(listing)} file, {len(changed)} baru/berubah -> inkremental.")
 
             # 2) siapkan salinan lokal dengan struktur folder yang sama
             tree = work / name
             if tree.exists():
                 shutil.rmtree(tree)
             for path_str, (_, ref) in listing.items():
+                if changed is not None and path_str not in changed:
+                    continue
                 dest = tree.joinpath(*path_str.split("/"))
                 if a.local_root:
                     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -458,7 +492,7 @@ def main():
                 if _PARTIAL.get(name):
                     print("  Sebagian selesai — manifest tidak disimpan agar sinkron berikutnya melanjutkan.")
                     continue
-                state_row = {"files": manifest, "warnings": warns, "synced_at": now(), "ok": True}
+                state_row = {"files": manifest, "warnings": warns, "synced_at": now(), "ok": True, **({"incr": True} if name == "gm" else {})}
                 sb.upsert("sync_state", [{"key": f"manifest_{name}", "value": state_row, "updated_at": now()}], "key")
                 print(f"  Selesai. Peringatan: {len(warns)}")
             except Exception as e:  # satu menu gagal tidak menghentikan menu lain

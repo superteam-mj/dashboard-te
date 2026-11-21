@@ -31,6 +31,10 @@ NEED = ["noagenda", "unitup", "idpel", "nama", "alamat", "nama_kec", "nama_kel",
         "no_meter_baru", "thbuat_meter_baru", "petugasremaja", "tglnyala", "tglremaja", "tglaktivasi", "tglrekap"]
 
 
+DATE_COLS = ("tglnyala", "tglremaja", "tglaktivasi")
+STORE_COLS = [c for c in NEED if c not in DATE_COLS]   # kolom yang disimpan untuk sinkron inkremental (tanggal sudah diwakili 'tgl')
+
+
 def _s(v) -> str:
     return str(v).strip() if v is not None else ""
 
@@ -105,10 +109,44 @@ def _top(c: Counter, k: int | None = None):
     return [{"name": a, "n": b} for a, b in sorted(c.items(), key=lambda x: (-x[1], str(x[0])))[:k]]
 
 
+def pack(recs: dict, months=None) -> dict:
+    """recs -> {ym: {'cols','rows'}} (bentuk ringkas untuk disimpan); months = hanya bulan tertentu."""
+    out = {}
+    for key, (rec, tgl, r, _) in sorted(recs.items(), key=lambda kv: kv[1][1]):
+        ym = tgl[:4] + tgl[5:7]
+        if months is not None and ym not in months:
+            continue
+        out.setdefault(ym, {"cols": ["tgl"] + STORE_COLS, "rows": []})["rows"].append([tgl] + [_s(r.get(c)) for c in STORE_COLS])
+    for ym in (months or ()):
+        out.setdefault(ym, {"cols": ["tgl"] + STORE_COLS, "rows": []})
+    return out
+
+
+def unpack(docs) -> dict:
+    """kebalikan pack: daftar dokumen simpanan -> recs (klasifikasi dihitung ulang, jadi perubahan aturan ikut berlaku)."""
+    recs = {}
+    for d in docs:
+        cols = d["cols"]
+        for row in d["rows"]:
+            r = dict(zip(cols, row))
+            tgl = r.pop("tgl")
+            recs[_s(r["noagenda"])] = (_s(r["tglrekap"]), tgl, r, classify(r, tgl))
+    return recs
+
+
 def build(src: Path):
     """-> (ringkasan, detail{ym: {'cols','rows'}}, peringatan)"""
-    warns, recs, sources = [], {}, []   # recs: noagenda -> (tglrekap, tgl, baris, klasifikasi)
-    files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$"))
+    summary, detail, warns, _, _ = build_all(src)
+    return summary, detail, warns
+
+
+def build_all(src: Path, prior: dict | None = None):
+    """prior = recs dari simpanan (sinkron inkremental: hanya file baru/berubah yang ada di src).
+    -> (ringkasan, detail, peringatan, recs, bulan_tersentuh)"""
+    warns, sources = [], []
+    recs = dict(prior) if prior else {}   # recs: noagenda -> (tglrekap, tgl, baris, klasifikasi)
+    touched = set()
+    files = sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$")) if src.exists() else []
     nfiles = 0
     for p in files:
         try:
@@ -134,7 +172,10 @@ def build(src: Path):
             key = _s(r["noagenda"])
             rec = _s(r["tglrekap"])
             if key not in recs or rec >= recs[key][0]:
-                recs[key] = (rec, tgl, r, classify(r, tgl))
+                if key in recs:
+                    touched.add(recs[key][1][:4] + recs[key][1][5:7])
+                touched.add(tgl[:4] + tgl[5:7])
+                recs[key] = (rec, tgl, {c: _s(r[c]) for c in STORE_COLS}, classify(r, tgl))
         sources.append({"file": p.name, "rows": len(rows), "from": min(dates) if dates else None, "to": max(dates) if dates else None,
                         "used": dict(used), "skipped": skipped})
         if used.get("tglremaja", 0) < len(rows) - skipped:
@@ -231,7 +272,7 @@ def build(src: Path):
     order = sorted(months)
     summary = {"order": order, "months": months, "days": days, "rule": LIMIT, "files": nfiles, "sources": sources, "warnings": warns, "latest": days[-1]["d"] if days else None,
                "total": len(items)}
-    return summary, detail, warns
+    return summary, detail, warns, recs, touched
 
 
 def main(src: Path, out: Path | None = None):  # uji lokal
