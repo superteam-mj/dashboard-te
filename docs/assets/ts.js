@@ -201,7 +201,44 @@
     }, true);
     hc.tb.resize();
   }
+  function renderTargetUlpBln() {
+    const box = $('tsTuBox');
+    if (!box || !box.offsetWidth) return;
+    const ms = [...new Set([...all.map((r) => r.bln).filter(Boolean), ...[...targets.keys()].map((k) => k.split('|')[1])])].sort();
+    const us = [...new Set([...ULPS, ...all.map((r) => r.ulp)])].filter((u) => !F.u || u === F.u);
+    $('tsTuHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : 'Satu grafik per ULP · kWh per bulan tanggal register · judul = capaian seluruh bulan yang targetnya sudah diisi';
+    if (box.children.length !== us.length || [...box.children].some((c, i) => c.dataset.u !== us[i])) {
+      Object.keys(hc).filter((k) => k.startsWith('tu:')).forEach((k) => { hc[k].dispose(); delete hc[k]; });
+      box.innerHTML = us.map((u) => `<div class="ts-mini" data-u="${esc(u)}" style="height:260px;min-width:0"></div>`).join('');
+    }
+    const c1 = css('--ink-2') || '#64748b', c2 = css('--s1') || '#2a78d6';
+    const row = (n, v, c) => `<div style="display:flex;gap:8px;justify-content:space-between;min-width:170px"><span><i style="width:9px;height:9px;border-radius:3px;background:${c};display:inline-block;margin-right:6px"></i>${n}</span><b>${v}</b></div>`;
+    [...box.children].forEach((div) => {
+      const u = div.dataset.u, id = 'tu:' + u;
+      const tg = ms.map((m) => tgOf(u, m)), rl = ms.map((m) => sum(all.filter((r) => r.bln === m && r.ulp === u), 'kwh'));
+      const tt = tg.reduce((s, v) => s + v, 0), tr = rl.reduce((s, v, i) => s + (tg[i] ? v : 0), 0);
+      if (hc[id] && hc[id].getDom() !== div) { hc[id].dispose(); delete hc[id]; }
+      if (!hc[id]) hc[id] = echarts.init(div, null, { renderer: 'svg' });
+      hc[id].setOption({
+        animationDuration: 400, color: [c1, c2],
+        textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+        title: { text: u, subtext: tt ? `Capaian ${fmt(pc(tr, tt), 1)}% · target ${fmt(tt)} kWh` : 'Target belum diisi', left: 4, top: 0, textStyle: { color: css('--ink'), fontSize: 13, fontWeight: 700 }, subtextStyle: { color: css('--muted'), fontSize: 11 } },
+        legend: { top: 4, right: 0, textStyle: { color: css('--ink-2'), fontSize: 11 }, icon: 'roundRect', itemWidth: 10, itemHeight: 7 },
+        grid: { left: 4, right: 8, top: 56, bottom: 4, containLabel: true },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+          formatter: (ps) => { const i = ps[0].dataIndex; return `<b>${ps[0].name}</b>` + row('Target', fmt(tg[i]) + ' kWh', c1) + row('Realisasi', fmt(rl[i]) + ' kWh', c2) + `<div style="margin-top:4px">Capaian: <b>${tg[i] ? fmt(pc(rl[i], tg[i]), 1) + '%' : '-'}</b></div>`; } },
+        xAxis: { type: 'category', data: ms.map((m) => BLN[+m.slice(5) - 1].slice(0, 3)), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 11 } },
+        yAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 10, formatter: (v) => (v >= 1e3 ? fmt(v / 1e3, 0) + ' rb' : fmt(v)) }, splitLine: { lineStyle: { color: css('--grid') } } },
+        series: [
+          { name: 'Target', type: 'bar', barMaxWidth: 14, itemStyle: { borderRadius: [3, 3, 0, 0] }, data: tg },
+          { name: 'Realisasi', type: 'bar', barMaxWidth: 14, itemStyle: { borderRadius: [3, 3, 0, 0] }, data: rl },
+        ],
+      }, true);
+      hc[id].resize();
+    });
+  }
   function renderTarget() {
+    renderTargetUlpBln();
     renderTargetBln();
     const el = $('tsChTg');
     if (!el || !el.offsetWidth) return;

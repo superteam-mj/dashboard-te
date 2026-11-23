@@ -622,6 +622,7 @@
       <section class="kpis b-kpis b-k4" id="tsKpis" aria-label="Ringkasan realisasi tagihan susulan"></section>
       <section class="grid">
         <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi per ULP</h2><p class="hint" id="tsTgHint"></p></div></div><div class="chart" id="tsChTg"></div>
+          <p class="hint" style="padding:0 4px">Target massal: taruh Excel target di folder Drive <b>Pengendalian Susut / P2TL / Laporan Tagihan Susulan</b> (kolom <b>ULP, BULAN, TARGET</b> dalam kWh, atau kolom ULP + satu kolom per bulan seperti 2026-11). Sinkron otomatis memasukkannya dan menimpa target ULP–bulan yang sama.</p>
           <div id="tsTgForm" hidden>
             <div class="b-dfilters"><label class="field"><span>Bulan target</span><select id="tsTgB"></select></label>
               <label class="field"><span>Manakarra (kWh)</span><input type="number" min="0" step="100" data-u="ULP Manakarra"></label>
@@ -633,6 +634,7 @@
             <div class="tools" style="padding:8px 0"><button type="button" class="btn" id="tsTgSave">Simpan target</button> <span class="hint" id="tsTgMsg"></span></div>
           </div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi per bulan</h2><p class="hint" id="tsTbHint"></p></div></div><div class="chart" id="tsChTb" style="height:340px"></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi per ULP per bulan</h2><p class="hint" id="tsTuHint"></p></div></div><div id="tsTuBox" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Realisasi per bulan</h2><p class="hint">Per bulan tanggal register · batang = tunai + angsuran (juta Rp) · garis = % realisasi tunai</p></div></div><div class="chart" id="tsChBln" style="height:320px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Grafik per ULP</h2><p class="hint">Mengikuti periode yang dipilih · batang = tunai + angsuran (juta Rp) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChUlp"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Realisasi per ULP</h2><p class="hint">Tunai = sudah dibayar; angsuran = sisa tagihan yang dicicil</p></div></div><div class="table-wrap"><table id="tsUlpTbl" class="b-tbl b-wide"></table></div></article>
@@ -880,7 +882,7 @@
   <script src="assets/gm.js?v=6"></script>
   <script src="assets/pju-plan.js?v=6"></script>
   <script src="assets/pju.js?v=6"></script>
-  <script src="assets/ts.js?v=17"></script>
+  <script src="assets/ts.js?v=18"></script>
   <script src="assets/beranda.js?v=6"></script>
   <script src="assets/susut.js?v=6"></script>
 </body>

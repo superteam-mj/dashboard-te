@@ -334,9 +334,21 @@ def publish_pju(sb: Supa, src: Path, work: Path):
 def publish_ts(sb: Supa, src: Path, work: Path):
     import build_ts as bt
     doc, warns = bt.build(src)
+    targets = doc.pop("targets", [])
+    tfiles = doc.pop("target_files", [])
     for x in doc["files"]:
         print(f"    {x['file']}: {x['rows']} baris")
-    sb.upsert("tul_data", [{"id": "p2tl_ts", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    if doc["rows"]:
+        sb.upsert("tul_data", [{"id": "p2tl_ts", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    if targets:
+        for x in tfiles:
+            print(f"    target {x['file']}: {x['rows']} baris")
+        try:  # tabel ts_targets dibuat lewat supabase/schema.sql; bila belum ada, data tagihan tetap terkirim
+            stamp = now()
+            sb.upsert("ts_targets", [{"ulp": t["ulp"], "bln": t["bln"], "target": t["target"], "updated_at": stamp} for t in targets], "ulp,bln")
+            print(f"    {len(targets)} target (ULP x bulan) disimpan")
+        except Exception as e:
+            warns.append(f"target tidak tersimpan: {e} (sudah menjalankan bagian 6 supabase/schema.sql?)")
     return warns
 
 
