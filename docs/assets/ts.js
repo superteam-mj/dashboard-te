@@ -100,7 +100,7 @@
   }
 
   const renderChartUlp = () => hChart('tsChUlp', 'ulp');
-  const renderChartGol = () => hChart('tsChGol', 'gol');
+  const renderChartGol = () => { hChart('tsChGol', 'gol'); hChart('tsChTrf', 'tarif'); };
   function hChart(id, field) {
     const el = $(id);
     if (!el || !el.offsetWidth) return;
