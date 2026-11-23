@@ -331,8 +331,103 @@
   }
 
   // ---------- halaman ----------
-  const PAGES = { ringkasan: renderRingkasan, alasan: renderAlasan, merek: renderMerek, tua: renderTua, harian: renderHarian, daftar: renderDaftar };
-  const TITLE = { ringkasan: 'Ringkasan', alasan: 'Alasan penggantian', merek: 'Merek & tahun meter', tua: 'Meter tua', harian: 'Data harian', daftar: 'Daftar pergantian' };
+  // ---------- target x realisasi ----------
+  const GULPS = ['ULP Manakarra', 'ULP Pasangkayu', 'ULP Majene', 'ULP Wonomulyo', 'ULP Polewali', 'ULP Mamasa'];
+  let TG = null, tgErr = '';
+  async function loadTg() {
+    TG = new Map(); tgErr = '';
+    try {
+      const { data, error } = await DashAuth.sb.from('gm_targets').select('ulp,bln,target');
+      if (error) throw new Error(error.message);
+      data.forEach((r) => TG.set(r.ulp + '|' + r.bln.replace('-', ''), +r.target));
+    } catch (e) { tgErr = e.message; }
+  }
+  const tgOf = (u, k) => (TG && TG.get(u + '|' + k)) || 0;
+  const realOf = (u, k) => { const m = D.months[k]; const x = m && m.ulp.find((z) => z.name === u); return x ? x.n : 0; };
+  const tgMonths = () => [...new Set([...D.order, ...(TG ? [...TG.keys()].map((x) => x.split('|')[1]) : [])])].sort();
+  const mLbl = (k) => MON[+k.slice(4) - 1] + ' ' + k.slice(2, 4);
+  function tgTip(rows) {
+    return (ps) => { const i = ps[0].dataIndex, x = rows[i]; return `<b>${esc(ps[0].name)}</b>` + ttRow('Target', fmt(x.t) + ' meter', ps[0].color) + ttRow('Realisasi', fmt(x.r) + ' meter', ps[1] ? ps[1].color : '') + `<div style="margin-top:4px">Capaian: <b>${x.t ? fmt(pc(x.r, x.t), 1) + '%' : '-'}</b></div>`; };
+  }
+  function renderTarget() {
+    const keys = periodKeys(T.ym), us = GULPS;
+    const rows = us.map((u) => ({ u, t: keys.reduce((s, k) => s + tgOf(u, k), 0), r: keys.reduce((s, k) => s + realOf(u, k), 0) })).filter((x) => x.t || x.r);
+    const tt = rows.reduce((s, x) => s + x.t, 0), tr = rows.reduce((s, x) => s + x.r, 0);
+    $('gTgHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : `${isAll() ? per().label : D.months[T.ym].label} · jumlah meter` + (tt ? ` · UP3 total: target ${fmt(tt)}, realisasi ${fmt(tr)} (${fmt(pc(tr, tt), 1)}%)` : ' · target belum diisi (lihat petunjuk di bawah)');
+    $('gTgUlp').style.height = (90 + Math.max(rows.length, 1) * 56) + 'px';
+    chart('gTgUlp').setOption(Object.assign(base(), {
+      color: [css('--ink-2') || '#64748b', css('--s1')],
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 72, top: 32, bottom: 8, containLabel: true },
+      tooltip: Object.assign(base().tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: tgTip(rows) }),
+      xAxis: { type: 'value', minInterval: 1, axisLabel: { color: css('--muted'), fontSize: 11, formatter: cnt }, splitLine: { lineStyle: { color: css('--grid') } } },
+      yAxis: Object.assign({ type: 'category', inverse: true, data: rows.map((x) => x.u) }, axisCommon()),
+      series: [
+        { name: 'Target', type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0, 4, 4, 0] }, data: rows.map((x) => x.t) },
+        { name: 'Realisasi', type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => (rows[p.dataIndex].t ? fmt(pc(rows[p.dataIndex].r, rows[p.dataIndex].t), 1) + '%' : '') }, data: rows.map((x) => x.r) },
+      ],
+    }), true);
+    // per bulan + kumulatif (UP3)
+    const ms = tgMonths(), last = D.order[D.order.length - 1];
+    const tg = ms.map((k) => us.reduce((s, u) => s + tgOf(u, k), 0)), rl = ms.map((k) => us.reduce((s, u) => s + realOf(u, k), 0));
+    const pct = ms.map((_, i) => (tg[i] ? Math.round(pc(rl[i], tg[i]) * 10) / 10 : null));
+    const cat = { type: 'category', data: ms.map(mLbl) }, ax = axisCommon();
+    chart('gTgBln').setOption(Object.assign(base(), {
+      color: [css('--ink-2') || '#64748b', css('--s1'), RED()],
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 8, top: 38, bottom: 8, containLabel: true },
+      tooltip: Object.assign(base().tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps) => `<b>${esc(ps[0].name)}</b>` + ps.filter((x) => x.value != null).map((x) => ttRow(x.seriesName, x.seriesName.startsWith('%') ? fmt(x.value, 1) + '%' : fmt(x.value) + ' meter', x.color)).join('') }),
+      xAxis: Object.assign({}, cat, ax),
+      yAxis: [{ type: 'value', minInterval: 1, axisLabel: { color: css('--muted'), fontSize: 11, formatter: cnt }, splitLine: { lineStyle: { color: css('--grid') } } }, { type: 'value', min: 0, axisLabel: { color: css('--muted'), fontSize: 11, formatter: '{value}%' }, splitLine: { show: false } }],
+      series: [
+        { name: 'Target', type: 'bar', barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0] }, data: tg },
+        { name: 'Realisasi', type: 'bar', barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0] }, data: rl },
+        { name: '% capaian', type: 'line', yAxisIndex: 1, symbolSize: 7, lineStyle: { width: 2 }, data: pct },
+      ],
+    }), true);
+    let ct = 0, cr = 0, yr = '';
+    const kt = [], kr = [], kp = [];
+    ms.forEach((k, i) => {
+      if (k.slice(0, 4) !== yr) { yr = k.slice(0, 4); ct = 0; cr = 0; }
+      ct += tg[i]; cr += rl[i]; kt.push(ct); kr.push(k <= last ? cr : null); kp.push(k <= last && ct ? Math.round(pc(cr, ct) * 10) / 10 : null);
+    });
+    chart('gTgKum').setOption(Object.assign(base(), {
+      color: [css('--ink-2') || '#64748b', css('--s1'), RED()],
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 8, top: 38, bottom: 8, containLabel: true },
+      tooltip: Object.assign(base().tooltip, { trigger: 'axis', formatter: (ps) => `<b>${esc(ps[0].name)}</b>` + ps.filter((x) => x.value != null).map((x) => ttRow(x.seriesName, x.seriesName.startsWith('%') ? fmt(x.value, 1) + '%' : fmt(x.value) + ' meter', x.color)).join('') }),
+      xAxis: Object.assign({ boundaryGap: false }, cat, ax, { boundaryGap: false }),
+      yAxis: [{ type: 'value', minInterval: 1, axisLabel: { color: css('--muted'), fontSize: 11, formatter: cnt }, splitLine: { lineStyle: { color: css('--grid') } } }, { type: 'value', min: 0, axisLabel: { color: css('--muted'), fontSize: 11, formatter: '{value}%' }, splitLine: { show: false } }],
+      series: [
+        { name: 'Target kumulatif', type: 'line', symbolSize: 6, lineStyle: { width: 2, type: 'dashed' }, data: kt },
+        { name: 'Realisasi kumulatif', type: 'line', symbolSize: 7, lineStyle: { width: 3 }, areaStyle: { opacity: 0.08 }, data: kr },
+        { name: '% capaian kumulatif', type: 'line', yAxisIndex: 1, symbolSize: 5, lineStyle: { width: 1.5 }, data: kp },
+      ],
+    }), true);
+    // per ULP per bulan (satu grafik kecil per ULP)
+    const box = $('gTgBox');
+    if (box.children.length !== us.length) box.innerHTML = us.map((u, i) => `<div id="gTgM${i}" style="height:240px;min-width:0"></div>`).join('');
+    us.forEach((u, i) => {
+      const t = ms.map((k) => tgOf(u, k)), r = ms.map((k) => realOf(u, k));
+      const sumT = t.reduce((s, v) => s + v, 0), sumR = r.reduce((s, v, j) => s + (t[j] ? v : 0), 0);
+      chart('gTgM' + i).setOption(Object.assign(base(), {
+        color: [css('--ink-2') || '#64748b', css('--s1')],
+        title: { text: u, subtext: sumT ? `Capaian ${fmt(pc(sumR, sumT), 1)}% · target ${fmt(sumT)} meter` : 'Target belum diisi', left: 4, top: 0, textStyle: { color: css('--ink'), fontSize: 13, fontWeight: 700 }, subtextStyle: { color: css('--muted'), fontSize: 11 } },
+        legend: { top: 4, right: 0, textStyle: { color: css('--ink-2'), fontSize: 11 }, icon: 'roundRect', itemWidth: 10, itemHeight: 7 },
+        grid: { left: 4, right: 8, top: 56, bottom: 4, containLabel: true },
+        tooltip: Object.assign(base().tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (ps) => { const j = ps[0].dataIndex; return `<b>${esc(ps[0].name)}</b>` + ttRow('Target', fmt(t[j]) + ' meter', ps[0].color) + ttRow('Realisasi', fmt(r[j]) + ' meter', ps[1].color) + `<div style="margin-top:4px">Capaian: <b>${t[j] ? fmt(pc(r[j], t[j]), 1) + '%' : '-'}</b></div>`; } }),
+        xAxis: Object.assign({ type: 'category', data: ms.map((k) => MON[+k.slice(4) - 1]) }, ax),
+        yAxis: { type: 'value', minInterval: 1, axisLabel: { color: css('--muted'), fontSize: 10, formatter: cnt }, splitLine: { lineStyle: { color: css('--grid') } } },
+        series: [
+          { name: 'Target', type: 'bar', barMaxWidth: 14, itemStyle: { borderRadius: [3, 3, 0, 0] }, data: t },
+          { name: 'Realisasi', type: 'bar', barMaxWidth: 14, itemStyle: { borderRadius: [3, 3, 0, 0] }, data: r },
+        ],
+      }), true);
+    });
+  }
+
+  const PAGES = { ringkasan: renderRingkasan, alasan: renderAlasan, merek: renderMerek, tua: renderTua, harian: renderHarian, target: renderTarget, daftar: renderDaftar };
+  const TITLE = { ringkasan: 'Ringkasan', alasan: 'Alasan penggantian', merek: 'Merek & tahun meter', tua: 'Meter tua', harian: 'Data harian', target: 'Target × Realisasi', daftar: 'Daftar pergantian' };
   function renderAll() {
     if (!PAGES[T.page]) T.page = 'ringkasan';
     $('gCrumb').innerHTML = `<span>Pemeliharaan Meter</span><i>›</i><span>Ganti Meter</span><i>›</i><b>${TITLE[T.page]}</b>`;
@@ -359,6 +454,7 @@
       const ly = D.order[D.order.length - 1].slice(0, 4);
       T.ym = D.order.filter((k) => k.startsWith(ly)).length > 1 ? 'Y' + ly : D.order[D.order.length - 1];
     }
+    if (!TG) await loadTg();
     renderAll(); window.scrollTo({ top: 0 });
   }
 

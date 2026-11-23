@@ -127,3 +127,29 @@ create policy "editor boleh hapus" on public.ts_targets for delete to authentica
 revoke all on public.ts_targets from anon;
 revoke all on public.ts_targets from authenticated;
 grant select, insert, update, delete on public.ts_targets to authenticated;
+
+-- 7) Target Ganti Meter per ULP per bulan, dalam jumlah meter (kolom target = meter). Diisi otomatis dari Excel di Drive oleh sync_drive.py. Dibaca semua pengguna login; diisi/diubah hanya penginput (to_editors).
+create table if not exists public.gm_targets (
+  ulp        text        not null,
+  bln        text        not null check (bln ~ '^[0-9]{4}-[0-9]{2}$'),
+  target     numeric     not null check (target >= 0),
+  updated_by text        not null default lower(coalesce(auth.jwt() ->> 'email', '')),
+  updated_at timestamptz not null default now(),
+  primary key (ulp, bln)
+);
+alter table public.gm_targets enable row level security;
+drop policy if exists "login boleh baca"    on public.gm_targets;
+drop policy if exists "editor boleh isi"    on public.gm_targets;
+drop policy if exists "editor boleh ubah"   on public.gm_targets;
+drop policy if exists "editor boleh hapus"  on public.gm_targets;
+create policy "login boleh baca" on public.gm_targets for select to authenticated using (true);
+create policy "editor boleh isi" on public.gm_targets for insert to authenticated
+  with check (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+create policy "editor boleh ubah" on public.gm_targets for update to authenticated
+  using (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+create policy "editor boleh hapus" on public.gm_targets for delete to authenticated
+  using (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+revoke all on public.gm_targets from anon;
+revoke all on public.gm_targets from authenticated;
+grant select, insert, update, delete on public.gm_targets to authenticated;

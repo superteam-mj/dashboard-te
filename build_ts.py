@@ -165,6 +165,28 @@ def build(src: Path):
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}, warns
 
 
+def read_targets(src: Path):
+    """Baca semua file target (format panjang/lebar) di folder src -> (daftar {ulp, bln, target}, info per file, peringatan). Dipakai juga oleh Ganti Meter."""
+    tgt, info, warns = {}, [], []
+    for f in sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$")):
+        wb = openpyxl.load_workbook(f, read_only=True, data_only=True)
+        n = 0
+        for ws in wb:
+            it = ws.iter_rows(values_only=True)
+            head = next(it, None)
+            if not head:
+                continue
+            tl = _targets(ws, head, it, warns, f.name)
+            if tl is None:
+                warns.append(f"{f.name}/{ws.title}: bukan format target (kolom ULP + BULAN/TARGET atau kolom bulan), dilewati")
+                continue
+            for x in tl:
+                tgt[(x["ulp"], x["bln"])] = x
+            n += len(tl)
+        info.append({"file": f.name, "rows": n})
+    return list(tgt.values()), info, warns
+
+
 def main(src: Path):  # uji lokal
     d, w = build(src)
     print(len(d["rows"]), "baris", d["files"], w)
