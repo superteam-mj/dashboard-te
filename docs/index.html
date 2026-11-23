@@ -121,6 +121,7 @@
             <div class="sub-nav" id="subP2tl" role="group" aria-label="Halaman P2TL">
               <button type="button" data-p="to">Peta Target Operasi P2TL</button>
               <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
+              <button type="button" data-p="ts">Realisasi Tagihan Susulan</button>
             </div>
           </div>
         </div>
@@ -613,6 +614,30 @@
     <footer class="foot" id="dFoot"></footer>
   </main>
 
+  <main class="wrap billing gm" id="tsApp" aria-label="Realisasi Tagihan Susulan P2TL">
+    <div class="s-head"><div class="crumb"><span>Pengendalian Susut</span><i>›</i><span>P2TL</span><i>›</i><b>Realisasi Tagihan Susulan</b></div>
+      <select id="tsFB" aria-label="Pilih periode"></select></div>
+    <div class="s-msg" id="tsMsg" hidden></div>
+    <div id="tsBody" hidden>
+      <section class="kpis b-kpis b-k4" id="tsKpis" aria-label="Ringkasan realisasi tagihan susulan"></section>
+      <section class="grid">
+        <article class="card span-2"><div class="card-head"><div><h2>Realisasi per ULP</h2><p class="hint">Tunai = sudah dibayar; angsuran = sisa tagihan yang dicicil</p></div></div><div class="table-wrap"><table id="tsUlpTbl" class="b-tbl b-wide"></table></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Per golongan</h2></div></div><div class="table-wrap"><table id="tsGolTbl" class="b-tbl"></table></div></article>
+        <article class="card span-2">
+          <div class="card-head"><div><h2>Daftar tagihan susulan</h2><p class="hint" id="tsDHint"></p></div><div class="tools"><button type="button" class="btn" id="tsDCsv">Unduh Excel (CSV)</button></div></div>
+          <div class="b-dfilters">
+            <label class="field"><span>ULP</span><select id="tsFU"></select></label>
+            <label class="field"><span>Status</span><select id="tsFS"><option value="">Semua</option><option value="lunas">Lunas</option><option value="angsuran">Angsuran</option></select></label>
+            <label class="field b-dq"><span>Cari</span><input type="search" id="tsFQ" placeholder="ID pelanggan, nama, alamat, atau nomor agenda…" aria-label="Cari"></label>
+          </div>
+          <div class="table-wrap b-dwrap"><table id="tsDTbl" class="b-tbl b-det"></table></div>
+          <div class="b-pager"><button type="button" class="btn ghost" id="tsDPrev">‹ Sebelumnya</button><span id="tsDPage"></span><button type="button" class="btn ghost" id="tsDNext">Berikutnya ›</button></div>
+        </article>
+      </section>
+    </div>
+    <footer class="foot" id="tsFoot"></footer>
+  </main>
+
   <main class="wrap billing" id="amrApp" aria-label="Automatic Meter Reading">
     <div class="s-head"><div class="crumb"><span>Pemeliharaan Meter</span><i>›</i><b>Automatic Meter Reading</b></div></div>
     <article class="card"><p class="hint">Halaman ini masih kosong dan akan diisi.</p></article>
@@ -835,6 +860,7 @@
   <script src="assets/gm.js?v=6"></script>
   <script src="assets/pju-plan.js?v=6"></script>
   <script src="assets/pju.js?v=6"></script>
+  <script src="assets/ts.js?v=6"></script>
   <script src="assets/beranda.js?v=6"></script>
   <script src="assets/susut.js?v=6"></script>
 </body>

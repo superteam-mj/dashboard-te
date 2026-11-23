@@ -10,9 +10,9 @@
 
   function setView(v, page) {
     document.body.dataset.view = v;
-    const nv = v === 'dlpd' && (page === 'to' || page === 'hasil') ? 'p2tl' : v; // P2TL = halaman DLPD yang ditampilkan di menu Pengendalian Susut
+    const nv = (v === 'dlpd' && (page === 'to' || page === 'hasil')) || v === 'ts' ? 'p2tl' : v; // P2TL = halaman DLPD yang ditampilkan di menu Pengendalian Susut
     // menu induk: transaksi = Penjualan + Mon Billing + DLPD; susut = Susut Distribusi + PJU Non Meter
-    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', p2tl: 'susut', gm: 'gm', amr: 'gm', beranda: 'beranda' };
+    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', p2tl: 'susut', ts: 'susut', gm: 'gm', amr: 'gm', beranda: 'beranda' };
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === nv : b.dataset.v === TOP[nv] && !b.closest('.sub-groups')));
     });
@@ -26,7 +26,7 @@
       gm: ['Pemeliharaan Meter · Ganti Meter', 'Ganti Meter — Dashboard TE'],
       amr: ['Pemeliharaan Meter · Automatic Meter Reading', 'Automatic Meter Reading — Dashboard TE'],
       beranda: ['Beranda · Ringkasan semua menu', 'Beranda — Dashboard TE'] };
-    T.p2tl = ['Pengendalian Susut · P2TL', 'P2TL — Dashboard TE'];
+    T.p2tl = v === 'ts' ? ['Pengendalian Susut · P2TL · Realisasi Tagihan Susulan', 'Realisasi Tagihan Susulan — Dashboard TE'] : ['Pengendalian Susut · P2TL', 'P2TL — Dashboard TE'];
     $('subtitle').textContent = T[nv][0];
     document.title = T[nv][1];
     document.body.classList.remove('nav-open');
@@ -645,7 +645,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#amr')) showAmr(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#amr')) showAmr(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash.startsWith('#ts')) window.DashTs.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
   }
 
   init();
