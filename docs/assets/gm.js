@@ -343,7 +343,7 @@
     } catch (e) { tgErr = e.message; }
   }
   const tgOf = (u, k) => (TG && TG.get(u + '|' + k)) || 0;
-  const realOf = (u, k) => { const m = D.months[k]; const x = m && m.ulp.find((z) => z.name === u); return x ? x.n : 0; };
+  const realOf = (u, k) => { const m = D.months[k]; const x = m && m.ulp.find((z) => z.name === u); return x ? x.tua : 0; };   // realisasi = hanya meter kategori tua
   const tgMonths = () => [...new Set([...D.order, ...(TG ? [...TG.keys()].map((x) => x.split('|')[1]) : [])])].sort();
   const mLbl = (k) => MON[+k.slice(4) - 1] + ' ' + k.slice(2, 4);
   function tgTip(rows) {
@@ -353,7 +353,7 @@
     const keys = periodKeys(T.ym), us = GULPS;
     const rows = us.map((u) => ({ u, t: keys.reduce((s, k) => s + tgOf(u, k), 0), r: keys.reduce((s, k) => s + realOf(u, k), 0) })).filter((x) => x.t || x.r);
     const tt = rows.reduce((s, x) => s + x.t, 0), tr = rows.reduce((s, x) => s + x.r, 0);
-    $('gTgHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : `${isAll() ? per().label : D.months[T.ym].label} · jumlah meter` + (tt ? ` · UP3 total: target ${fmt(tt)}, realisasi ${fmt(tr)} (${fmt(pc(tr, tt), 1)}%)` : ' · target belum diisi (lihat petunjuk di bawah)');
+    $('gTgHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : `${isAll() ? per().label : D.months[T.ym].label} · meter kategori tua` + (tt ? ` · UP3 total: target ${fmt(tt)}, realisasi ${fmt(tr)} (${fmt(pc(tr, tt), 1)}%)` : ' · target belum diisi (lihat petunjuk di bawah)');
     $('gTgUlp').style.height = (90 + Math.max(rows.length, 1) * 56) + 'px';
     chart('gTgUlp').setOption(Object.assign(base(), {
       color: [css('--ink-2') || '#64748b', css('--s1')],
