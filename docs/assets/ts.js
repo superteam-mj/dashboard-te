@@ -17,6 +17,8 @@
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   let ch = null;
   const hc = {};
+  const BANDS = ['≤ 450 VA', '900 VA', '1.300 VA', '2.200 VA', '3.500–5.500 VA', '6.600–23.000 VA', '> 23.000 VA', 'Tidak ada'];
+  const dayaBand = (v) => (!v ? 'Tidak ada' : v <= 450 ? BANDS[0] : v <= 900 ? BANDS[1] : v <= 1300 ? BANDS[2] : v <= 2200 ? BANDS[3] : v <= 5500 ? BANDS[4] : v <= 23000 ? BANDS[5] : BANDS[6]);
   const T = { pg: 0 };
   const F = { b: '', u: '', s: '', q: '' };
   let D = null, loading = null, all = [], cols = {}, view = [];
@@ -32,7 +34,7 @@
           if (!data || !data.data || !(data.data.rows || []).length) throw new Error('belum ada data');
           D = data.data;
           D.cols.forEach((c, i) => { cols[c] = i; });
-          all = D.rows.map((r) => { const o = {}; D.cols.forEach((c, i) => { o[c] = r[i]; }); o.bln = o.tgl ? o.tgl.slice(0, 7) : ''; o.lunas = o.angsur <= 0; return o; });
+          all = D.rows.map((r) => { const o = {}; D.cols.forEach((c, i) => { o[c] = r[i]; }); o.bln = o.tgl ? o.tgl.slice(0, 7) : ''; o.lunas = o.angsur <= 0; o.dy = dayaBand(o.daya); return o; });
           return D;
         });
       loading.catch(() => { loading = null; });
@@ -100,13 +102,13 @@
   }
 
   const renderChartUlp = () => hChart('tsChUlp', 'ulp');
-  const renderChartGol = () => { hChart('tsChGol', 'gol'); hChart('tsChTrf', 'tarif'); };
-  function hChart(id, field) {
+  const renderChartGol = () => { hChart('tsChGol', 'gol'); hChart('tsChTrf', 'tarif'); hChart('tsChDya', 'dy', BANDS); };
+  function hChart(id, field, order) {
     const el = $(id);
     if (!el || !el.offsetWidth) return;
     if (hc[id] && hc[id].getDom() !== el) { hc[id].dispose(); delete hc[id]; }
     const a = all.filter((r) => !F.b || r.bln === F.b);
-    const us = [...new Set(a.map((r) => r[field] || '-'))].map((u) => { const x = a.filter((r) => (r[field] || '-') === u); return { u, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }; }).sort((p, q) => (q.t + q.g) - (p.t + p.g));
+    const us = [...new Set(a.map((r) => r[field] || '-'))].map((u) => { const x = a.filter((r) => (r[field] || '-') === u); return { u, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }; }).sort(order ? (p, q) => order.indexOf(p.u) - order.indexOf(q.u) : (p, q) => (q.t + q.g) - (p.t + p.g));
     el.style.height = (80 + us.length * 40) + 'px';
     if (!hc[id]) hc[id] = echarts.init(el, null, { renderer: 'svg' });
     const cu = hc[id];
