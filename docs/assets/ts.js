@@ -34,7 +34,7 @@
           if (!data || !data.data || !(data.data.rows || []).length) throw new Error('belum ada data');
           D = data.data;
           D.cols.forEach((c, i) => { cols[c] = i; });
-          all = D.rows.map((r) => { const o = {}; D.cols.forEach((c, i) => { o[c] = r[i]; }); o.bln = o.tgl ? o.tgl.slice(0, 7) : ''; o.lunas = o.angsur <= 0; o.dy = dayaBand(o.daya); o.jp = /^\s*NON\s*PELANGGAN\s*$/i.test(o.idpel) ? 'Non-pelanggan' : 'Pelanggan'; return o; });
+          all = D.rows.map((r) => { const o = {}; D.cols.forEach((c, i) => { o[c] = r[i]; }); o.bln = o.tgl ? o.tgl.slice(0, 7) : ''; o.lunas = o.angsur <= 0; o.dy = dayaBand(o.daya); o.st = o.lunas ? 'Lunas' : 'Angsuran (belum lunas)'; o.jp = /^\s*NON\s*PELANGGAN\s*$/i.test(o.idpel) ? 'Non-pelanggan' : 'Pelanggan'; return o; });
           return D;
         });
       loading.catch(() => { loading = null; });
@@ -102,7 +102,7 @@
   }
 
   const renderChartUlp = () => hChart('tsChUlp', 'ulp');
-  const renderChartGol = () => { hChart('tsChGol', 'gol'); hChart('tsChTrf', 'tarif'); hChart('tsChDya', 'dy', BANDS); hChart('tsChJp', 'jp'); };
+  const renderChartGol = () => { hChart('tsChGol', 'gol'); hChart('tsChTrf', 'tarif'); hChart('tsChDya', 'dy', BANDS); hChart('tsChJp', 'jp'); hChart('tsChSt', 'st', ['Lunas', 'Angsuran (belum lunas)']); };
   function hChart(id, field, order) {
     const el = $(id);
     if (!el || !el.offsetWidth) return;
