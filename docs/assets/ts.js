@@ -15,7 +15,7 @@
   const ICON = { cash: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15v1h-2v-1.1c-1.2-.2-2.2-.9-2.4-2.1h1.7c.2.5.7.8 1.4.8.8 0 1.3-.4 1.3-.9 0-.6-.4-.8-1.6-1.1-1.5-.4-2.6-.9-2.6-2.3 0-1 .8-1.8 2.2-2V7h2v1.1c1 .2 1.9.8 2.1 1.9h-1.7c-.2-.4-.6-.7-1.2-.7-.7 0-1.1.3-1.1.8 0 .5.4.7 1.6 1 1.4.4 2.6.9 2.6 2.4 0 1.1-.9 1.9-2.3 2.1z', ok: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-2 15-5-5 1.4-1.4L10 14.2l7.6-7.6L19 8z', warn: 'M12 2 1 21h22zm1 16h-2v-2h2zm0-4h-2V9h2z', list: 'M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z' };
 
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  let ch = null;
+  let ch = null, cu = null;
   const T = { pg: 0 };
   const F = { b: '', u: '', s: '', q: '' };
   let D = null, loading = null, all = [], cols = {}, view = [];
@@ -98,6 +98,34 @@
     ch.resize();
   }
 
+  function renderChartUlp() {
+    const el = $('tsChUlp');
+    if (!el || !el.offsetWidth) return;
+    if (cu && cu.getDom() !== el) { cu.dispose(); cu = null; }
+    const a = all.filter((r) => !F.b || r.bln === F.b);
+    const us = [...new Set(a.map((r) => r.ulp))].map((u) => { const x = a.filter((r) => r.ulp === u); return { u, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }; }).sort((p, q) => (q.t + q.g) - (p.t + p.g));
+    el.style.height = (80 + us.length * 40) + 'px';
+    if (!cu) cu = echarts.init(el, null, { renderer: 'svg' });
+    const j = (v) => Math.round(v / 1e6 * 10) / 10;
+    const row = (n, v, c) => `<div style="display:flex;gap:8px;justify-content:space-between;min-width:190px"><span><i style="width:9px;height:9px;border-radius:3px;background:${c};display:inline-block;margin-right:6px"></i>${n}</span><b>${v}</b></div>`;
+    const c1 = css('--s1') || '#2a78d6', c2 = css('--down') || '#d6453a';
+    cu.setOption({
+      animationDuration: 400, color: [c1, c2],
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 64, top: 32, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+        formatter: (ps) => { const u = us[ps[0].dataIndex]; return `<b>${esc(u.u)}</b>` + ps.map((x) => row(x.seriesName, 'Rp ' + fmt(x.value, 1) + ' juta', x.color)).join('') + `<div style="margin-top:4px">${fmt(u.n)} kasus · ${fmt(u.p, 1)}% realisasi tunai</div>`; } },
+      xAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      yAxis: { type: 'category', inverse: true, data: us.map((u) => u.u), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
+      series: [
+        { name: 'Tunai', type: 'bar', stack: 'a', barMaxWidth: 20, data: us.map((u) => j(u.t)) },
+        { name: 'Angsuran', type: 'bar', stack: 'a', barMaxWidth: 20, itemStyle: { borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => fmt(us[p.dataIndex].p, 1) + '%' }, data: us.map((u) => j(u.g)) },
+      ],
+    }, true);
+    cu.resize();
+  }
+
   function renderDetail() {
     view = filtered();
     const pages = Math.max(1, Math.ceil(view.length / PAGE));
@@ -133,12 +161,12 @@
     $('tsFU').innerHTML = '<option value="">Semua ULP</option>' + [...new Set(all.map((r) => r.ulp))].sort().map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
     $('tsFU').value = F.u;
     $('tsFoot').textContent = 'Sumber: Laporan P2TL Tagihan Susulan · ' + D.files.map((f) => f.file).join(', ') + ' · diperbarui ' + new Date(D.generated_at).toLocaleString('id-ID');
-    renderSummary(); renderDetail(); renderChart();
+    renderSummary(); renderDetail(); renderChart(); renderChartUlp();
     window.scrollTo({ top: 0 });
   }
 
   function init() {
-    $('tsFB').onchange = (e) => { F.b = e.target.value; T.pg = 0; renderSummary(); renderDetail(); };
+    $('tsFB').onchange = (e) => { F.b = e.target.value; T.pg = 0; renderSummary(); renderDetail(); renderChartUlp(); };
     $('tsFU').onchange = (e) => { F.u = e.target.value; T.pg = 0; renderDetail(); renderChart(); };
     $('tsFS').onchange = (e) => { F.s = e.target.value; T.pg = 0; renderDetail(); };
     let qt = 0;
@@ -146,8 +174,8 @@
     $('tsDPrev').onclick = () => { T.pg = Math.max(0, T.pg - 1); renderDetail(); };
     $('tsDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('tsDCsv').onclick = csv;
-    window.addEventListener('resize', () => { if (ch && ch.getDom() && ch.getDom().isConnected) ch.resize(); });
-    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    window.addEventListener('resize', () => { [ch, cu].forEach((c) => { if (c && c.getDom() && c.getDom().isConnected) c.resize(); }); });
+    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); renderChartUlp(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('hashchange', () => { if (location.hash === '#ts' && document.body.dataset.view !== 'ts') show(); });
   }
 
