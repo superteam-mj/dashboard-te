@@ -170,7 +170,39 @@
     } catch (e) { tgErr = e.message; }
   }
   const tgOf = (u, b) => (b ? targets.get(u + '|' + b) || 0 : [...targets].filter(([k]) => k.startsWith(u + '|')).reduce((s, [, v]) => s + v, 0));
+  function renderTargetBln() {
+    const el = $('tsChTb');
+    if (!el || !el.offsetWidth) return;
+    if (hc.tb && hc.tb.getDom() !== el) { hc.tb.dispose(); delete hc.tb; }
+    const ms = [...new Set([...all.map((r) => r.bln).filter(Boolean), ...[...targets.keys()].map((k) => k.split('|')[1])])].sort();
+    const us = [...new Set([...ULPS, ...all.map((r) => r.ulp)])].filter((u) => !F.u || u === F.u);
+    const tg = ms.map((m) => us.reduce((s, u) => s + tgOf(u, m), 0));
+    const rl = ms.map((m) => sum(all.filter((r) => r.bln === m && (!F.u || r.ulp === F.u)), 'kwh'));
+    const pct = ms.map((_, i) => (tg[i] ? Math.round(pc(rl[i], tg[i]) * 10) / 10 : null));
+    $('tsTbHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : (F.u ? F.u : 'UP3 Mamuju (semua ULP)') + ' · kWh per bulan tanggal register · garis = % capaian (hanya bulan yang targetnya sudah diisi)';
+    if (!hc.tb) hc.tb = echarts.init(el, null, { renderer: 'svg' });
+    const c1 = css('--ink-2') || '#64748b', c2 = css('--s1') || '#2a78d6', c3 = css('--down') || '#d6453a';
+    const row = (n, v, c) => `<div style="display:flex;gap:8px;justify-content:space-between;min-width:190px"><span><i style="width:9px;height:9px;border-radius:3px;background:${c};display:inline-block;margin-right:6px"></i>${n}</span><b>${v}</b></div>`;
+    hc.tb.setOption({
+      animationDuration: 400, color: [c1, c2, c3],
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 8, top: 38, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+        formatter: (ps) => `<b>${ps[0].name}</b>` + ps.map((x) => (x.value == null ? '' : row(x.seriesName, x.seriesName.startsWith('%') ? fmt(x.value, 1) + '%' : fmt(x.value) + ' kWh', x.color))).join('') },
+      xAxis: { type: 'category', data: ms.map((m) => BLN[+m.slice(5) - 1].slice(0, 3) + ' ' + m.slice(2, 4)), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
+      yAxis: [{ type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+        { type: 'value', min: 0, axisLabel: { color: css('--muted'), fontSize: 11, formatter: '{value}%' }, splitLine: { show: false } }],
+      series: [
+        { name: 'Target', type: 'bar', barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0] }, data: tg },
+        { name: 'Realisasi', type: 'bar', barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0] }, data: rl },
+        { name: '% capaian', type: 'line', yAxisIndex: 1, symbolSize: 7, lineStyle: { width: 2 }, connectNulls: false, data: pct },
+      ],
+    }, true);
+    hc.tb.resize();
+  }
   function renderTarget() {
+    renderTargetBln();
     const el = $('tsChTg');
     if (!el || !el.offsetWidth) return;
     if (hc.tg && hc.tg.getDom() !== el) { hc.tg.dispose(); delete hc.tg; }
@@ -273,7 +305,7 @@
 
   function init() {
     $('tsFB').onchange = (e) => { F.b = e.target.value; T.pg = 0; renderSummary(); renderDetail(); renderChartUlp(); renderChartGol(); renderTarget(); };
-    $('tsFU').onchange = (e) => { F.u = e.target.value; T.pg = 0; renderDetail(); renderChart(); };
+    $('tsFU').onchange = (e) => { F.u = e.target.value; T.pg = 0; renderDetail(); renderChart(); renderTarget(); };
     $('tsFS').onchange = (e) => { F.s = e.target.value; T.pg = 0; renderDetail(); };
     let qt = 0;
     $('tsFQ').oninput = (e) => { F.q = e.target.value; T.pg = 0; clearTimeout(qt); qt = setTimeout(renderDetail, 150); };
