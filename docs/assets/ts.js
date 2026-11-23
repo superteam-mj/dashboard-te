@@ -132,6 +132,30 @@
     cu.resize();
   }
 
+  function renderChartUlpBln() {
+    const el = $('tsChUB');
+    if (!el || !el.offsetWidth) return;
+    if (hc.ub && hc.ub.getDom() !== el) { hc.ub.dispose(); delete hc.ub; }
+    if (!hc.ub) hc.ub = echarts.init(el, null, { renderer: 'svg' });
+    const ms = [...new Set(all.map((r) => r.bln).filter(Boolean))].sort();
+    const us = [...new Set(all.map((r) => r.ulp))].sort();
+    const PAL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
+    const j = (v) => Math.round(v / 1e6 * 10) / 10;
+    hc.ub.setOption({
+      animationDuration: 400, color: PAL,
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 8, top: 40, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+        formatter: (ps) => `<b>${ps[0].name}</b>` + ps.filter((x) => x.value).map((x) => `<div style="display:flex;gap:8px;justify-content:space-between;min-width:190px"><span><i style="width:9px;height:9px;border-radius:3px;background:${x.color};display:inline-block;margin-right:6px"></i>${esc(x.seriesName)}</span><b>Rp ${fmt(x.value, 1)} juta</b></div>`).join('') +
+          `<div style="display:flex;justify-content:space-between;margin-top:4px"><span>Total</span><b>Rp ${fmt(ps.reduce((s, x) => s + (x.value || 0), 0), 1)} juta</b></div>` },
+      xAxis: { type: 'category', data: ms.map((m) => BLN[+m.slice(5) - 1].slice(0, 3) + ' ' + m.slice(2, 4)), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
+      yAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      series: us.map((u, i) => ({ name: u, type: 'bar', stack: 'a', barMaxWidth: 34, data: ms.map((m) => j(sum(all.filter((r) => r.bln === m && r.ulp === u), 'tunai'))), ...(i === us.length - 1 ? { itemStyle: { borderRadius: [4, 4, 0, 0] } } : {}) })),
+    }, true);
+    hc.ub.resize();
+  }
+
   function renderDetail() {
     view = filtered();
     const pages = Math.max(1, Math.ceil(view.length / PAGE));
@@ -167,7 +191,7 @@
     $('tsFU').innerHTML = '<option value="">Semua ULP</option>' + [...new Set(all.map((r) => r.ulp))].sort().map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
     $('tsFU').value = F.u;
     $('tsFoot').textContent = 'Sumber: Laporan P2TL Tagihan Susulan · ' + D.files.map((f) => f.file).join(', ') + ' · diperbarui ' + new Date(D.generated_at).toLocaleString('id-ID');
-    renderSummary(); renderDetail(); renderChart(); renderChartUlp(); renderChartGol();
+    renderSummary(); renderDetail(); renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln();
     window.scrollTo({ top: 0 });
   }
 
@@ -181,7 +205,7 @@
     $('tsDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('tsDCsv').onclick = csv;
     window.addEventListener('resize', () => { [ch, ...Object.values(hc)].forEach((c) => { if (c && c.getDom() && c.getDom().isConnected) c.resize(); }); });
-    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); renderChartUlp(); renderChartGol(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('hashchange', () => { if (location.hash === '#ts' && document.body.dataset.view !== 'ts') show(); });
   }
 
