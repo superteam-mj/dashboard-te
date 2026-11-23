@@ -19,6 +19,8 @@
   const hc = {};
   const BANDS = ['≤ 450 VA', '900 VA', '1.300 VA', '2.200 VA', '3.500–5.500 VA', '6.600–23.000 VA', '> 23.000 VA', 'Tidak ada'];
   const dayaBand = (v) => (!v ? 'Tidak ada' : v <= 450 ? BANDS[0] : v <= 900 ? BANDS[1] : v <= 1300 ? BANDS[2] : v <= 2200 ? BANDS[3] : v <= 5500 ? BANDS[4] : v <= 23000 ? BANDS[5] : BANDS[6]);
+  const ULPS = ['ULP Manakarra', 'ULP Pasangkayu', 'ULP Majene', 'ULP Wonomulyo', 'ULP Polewali', 'ULP Mamasa'];
+  let targets = new Map(), tgErr = '', isEditor = false;   // targets: 'ulp|yyyy-mm' -> Rp
   const T = { pg: 0 };
   const F = { b: '', u: '', s: '', q: '' };
   let D = null, loading = null, all = [], cols = {}, view = [];
@@ -156,6 +158,79 @@
     hc.ub.resize();
   }
 
+  async function loadTargets() {
+    tgErr = ''; targets = new Map(); isEditor = false;
+    try {
+      const sb = DashAuth.sb;
+      const { data, error } = await sb.from('ts_targets').select('ulp,bln,target');
+      if (error) throw new Error(error.message);
+      data.forEach((r) => targets.set(r.ulp + '|' + r.bln, +r.target));
+      const { data: ed } = await sb.from('to_editors').select('email').maybeSingle();
+      isEditor = !!ed;
+    } catch (e) { tgErr = e.message; }
+  }
+  const tgOf = (u, b) => (b ? targets.get(u + '|' + b) || 0 : [...targets].filter(([k]) => k.startsWith(u + '|')).reduce((s, [, v]) => s + v, 0));
+  function renderTarget() {
+    const el = $('tsChTg');
+    if (!el || !el.offsetWidth) return;
+    if (hc.tg && hc.tg.getDom() !== el) { hc.tg.dispose(); delete hc.tg; }
+    const a = all.filter((r) => !F.b || r.bln === F.b);
+    const us = [...new Set([...ULPS, ...all.map((r) => r.ulp)])];
+    const rows = us.map((u) => ({ u, t: tgOf(u, F.b), r: sum(a.filter((x) => x.ulp === u), 'kwh') })).filter((x) => x.t || x.r);
+    const tt = rows.reduce((s, x) => s + x.t, 0), tr = rows.reduce((s, x) => s + x.r, 0);
+    $('tsTgHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' :
+      (F.b ? BLN[+F.b.slice(5) - 1] + ' ' + F.b.slice(0, 4) : 'Semua periode (jumlah target yang sudah diisi)') + ' · target dan realisasi dalam kWh (realisasi = kWh tagihan susulan pada periode itu)' +
+      (tt ? ` · UP3 total: target ${fmt(tt)} kWh, realisasi ${fmt(tr)} kWh (${fmt(pc(tr, tt), 1)}%)` : ' · target belum diisi' + (isEditor ? '' : ', hanya penginput yang dapat mengisi'));
+    el.style.height = (90 + rows.length * 56) + 'px';
+    if (!hc.tg) hc.tg = echarts.init(el, null, { renderer: 'svg' });
+    const j = (v) => Math.round(v);
+    const c1 = css('--ink-2') || '#64748b', c2 = css('--s1') || '#2a78d6';
+    hc.tg.setOption({
+      animationDuration: 400, color: [c1, c2],
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 72, top: 32, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+        formatter: (ps) => { const x = rows[ps[0].dataIndex]; return `<b>${esc(x.u)}</b><div>Target: <b>${fmt(x.t)} kWh</b></div><div>Realisasi: <b>${fmt(x.r)} kWh</b></div><div>Capaian: <b>${x.t ? fmt(pc(x.r, x.t), 1) + '%' : '-'}</b></div>`; } },
+      xAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
+      yAxis: { type: 'category', inverse: true, data: rows.map((x) => x.u), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
+      series: [
+        { name: 'Target', type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0, 4, 4, 0] }, data: rows.map((x) => j(x.t)) },
+        { name: 'Realisasi', type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => (rows[p.dataIndex].t ? fmt(pc(rows[p.dataIndex].r, rows[p.dataIndex].t), 1) + '%' : '') }, data: rows.map((x) => j(x.r)) },
+      ],
+    }, true);
+    hc.tg.resize();
+  }
+  function fillTgForm() {
+    $('tsTgForm').hidden = !isEditor;
+    if (!isEditor) return;
+    const now = new Date().toISOString().slice(0, 7), ms = [...new Set([now, ...all.map((r) => r.bln).filter(Boolean), ...[...targets.keys()].map((k) => k.split('|')[1])])].sort().reverse();
+    const sel = $('tsTgB'), keep = sel.value || F.b || now;
+    sel.innerHTML = ms.map((b) => `<option value="${b}">${BLN[+b.slice(5) - 1]} ${b.slice(0, 4)}</option>`).join('');
+    sel.value = ms.includes(keep) ? keep : now;
+    tgInputs();
+  }
+  function tgInputs() {
+    const b = $('tsTgB').value;
+    document.querySelectorAll('#tsTgForm input[data-u]').forEach((i) => { const v = targets.get(i.dataset.u + '|' + b); i.value = v ? v : ''; });
+    $('tsTgMsg').textContent = '';
+  }
+  async function saveTargets() {
+    const b = $('tsTgB').value, up = [], del = [];
+    document.querySelectorAll('#tsTgForm input[data-u]').forEach((i) => {
+      const v = i.value.trim() === '' ? null : Math.max(0, parseFloat(i.value) || 0);
+      if (v == null || v === 0) { if (targets.has(i.dataset.u + '|' + b)) del.push(i.dataset.u); } else up.push({ ulp: i.dataset.u, bln: b, target: v, updated_at: new Date().toISOString() });
+    });
+    $('tsTgMsg').textContent = 'Menyimpan…';
+    try {
+      const sb = DashAuth.sb;
+      if (up.length) { const { error } = await sb.from('ts_targets').upsert(up, { onConflict: 'ulp,bln' }); if (error) throw new Error(error.message); }
+      for (const u of del) { const { error } = await sb.from('ts_targets').delete().eq('ulp', u).eq('bln', b); if (error) throw new Error(error.message); }
+      up.forEach((r) => targets.set(r.ulp + '|' + r.bln, r.target)); del.forEach((u) => targets.delete(u + '|' + b));
+      $('tsTgMsg').textContent = 'Tersimpan.'; renderTarget();
+    } catch (e) { $('tsTgMsg').textContent = 'Gagal menyimpan: ' + e.message; }
+  }
+
   function renderDetail() {
     view = filtered();
     const pages = Math.max(1, Math.ceil(view.length / PAGE));
@@ -191,12 +266,13 @@
     $('tsFU').innerHTML = '<option value="">Semua ULP</option>' + [...new Set(all.map((r) => r.ulp))].sort().map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
     $('tsFU').value = F.u;
     $('tsFoot').textContent = 'Sumber: Laporan P2TL Tagihan Susulan · ' + D.files.map((f) => f.file).join(', ') + ' · diperbarui ' + new Date(D.generated_at).toLocaleString('id-ID');
-    renderSummary(); renderDetail(); renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln();
+    await loadTargets(); fillTgForm();
+    renderSummary(); renderDetail(); renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln(); renderTarget();
     window.scrollTo({ top: 0 });
   }
 
   function init() {
-    $('tsFB').onchange = (e) => { F.b = e.target.value; T.pg = 0; renderSummary(); renderDetail(); renderChartUlp(); renderChartGol(); };
+    $('tsFB').onchange = (e) => { F.b = e.target.value; T.pg = 0; renderSummary(); renderDetail(); renderChartUlp(); renderChartGol(); renderTarget(); };
     $('tsFU').onchange = (e) => { F.u = e.target.value; T.pg = 0; renderDetail(); renderChart(); };
     $('tsFS').onchange = (e) => { F.s = e.target.value; T.pg = 0; renderDetail(); };
     let qt = 0;
@@ -204,8 +280,9 @@
     $('tsDPrev').onclick = () => { T.pg = Math.max(0, T.pg - 1); renderDetail(); };
     $('tsDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('tsDCsv').onclick = csv;
+    $('tsTgB').onchange = tgInputs; $('tsTgSave').onclick = saveTargets;
     window.addEventListener('resize', () => { [ch, ...Object.values(hc)].forEach((c) => { if (c && c.getDom() && c.getDom().isConnected) c.resize(); }); });
-    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    new MutationObserver(() => { if (D && document.body.dataset.view === 'ts') renderChart(); renderChartUlp(); renderChartGol(); renderChartUlpBln(); renderTarget(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('hashchange', () => { if (location.hash === '#ts' && document.body.dataset.view !== 'ts') show(); });
   }
 

@@ -101,3 +101,29 @@ revoke all on public.to_editors from authenticated;
 grant select on public.to_editors to authenticated;
 revoke all on public.to_inspections from authenticated;
 grant select, insert, delete on public.to_inspections to authenticated;
+
+-- 6) Target Realisasi Tagihan Susulan (P2TL) per ULP per bulan, dalam kWh (kolom target = kWh). Dibaca semua pengguna login; diisi/diubah hanya penginput (to_editors).
+create table if not exists public.ts_targets (
+  ulp        text        not null,
+  bln        text        not null check (bln ~ '^[0-9]{4}-[0-9]{2}$'),
+  target     numeric     not null check (target >= 0),
+  updated_by text        not null default lower(coalesce(auth.jwt() ->> 'email', '')),
+  updated_at timestamptz not null default now(),
+  primary key (ulp, bln)
+);
+alter table public.ts_targets enable row level security;
+drop policy if exists "login boleh baca"    on public.ts_targets;
+drop policy if exists "editor boleh isi"    on public.ts_targets;
+drop policy if exists "editor boleh ubah"   on public.ts_targets;
+drop policy if exists "editor boleh hapus"  on public.ts_targets;
+create policy "login boleh baca" on public.ts_targets for select to authenticated using (true);
+create policy "editor boleh isi" on public.ts_targets for insert to authenticated
+  with check (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+create policy "editor boleh ubah" on public.ts_targets for update to authenticated
+  using (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+create policy "editor boleh hapus" on public.ts_targets for delete to authenticated
+  using (exists (select 1 from public.to_editors e where lower(e.email) = lower(auth.jwt() ->> 'email')));
+revoke all on public.ts_targets from anon;
+revoke all on public.ts_targets from authenticated;
+grant select, insert, update, delete on public.ts_targets to authenticated;
