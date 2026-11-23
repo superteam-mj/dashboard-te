@@ -634,16 +634,20 @@
             <div class="tools" style="padding:8px 0"><button type="button" class="btn" id="tsTgSave">Simpan target</button> <span class="hint" id="tsTgMsg"></span></div>
           </div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi per bulan</h2><p class="hint" id="tsTbHint"></p></div></div><div class="chart" id="tsChTb" style="height:340px"></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi kumulatif</h2><p class="hint" id="tsKumHint"></p></div></div><div class="chart" id="tsChKum" style="height:340px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Target × Realisasi per ULP per bulan</h2><p class="hint" id="tsTuHint"></p></div></div><div id="tsTuBox" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Realisasi per bulan</h2><p class="hint">Per bulan tanggal register · batang = tunai + angsuran (juta Rp) · garis = % realisasi tunai</p></div></div><div class="chart" id="tsChBln" style="height:320px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Grafik per ULP</h2><p class="hint">Mengikuti periode yang dipilih · batang = tunai + angsuran (juta Rp) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChUlp"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Realisasi per ULP</h2><p class="hint">Tunai = sudah dibayar; angsuran = sisa tagihan yang dicicil</p></div></div><div class="table-wrap"><table id="tsUlpTbl" class="b-tbl b-wide"></table></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Realisasi per bulan menurut ULP</h2><p class="hint">Realisasi tunai per bulan tanggal register, ditumpuk per ULP (juta Rp) · menampilkan semua bulan</p></div></div><div class="chart" id="tsChUB" style="height:340px"></div></article>
-        <article class="card span-2"><div class="card-head"><div><h2>Grafik per jenis pelanggan</h2><p class="hint">Mengikuti periode yang dipilih · pelanggan = punya IDPEL; non-pelanggan = tanpa IDPEL (tertulis NONPELANGGAN) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChJp"></div></article>
-        <article class="card span-2"><div class="card-head"><div><h2>Grafik per status pembayaran</h2><p class="hint">Mengikuti periode yang dipilih · lunas = tidak ada sisa angsuran; angsuran = masih ada sisa yang dicicil · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChSt"></div></article>
-        <article class="card span-2"><div class="card-head"><div><h2>Grafik per golongan</h2><p class="hint">Mengikuti periode yang dipilih · batang = tunai + angsuran (juta Rp) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChGol"></div></article>
-        <article class="card span-2"><div class="card-head"><div><h2>Grafik per tarif</h2><p class="hint">Mengikuti periode yang dipilih · batang = tunai + angsuran (juta Rp) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChTrf"></div></article>
-        <article class="card span-2"><div class="card-head"><div><h2>Grafik per daya</h2><p class="hint">Mengikuti periode yang dipilih · dikelompokkan menurut daya tersambung · batang = tunai + angsuran (juta Rp) · angka di ujung = % realisasi tunai</p></div></div><div class="chart" id="tsChDya"></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Realisasi menurut kategori</h2><p class="hint">Mengikuti periode yang dipilih · <i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--s1);vertical-align:baseline"></i> tunai + <i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--down);vertical-align:baseline"></i> angsuran (juta Rp) · angka di ujung = % realisasi tunai · pelanggan = punya IDPEL, non-pelanggan = NONPELANGGAN · tarif: 7 terbesar, sisanya digabung "Lainnya"</p></div></div>
+          <div class="ts-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:8px 20px">
+            <div><h3 class="ts-h">Per golongan</h3><div class="chart ts-sm" id="tsChGol"></div></div>
+            <div><h3 class="ts-h">Per tarif</h3><div class="chart ts-sm" id="tsChTrf"></div></div>
+            <div><h3 class="ts-h">Per daya tersambung</h3><div class="chart ts-sm" id="tsChDya"></div></div>
+            <div><h3 class="ts-h">Per jenis pelanggan</h3><div class="chart ts-sm" id="tsChJp"></div></div>
+            <div><h3 class="ts-h">Per status pembayaran</h3><div class="chart ts-sm" id="tsChSt"></div></div>
+          </div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Per golongan</h2></div></div><div class="table-wrap"><table id="tsGolTbl" class="b-tbl"></table></div></article>
         <article class="card span-2">
           <div class="card-head"><div><h2>Daftar tagihan susulan</h2><p class="hint" id="tsDHint"></p></div><div class="tools"><button type="button" class="btn" id="tsDCsv">Unduh Excel (CSV)</button></div></div>
@@ -882,7 +886,7 @@
   <script src="assets/gm.js?v=6"></script>
   <script src="assets/pju-plan.js?v=6"></script>
   <script src="assets/pju.js?v=6"></script>
-  <script src="assets/ts.js?v=18"></script>
+  <script src="assets/ts.js?v=20"></script>
   <script src="assets/beranda.js?v=6"></script>
   <script src="assets/susut.js?v=6"></script>
 </body>

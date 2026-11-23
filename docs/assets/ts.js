@@ -108,10 +108,15 @@
   function hChart(id, field, order) {
     const el = $(id);
     if (!el || !el.offsetWidth) return;
+    const sm = el.classList.contains('ts-sm');   // mode ringkas: tanpa legenda sendiri, batang rapat, maks. 8 baris
     if (hc[id] && hc[id].getDom() !== el) { hc[id].dispose(); delete hc[id]; }
     const a = all.filter((r) => !F.b || r.bln === F.b);
-    const us = [...new Set(a.map((r) => r[field] || '-'))].map((u) => { const x = a.filter((r) => (r[field] || '-') === u); return { u, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }; }).sort(order ? (p, q) => order.indexOf(p.u) - order.indexOf(q.u) : (p, q) => (q.t + q.g) - (p.t + p.g));
-    el.style.height = (80 + us.length * 40) + 'px';
+    let us = [...new Set(a.map((r) => r[field] || '-'))].map((u) => { const x = a.filter((r) => (r[field] || '-') === u); return { u, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }; }).sort(order ? (p, q) => order.indexOf(p.u) - order.indexOf(q.u) : (p, q) => (q.t + q.g) - (p.t + p.g));
+    if (sm && !order && us.length > 8) {
+      const rest = us.slice(7), x = a.filter((r) => rest.some((z) => z.u === (r[field] || '-')));
+      us = us.slice(0, 7).concat([{ u: `Lainnya (${rest.length})`, t: sum(x, 'tunai'), g: sum(x, 'angsur'), p: pc(sum(x, 'tunai'), sum(x, 'total')), n: x.length }]);
+    }
+    el.style.height = sm ? Math.max(96, 36 + us.length * 28) + 'px' : (80 + us.length * 40) + 'px';
     if (!hc[id]) hc[id] = echarts.init(el, null, { renderer: 'svg' });
     const cu = hc[id];
     const j = (v) => Math.round(v / 1e6 * 10) / 10;
@@ -120,15 +125,15 @@
     cu.setOption({
       animationDuration: 400, color: [c1, c2],
       textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
-      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
-      grid: { left: 8, right: 64, top: 32, bottom: 8, containLabel: true },
+      legend: { show: !sm, top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 4, right: 56, top: sm ? 4 : 32, bottom: 4, containLabel: true },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
         formatter: (ps) => { const u = us[ps[0].dataIndex]; return `<b>${esc(u.u)}</b>` + ps.map((x) => row(x.seriesName, 'Rp ' + fmt(x.value, 1) + ' juta', x.color)).join('') + `<div style="margin-top:4px">${fmt(u.n)} kasus · ${fmt(u.p, 1)}% realisasi tunai</div>`; } },
       xAxis: { type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: css('--grid') } } },
       yAxis: { type: 'category', inverse: true, data: us.map((u) => u.u), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
       series: [
-        { name: 'Tunai', type: 'bar', stack: 'a', barMaxWidth: 20, data: us.map((u) => j(u.t)) },
-        { name: 'Angsuran', type: 'bar', stack: 'a', barMaxWidth: 20, itemStyle: { borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => fmt(us[p.dataIndex].p, 1) + '%' }, data: us.map((u) => j(u.g)) },
+        { name: 'Tunai', type: 'bar', stack: 'a', barMaxWidth: sm ? 14 : 20, data: us.map((u) => j(u.t)) },
+        { name: 'Angsuran', type: 'bar', stack: 'a', barMaxWidth: sm ? 14 : 20, itemStyle: { borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: css('--ink-2'), fontSize: 11, formatter: (p) => fmt(us[p.dataIndex].p, 1) + '%' }, data: us.map((u) => j(u.g)) },
       ],
     }, true);
     cu.resize();
@@ -237,7 +242,46 @@
       hc[id].resize();
     });
   }
+  function renderTargetKum() {
+    const el = $('tsChKum');
+    if (!el || !el.offsetWidth) return;
+    if (hc.kum && hc.kum.getDom() !== el) { hc.kum.dispose(); delete hc.kum; }
+    const dm = [...new Set(all.map((r) => r.bln).filter(Boolean))].sort(), last = dm[dm.length - 1] || '';
+    const ms = [...new Set([...dm, ...[...targets.keys()].map((k) => k.split('|')[1])])].sort();
+    const us = [...new Set([...ULPS, ...all.map((r) => r.ulp)])].filter((u) => !F.u || u === F.u);
+    let ct = 0, cr = 0, yr = '';
+    const kt = [], kr = [], kp = [];
+    ms.forEach((m) => {
+      if (m.slice(0, 4) !== yr) { yr = m.slice(0, 4); ct = 0; cr = 0; }   // kumulatif dihitung ulang tiap tahun
+      ct += us.reduce((s, u) => s + tgOf(u, m), 0);
+      cr += sum(all.filter((r) => r.bln === m && (!F.u || r.ulp === F.u)), 'kwh');
+      kt.push(ct); kr.push(m <= last ? cr : null);
+      kp.push(m <= last && ct ? Math.round(pc(cr, ct) * 10) / 10 : null);
+    });
+    $('tsKumHint').textContent = tgErr ? 'Target belum bisa dimuat (' + tgErr + ').' : (F.u ? F.u : 'UP3 Mamuju (semua ULP)') + ' · kWh kumulatif sejak Januari tiap tahun · garis putus-putus = target, garis tebal = realisasi';
+    if (!hc.kum) hc.kum = echarts.init(el, null, { renderer: 'svg' });
+    const c1 = css('--ink-2') || '#64748b', c2 = css('--s1') || '#2a78d6', c3 = css('--down') || '#d6453a';
+    const row = (n, v, c) => `<div style="display:flex;gap:8px;justify-content:space-between;min-width:190px"><span><i style="width:9px;height:9px;border-radius:3px;background:${c};display:inline-block;margin-right:6px"></i>${n}</span><b>${v}</b></div>`;
+    hc.kum.setOption({
+      animationDuration: 400, color: [c1, c2, c3],
+      textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: css('--ink-2') },
+      legend: { top: 0, textStyle: { color: css('--ink-2'), fontSize: 12 }, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+      grid: { left: 8, right: 8, top: 38, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', backgroundColor: css('--surface'), borderColor: css('--border'), borderWidth: 1, textStyle: { color: css('--ink'), fontSize: 12 },
+        formatter: (ps) => `<b>${ps[0].name}</b>` + ps.map((x) => (x.value == null ? '' : row(x.seriesName, x.seriesName.startsWith('%') ? fmt(x.value, 1) + '%' : fmt(x.value) + ' kWh', x.color))).join('') },
+      xAxis: { type: 'category', boundaryGap: false, data: ms.map((m) => BLN[+m.slice(5) - 1].slice(0, 3) + ' ' + m.slice(2, 4)), axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--ink-2'), fontSize: 12 } },
+      yAxis: [{ type: 'value', axisLabel: { color: css('--muted'), fontSize: 11, formatter: (v) => (v >= 1e3 ? fmt(v / 1e3, 0) + ' rb' : fmt(v)) }, splitLine: { lineStyle: { color: css('--grid') } } },
+        { type: 'value', min: 0, axisLabel: { color: css('--muted'), fontSize: 11, formatter: '{value}%' }, splitLine: { show: false } }],
+      series: [
+        { name: 'Target kumulatif', type: 'line', symbolSize: 6, lineStyle: { width: 2, type: 'dashed' }, data: kt },
+        { name: 'Realisasi kumulatif', type: 'line', symbolSize: 7, lineStyle: { width: 3 }, areaStyle: { opacity: 0.08 }, data: kr },
+        { name: '% capaian kumulatif', type: 'line', yAxisIndex: 1, symbolSize: 5, lineStyle: { width: 1.5 }, data: kp },
+      ],
+    }, true);
+    hc.kum.resize();
+  }
   function renderTarget() {
+    renderTargetKum();
     renderTargetUlpBln();
     renderTargetBln();
     const el = $('tsChTg');
