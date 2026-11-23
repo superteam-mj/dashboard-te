@@ -155,7 +155,7 @@
     $('gMeta').innerHTML = `<span class="chip">Periode ${esc(m.label)}</span><span class="chip">${fmt(m.hari)} hari ada data</span><span class="chip">${esc(dayShort(m.first))} – ${esc(dayShort(m.last))}</span><span class="chip">${fmt(D.files)} file Excel</span>${(D.failed || []).length ? `<span class="chip" style="color:#b45309;border-color:#f59e0b" title="${esc(D.failed.join(', '))}">⚠ ${fmt(D.failed.length)} file gagal dibaca (dicoba ulang otomatis)</span>` : ''}`;
     $('gKpis').innerHTML = kpiHtml([
       { i: 'n', l: 'Total ganti meter', v: n, u: 'meter', sub: `${esc(m.label)} · ${fmt(m.hari)} hari ada data` },
-      { i: 'cal', l: `Hari terakhir (${esc(dayShort(m.last))})`, v: ld ? ld.n : 0, u: 'meter', sub: `${fmt(ld ? ld.tua : 0)} kategori tua` },
+      { i: 'cal', l: `Total penggantian ${esc(dayShort(m.last))} (data terakhir)`, v: ld ? ld.n : 0, u: 'meter', sub: `${fmt(ld ? ld.tua : 0)} tua · ${fmt(ld ? ld.n - ld.tua : 0)} bukan tua · ${fmt(ld ? ld.pra : 0)} pra / ${fmt(ld ? ld.pasca : 0)} pasca` },
       { i: 'warn', l: 'Kategori tua', v: m.tua, u: 'meter', sub: `${fmt(pc(m.tua, n), 1)}% dari pergantian`, go: { t: 'tua' } },
       { i: 'bolt', l: 'Prabayar', v: m.pra, u: 'meter', sub: `${fmt(m.tua_pra)} tua (usia ≥ ${D.rule.Prabayar} th)`, go: { j: 'Prabayar' } },
       { i: 'bolt', l: 'Pascabayar', v: m.pasca, u: 'meter', sub: `${fmt(m.tua_pasca)} tua (usia ≥ ${D.rule.Pascabayar} th)`, go: { j: 'Pascabayar' } },
