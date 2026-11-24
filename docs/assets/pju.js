@@ -110,7 +110,7 @@
   }
 
   // ---------- halaman 2: rencana kWh meter ----------
-  const tierName = (m) => (m.tier ? fmt(m.tier) + ' VA' : '> 197 kVA');
+  const tierName = (m) => (m.tier ? fmt(m.tier) + ' VA' : '> 41,5 kVA');
   const sumBy = (list, key) => { const o = new Map(); list.forEach((m) => { const k = key(m); (o.get(k) || o.set(k, []).get(k)).push(m); }); return o; };
   function renderRencana() {
     replan();
@@ -120,14 +120,14 @@
       ['Titik kWh meter rencana', fmt(n), 'meter', `radius ${fmt(prm.radius)} m · ${fmt(lamps.length)} titik lampu menyala`],
       ['Rata-rata lampu per meter', fmt(n ? lamps.length / n : 0, 1), 'titik', `terbanyak ${fmt(Math.max(0, ...meters.map((m) => m.n)))} titik`],
       ['Total daya terpasang', fmt(meters.reduce((s, m) => s + (m.tier || m.va), 0) / 1000, 1), 'kVA', `kebutuhan ${fmt(w / prm.pf / 1000, 1)} kVA (${fmt(w / 1000, 1)} kW ÷ ${fmt(prm.pf, 2)})`],
-      ['Kabel penghubung lampu', fmt(len / 1000, 1), 'km', big ? `${fmt(big)} meter melebihi 197 kVA` : 'jaringan terpendek antar titik tiap meter'],
+      ['Kabel penghubung lampu', fmt(len / 1000, 1), 'km', big ? `${fmt(big)} meter melebihi 41,5 kVA` : 'jaringan terpendek antar titik tiap meter'],
     ].map((k, i) => `<div class="kpi" style="--i:${i}"><div class="kpi-top"><div class="lbl">${k[0]}</div></div><div class="val">${k[1]}<small>${k[2]}</small></div><div class="ytd">${k[3]}</div></div>`).join('');
     const cur = $('pjRU').value;
     $('pjRU').innerHTML = opts(ulps, 'Semua ULP'); $('pjRU').value = cur;
     // tabel tangga daya
     const byT = sumBy(meters, (m) => m.tier || 0), tiers = [...P.TIERS, 0].filter((t) => byT.has(t));
     $('pjTierTbl').innerHTML = `<thead><tr><th>Tangga daya</th><th>Titik kWh meter</th><th>Titik lampu</th><th>Watt lampu</th><th>Kapasitas (kVA)</th></tr></thead><tbody>` +
-      tiers.map((t) => { const a = byT.get(t); return `<tr><td>${t ? fmt(t) + ' VA' : '&gt; 197 kVA'}</td><td>${fmt(a.length)}</td><td>${fmt(a.reduce((s, m) => s + m.n, 0))}</td><td>${fmt(a.reduce((s, m) => s + m.w, 0))}</td><td>${fmt(a.reduce((s, m) => s + (m.tier || m.va), 0) / 1000, 1)}</td></tr>`; }).join('') +
+      tiers.map((t) => { const a = byT.get(t); return `<tr><td>${t ? fmt(t) + ' VA' : '&gt; 41,5 kVA'}</td><td>${fmt(a.length)}</td><td>${fmt(a.reduce((s, m) => s + m.n, 0))}</td><td>${fmt(a.reduce((s, m) => s + m.w, 0))}</td><td>${fmt(a.reduce((s, m) => s + (m.tier || m.va), 0) / 1000, 1)}</td></tr>`; }).join('') +
       `<tr class="tot"><td>Total</td><td>${fmt(n)}</td><td>${fmt(lamps.length)}</td><td>${fmt(w)}</td><td>${fmt(meters.reduce((s, m) => s + (m.tier || m.va), 0) / 1000, 1)}</td></tr></tbody>`;
     drawRencana(true);
     renderMeterTbl();
@@ -202,9 +202,9 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   const csvMeters = () => csv('PJU_kWh_meter_rencana.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Kebutuhan VA', 'Tangga daya VA', 'Kabel m'],
-    selMeters().map((m) => [m.ulp, m.no, m.lat, m.lng, m.n, m.w, Math.round(m.va), m.tier || '>197000', Math.round(m.len)]));
+    selMeters().map((m) => [m.ulp, m.no, m.lat, m.lng, m.n, m.w, Math.round(m.va), m.tier || '>41500', Math.round(m.len)]));
   const csvRab = () => csv('PJU_RAB_meterisasi.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Tangga daya VA', 'NIDI', 'SLO', 'ROK', 'Kabel m', 'Kabel+aksesoris', 'Total RAB'],
-    rabRows().map((r) => [r.m.ulp, r.m.no, r.m.lat, r.m.lng, r.m.n, r.m.w, r.m.tier || '>197000', r.nidi, r.slo, Math.round(r.rok), Math.round(r.m.len), Math.round(r.cable), Math.round(r.total)]));
+    rabRows().map((r) => [r.m.ulp, r.m.no, r.m.lat, r.m.lng, r.m.n, r.m.w, r.m.tier || '>41500', r.nidi, r.slo, Math.round(r.rok), Math.round(r.m.len), Math.round(r.cable), Math.round(r.total)]));
 
   // ---------- halaman ----------
   const PAGES = { peta: renderPeta, rencana: renderRencana, rab: renderRab };

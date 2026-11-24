@@ -3,10 +3,12 @@
 (function (root) {
   'use strict';
   // tangga daya PLN (VA)
-  const TIERS = [450, 900, 1300, 2200, 3500, 4400, 5500, 6600, 7700, 10600, 11000, 13200, 16500, 23000, 33000, 41500, 53000, 66000, 82500, 105000, 131000, 147000, 164000, 197000];
+  // rentang dipakai: minimal 900 VA, batas atas 41.500 VA (kelompok yang melebihi dipecah)
+  const TIERS = [900, 1300, 2200, 3500, 4400, 5500, 6600, 7700, 10600, 11000, 13200, 16500, 23000, 33000, 41500];
+  const MAXVA = 41500;
   // batas atas biaya SLO tegangan rendah, Permen ESDM 2/2025 (Lampiran III): tetap untuk <= 2200 VA, selebihnya Rp per VA
   const sloDefault = (va) => (va === 450 ? 40000 : va === 900 ? 60000 : va === 1300 ? 120000 : va === 2200 ? 135000 : va <= 7700 ? 35 * va : va <= 23000 ? 30 * va : va <= 66000 ? 25 * va : 20 * va);
-  const tierOf = (va) => TIERS.find((t) => t >= va) || null; // null = di atas 197 kVA
+  const tierOf = (va) => TIERS.find((t) => t >= va) || null; // null = di atas batas atas
 
   function project(pts) {
     const lat0 = pts.reduce((s, p) => s + p.lat, 0) / pts.length, k = Math.cos(lat0 * Math.PI / 180);
@@ -60,9 +62,25 @@
         mem[bj].push(i);
       }
       const order = centers.map((c, j) => j).sort((a, b) => xy[centers[a]][1] - xy[centers[b]][1] || xy[centers[a]][0] - xy[centers[b]][0]);
+      // kelompok yang kebutuhannya > batas atas dipecah (bagi dua menurut sumbu terpanjang, pada median berbobot watt) sampai semuanya <= batas
+      const wOf = (g) => g.reduce((s, i) => s + pts[ids[i]].watt, 0);
+      const split = (g) => {
+        if (g.length < 2 || wOf(g) / pf <= MAXVA) return [g];
+        const xs = g.map((i) => xy[i][0]), ys = g.map((i) => xy[i][1]);
+        const ax = Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys) ? 0 : 1;
+        const s = g.slice().sort((a, b) => xy[a][ax] - xy[b][ax]), half = wOf(s) / 2;
+        let acc = 0, cut = 1;
+        for (let k = 0; k < s.length - 1; k++) { acc += pts[ids[s[k]]].watt; cut = k + 1; if (acc >= half) break; }
+        return split(s.slice(0, cut)).concat(split(s.slice(cut)));
+      };
       order.forEach((j) => {
-        const g = mem[j], gi = g.map((i) => ids[i]), w = gi.reduce((s, i) => s + pts[i].watt, 0), va = w / pf, c = pts[ids[centers[j]]];
-        meters.push({ ulp, lat: c.lat, lng: c.lng, idx: gi, n: gi.length, w, va, tier: tierOf(va), len: mst(xy, g) * o.route });
+        split(mem[j]).forEach((g) => {
+          // kWh meter di titik lampu yang paling dekat dengan pusat kelompok
+          const cx = g.reduce((s, i) => s + xy[i][0], 0) / g.length, cy = g.reduce((s, i) => s + xy[i][1], 0) / g.length;
+          let ci = g[0], cd = Infinity; g.forEach((i) => { const d = Math.hypot(xy[i][0] - cx, xy[i][1] - cy); if (d < cd) { cd = d; ci = i; } });
+          const gi = g.map((i) => ids[i]), w = gi.reduce((s, i) => s + pts[i].watt, 0), va = w / pf, c = pts[ids[ci]];
+          meters.push({ ulp, lat: c.lat, lng: c.lng, idx: gi, n: gi.length, w, va, tier: tierOf(va), len: mst(xy, g) * o.route });
+        });
       });
     });
     // nomor urut per ULP
@@ -76,6 +94,6 @@
     return { nidi, slo, base, rok, nidiSlo: base + rok, cable, total: base + rok + cable };
   }
 
-  const api = { TIERS, sloDefault, tierOf, plan, rab, mst };
+  const api = { TIERS, MAXVA, sloDefault, tierOf, plan, rab, mst };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.PjuPlan = api;
 })(typeof window !== 'undefined' ? window : globalThis);
