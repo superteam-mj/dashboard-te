@@ -545,12 +545,6 @@
     renderHead(); renderSheet(); writeHash();
   }
 
-  function showAmr() {
-    setView('amr');
-    if (location.hash !== '#amr') history.replaceState(null, '', location.pathname + location.search + '#amr');
-    window.scrollTo({ top: 0 });
-  }
-
   function showTransaksi() {
     setView('transaksi');
     if (location.hash.startsWith('#susut') || location.hash.startsWith('#billing')) history.replaceState(null, '', location.pathname + location.search);
@@ -590,7 +584,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'p2tl' ? window.DashDlpd.show('to') : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'amr' ? showAmr() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'p2tl' ? window.DashDlpd.show('to') : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'amr' ? window.DashAmr.show() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
     });
     initSubnav();
     // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
@@ -645,7 +639,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#amr')) showAmr(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash.startsWith('#ts')) window.DashTs.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#amr')) window.DashAmr.show(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash.startsWith('#ts')) window.DashTs.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
   }
 
   init();

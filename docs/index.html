@@ -95,7 +95,11 @@
           </div>
           <div class="sub-group" data-sg="amr">
             <button type="button" class="sg-h" data-v="amr" aria-pressed="false"><span>Automatic Meter Reading</span><i class="chev" aria-hidden="true"></i></button>
-            <div class="sub-nav" id="subAmr" role="group" aria-label="Halaman Automatic Meter Reading"></div>
+            <div class="sub-nav" id="subAmr" role="group" aria-label="Halaman Automatic Meter Reading">
+              <button type="button" data-p="ringkasan">Ringkasan</button>
+              <button type="button" data-p="perangkat">Perangkat &amp; komunikasi</button>
+              <button type="button" data-p="daftar">Daftar pelanggan</button>
+            </div>
           </div>
         </div>
       </div>
@@ -665,9 +669,55 @@
     <footer class="foot" id="tsFoot"></footer>
   </main>
 
-  <main class="wrap billing" id="amrApp" aria-label="Automatic Meter Reading">
-    <div class="s-head"><div class="crumb"><span>Pemeliharaan Meter</span><i>›</i><b>Automatic Meter Reading</b></div></div>
-    <article class="card"><p class="hint">Halaman ini masih kosong dan akan diisi.</p></article>
+  <main class="wrap billing gm" id="amrApp" aria-label="Automatic Meter Reading">
+    <div class="s-head"><div class="crumb" id="aCrumb"></div></div>
+    <div class="s-msg" id="aMsg" hidden></div>
+    <div id="aBody" hidden>
+
+      <section class="b-page" data-p="ringkasan">
+        <div class="b-meta" id="aMeta"></div>
+        <section class="kpis b-kpis b-k4" id="aKpis" aria-label="Ringkasan AMR"></section>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Pelanggan AMR per ULP</h2><p class="hint">Biru = MCCB Ready (bisa diputus/disambung jarak jauh) · abu-abu = Not Ready</p></div></div><div class="chart" id="aChUlp"></div></article>
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Rincian per ULP</h2><p class="hint">Klik angka untuk melihat dan mengunduh daftarnya</p></div></div>
+            <div class="table-wrap"><table id="aUlpTbl" class="b-tbl"></table></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="perangkat" hidden>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Merek meter</h2><p class="hint">Meter AMR terpasang</p></div></div><div class="chart" id="aChMerk"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek modem (comm device)</h2></div></div><div class="chart" id="aChCmerk"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Provider kartu SIM</h2></div></div><div class="chart" id="aChProv" style="height:200px"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Tarif</h2></div></div><div class="chart" id="aChTarif"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek × tipe meter</h2><p class="hint">Jumlah pelanggan menurut merek dan tipe meter · klik angka untuk melihat daftarnya</p></div></div><div class="table-wrap"><table id="aMtTbl" class="b-tbl"></table></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Merek × tipe modem</h2><p class="hint">Jumlah pelanggan menurut merek dan tipe modem</p></div></div><div class="table-wrap"><table id="aCtTbl" class="b-tbl"></table></div></article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="daftar" hidden>
+        <section class="grid b-detailgrid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Daftar pelanggan AMR</h2><p class="hint" id="aDHint"></p></div><div class="tools"><button type="button" class="btn" id="aDCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="aFU"></select></label>
+              <label class="field"><span>Tarif</span><select id="aFT"></select></label>
+              <label class="field"><span>Merek meter</span><select id="aFM"></select></label>
+              <label class="field"><span>Tipe meter</span><select id="aFY"></select></label>
+              <label class="field"><span>Merek modem</span><select id="aFC"></select></label>
+              <label class="field"><span>Provider</span><select id="aFP"></select></label>
+              <label class="field"><span>MCCB</span><select id="aFK"></select></label>
+              <label class="field b-dq"><span>Cari</span><input type="search" id="aDQ" placeholder="ID pelanggan, nama, alamat, nomor meter, IP, atau nomor SIM…" aria-label="Cari"></label>
+            </div>
+            <div class="table-wrap b-dwrap"><table id="aDTbl" class="b-tbl b-det"></table></div>
+            <div class="b-pager"><button type="button" class="btn ghost" id="aDPrev">‹ Sebelumnya</button><span id="aDPage"></span><button type="button" class="btn ghost" id="aDNext">Berikutnya ›</button></div>
+          </article>
+        </section>
+      </section>
+    </div>
+    <footer class="foot" id="aFoot"></footer>
   </main>
 
   <main class="wrap billing gm" id="gmApp" aria-label="Ganti Meter H+1">
@@ -895,6 +945,7 @@
   <script src="assets/billing.js?v=6"></script>
   <script src="assets/dlpd.js?v=6"></script>
   <script src="assets/gm.js?v=8"></script>
+  <script src="assets/amr.js?v=1"></script>
   <script src="assets/pju-plan.js?v=6"></script>
   <script src="assets/pju.js?v=6"></script>
   <script src="assets/ts.js?v=20"></script>
