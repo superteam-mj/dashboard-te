@@ -39,6 +39,7 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
 BILLING_DIR = "transaksi energi/mon billing/"  # menu Mon Billing; bukan bagian dari 309
 DLPD_DIR = "transaksi energi/dlpd prabayar/"  # menu DLPD Prabayar; bukan bagian dari 309
+DPM_DIR = "transaksi energi/mon dpm/"  # menu LBKB; bukan bagian dari 309
 DIL_DIR = "transaksi energi/dil/"  # koordinat pelanggan (untuk peta TO); bukan bagian dari 309
 PJU_DIR = "pengendalian susut/pju/"  # menu PJU Non Meter; bukan bagian dari Laporan Susut
 TS_DIR = "pengendalian susut/p2tl/laporan tagihan susulan/"  # menu P2TL > Realisasi Tagihan Susulan
@@ -50,6 +51,7 @@ TOP = {
     "dlpd": ("Transaksi Energi", "DLPD PRABAYAR"),
     "gm": ("Pemeliharaan Meter", "Ganti Meter H+1"),
     "koordinat": ("Transaksi Energi", "DIL"),
+    "lbkb": ("Transaksi Energi", "Mon DPM"),
     "susut": ("Pengendalian Susut", "Laporan Susut"),
     "pju": ("Pengendalian Susut", "PJU"),
     "amr": ("Pemeliharaan Meter", "AMR"),
@@ -343,6 +345,16 @@ def publish_amr(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_lbkb(sb: Supa, src: Path, work: Path):
+    import build_lbkb as bl
+    doc, warns = bl.build(src)
+    for x in doc["files"]:
+        print(f"    {x['file']}: {x['rows']} baris")
+    print(f"    bulan {doc['months'][0]}..{doc['months'][-1]}, {len(doc['rows'])} pelanggan berkode pantau")
+    sb.upsert("tul_data", [{"id": "lbkb", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    return warns
+
+
 def publish_ts(sb: Supa, src: Path, work: Path):
     import build_ts as bt
     doc, warns = bt.build(src)
@@ -422,6 +434,8 @@ def _belongs(name: str, path_str: str) -> bool:
         return low.startswith(GM_DIR) and "target" in low.rsplit("/", 1)[-1]
     if name == "koordinat":
         return low.startswith(DIL_DIR)
+    if name == "lbkb":
+        return low.startswith(DPM_DIR)
     if name == "pju":
         return low.startswith(PJU_DIR)
     if name == "amr":
@@ -430,7 +444,7 @@ def _belongs(name: str, path_str: str) -> bool:
         return low.startswith(TS_DIR)
     if name == "susut":
         return not (low.startswith(PJU_DIR) or low.startswith("pengendalian susut/p2tl/"))
-    return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR) or low.startswith(DIL_DIR)) if name == "tul" else True
+    return not (low.startswith(BILLING_DIR) or low.startswith(DLPD_DIR) or low.startswith(DIL_DIR) or low.startswith(DPM_DIR)) if name == "tul" else True
 
 
 def _ci_dir(parent: Path, name: str) -> Path:
@@ -442,7 +456,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "koordinat": publish_koordinat}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "lbkb": publish_lbkb, "koordinat": publish_koordinat}
 
 
 def main():
@@ -450,7 +464,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbkb"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)

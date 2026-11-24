@@ -74,6 +74,13 @@
             <button type="button" data-p="daftar">Daftar pelanggan</button>
             </div>
           </div>
+          <div class="sub-group" data-sg="lbkb">
+            <button type="button" class="sg-h" data-v="lbkb" aria-pressed="false"><span>LBKB</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subLbkb" role="group" aria-label="Halaman LBKB">
+              <button type="button" data-p="ringkasan">Ringkasan kode pesan</button>
+              <button type="button" data-p="peringatan">Peringatan kode berulang</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="nav-group" data-g="gm">
@@ -720,6 +727,44 @@
     <footer class="foot" id="aFoot"></footer>
   </main>
 
+  <main class="wrap billing gm" id="lbApp" aria-label="LBKB">
+    <div class="s-head">
+      <div class="crumb" id="lbCrumb"></div>
+      <select id="lbPeriod" aria-label="Pilih bulan" hidden></select>
+    </div>
+    <div class="s-msg" id="lbMsg" hidden></div>
+    <div id="lbBody" hidden>
+
+      <section class="b-page" data-p="ringkasan">
+        <div class="b-meta" id="lbMeta"></div>
+        <section class="kpis b-kpis" id="lbKpis" aria-label="Ringkasan LBKB"></section>
+        <section class="grid">
+          <article class="card span-2"><div class="card-head"><div><h2>Jumlah pelanggan per kode pesan</h2><p class="hint">Kuning = kode yang dipantau (3, 7, C, E, U, W, A, H, I, 1) · skala logaritmik agar kode kecil tetap terlihat</p></div></div><div class="chart" id="lbChKode"></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Kode pesan per ULP</h2><p class="hint">Jumlah pelanggan menurut kode pesan (kd_pesan) pada bulan terpilih</p></div></div><div class="table-wrap"><table id="lbKodeTbl" class="b-tbl"></table></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Peringatan per ULP</h2><p class="hint">Pelanggan berkode dipantau menurut lamanya berturut-turut · klik angka untuk melihat daftarnya</p></div></div><div class="table-wrap"><table id="lbUlpTbl" class="b-tbl"></table></div></article>
+          <article class="card span-2"><div class="card-head"><div><h2>Tren pelanggan berkode dipantau</h2><p class="hint">Per bulan · abu-abu = baru 1 bulan, kuning = Hati-hati, merah = Bahaya, hitam = Kinerja 0</p></div></div><div class="chart" id="lbChTren" style="height:300px"></div></article>
+        </section>
+      </section>
+
+      <section class="b-page" data-p="peringatan" hidden>
+        <section class="grid b-detailgrid">
+          <article class="card span-2">
+            <div class="card-head"><div><h2>Peringatan kode berulang</h2><p class="hint" id="lbHint"></p></div><div class="tools"><button type="button" class="btn" id="lbCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="b-dfilters">
+              <label class="field"><span>ULP</span><select id="lbFU"></select></label>
+              <label class="field"><span>Tampilkan</span><select id="lbFL"><option value="2">Peringatan (Hati-hati ke atas)</option><option value="3">Bahaya ke atas</option><option value="x">Kinerja 0</option><option value="1">Semua berkode dipantau</option></select></label>
+              <label class="field"><span>Kode bulan ini</span><select id="lbFK"></select></label>
+              <label class="field b-dq"><span>Cari</span><input type="search" id="lbQ" placeholder="ID pelanggan atau nama…" aria-label="Cari"></label>
+            </div>
+            <div class="table-wrap b-dwrap"><table id="lbTbl" class="b-tbl b-det"></table></div>
+            <div class="b-pager"><button type="button" class="btn ghost" id="lbPrev">‹ Sebelumnya</button><span id="lbPage"></span><button type="button" class="btn ghost" id="lbNext">Berikutnya ›</button></div>
+          </article>
+        </section>
+      </section>
+    </div>
+    <footer class="foot" id="lbFoot"></footer>
+  </main>
+
   <main class="wrap billing gm" id="gmApp" aria-label="Ganti Meter H+1">
     <div class="s-head">
       <div class="crumb" id="gCrumb"></div>
@@ -946,6 +991,7 @@
   <script src="assets/dlpd.js?v=6"></script>
   <script src="assets/gm.js?v=8"></script>
   <script src="assets/amr.js?v=1"></script>
+  <script src="assets/lbkb.js?v=1"></script>
   <script src="assets/pju-plan.js?v=7"></script>
   <script src="assets/pju.js?v=7"></script>
   <script src="assets/ts.js?v=20"></script>

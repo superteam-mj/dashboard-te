@@ -13,6 +13,7 @@ on:
       - "build_to.py"
       - "build_pju.py"
       - "build_amr.py"
+      - "build_lbkb.py"
       - "build_ts.py"
       - "requirements.txt"
       - ".github/workflows/sync.yml"
@@ -27,7 +28,7 @@ on:
       only:
         description: "Hanya satu kumpulan data (kosong = semua)"
         type: choice
-        options: ["", "tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt"]
+        options: ["", "tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbkb"]
         default: ""
 
 concurrency:

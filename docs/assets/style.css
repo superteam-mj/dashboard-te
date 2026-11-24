@@ -325,7 +325,7 @@ tr.sub td:first-child { padding-left: 30px; }
 code { font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
 
 /* ---------- Pengendalian Susut ---------- */
-body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app, body[data-view="dlpd"] #dashFilters, body[data-view="dlpd"] #app, body[data-view="gm"] #dashFilters, body[data-view="gm"] #app, body[data-view="pju"] #dashFilters, body[data-view="pju"] #app, body[data-view="ts"] #dashFilters, body[data-view="ts"] #app, body[data-view="amr"] #dashFilters, body[data-view="amr"] #app { display: none !important; }
+body[data-view="susut"] #dashFilters, body[data-view="susut"] #app, body[data-view="billing"] #dashFilters, body[data-view="billing"] #app, body[data-view="dlpd"] #dashFilters, body[data-view="dlpd"] #app, body[data-view="gm"] #dashFilters, body[data-view="gm"] #app, body[data-view="pju"] #dashFilters, body[data-view="pju"] #app, body[data-view="ts"] #dashFilters, body[data-view="ts"] #app, body[data-view="amr"] #dashFilters, body[data-view="amr"] #app, body[data-view="lbkb"] #dashFilters, body[data-view="lbkb"] #app { display: none !important; }
 body:not([data-view="susut"]) #susutApp { display: none; }
 body:not([data-view="billing"]) #billingApp { display: none; }
 body:not([data-view="dlpd"]) #dlpdApp { display: none; }
@@ -335,6 +335,16 @@ body:not([data-view="ts"]) #tsApp { display: none; }
 .ts-h { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--ink); }
 .ts-sm { min-width: 0; }
 body:not([data-view="amr"]) #amrApp { display: none; }
+body:not([data-view="lbkb"]) #lbApp { display: none; }
+.lb-b { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--grid); color: var(--ink-2); white-space: nowrap; }
+.lb-b1 { background: #fde68a; color: #713f12; }
+.lb-b2 { background: #ef4444; color: #fff; }
+.lb-b3 { background: #111827; color: #fff; box-shadow: 0 0 0 1px #6b7280; }
+button.b-link.lb-b1, button.b-link.lb-b2, button.b-link.lb-b3 { padding: 1px 9px; border-radius: 999px; text-decoration: none; }
+.lb-c { display: inline-block; min-width: 22px; text-align: center; font-weight: 600; color: var(--muted); }
+.lb-c.w { color: #713f12; background: #fde68a; border-radius: 6px; padding: 0 6px; }
+.lb-tag { font-size: 11px; color: #a16207; font-weight: 600; }
+tr.lb-watch td { background: rgba(224, 168, 0, .08); }
 .pj-assume { margin-bottom: 14px; }
 .leaflet-tooltip.pj-tip { background: transparent; border: 0; box-shadow: none; padding: 0; font-weight: 750; font-size: 10.5px; color: #111; }
 .leaflet-tooltip.pj-tip::before { display: none; }
