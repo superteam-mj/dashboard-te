@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=6">
+  <link rel="stylesheet" href="assets/style.css?v=7">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -574,6 +574,11 @@
                 <ol id="dToTop" class="to-list"></ol>
               </aside>
             </div>
+            <div id="dToHotList" class="to-hotlist" hidden>
+              <div class="card-head"><div><h3 id="dToHotTitle"></h3><p class="hint" id="dToHotHint"></p></div>
+                <div class="tools"><button type="button" class="btn" id="dToHotXls">Unduh Excel (.xlsx)</button><button type="button" class="btn ghost" id="dToHotClose">Tutup</button></div></div>
+              <div class="table-wrap b-dwrap"><table id="dToHotTbl" class="b-tbl b-det"></table></div>
+            </div>
             <p class="hint to-note" id="dToNote"></p>
           </article>
         </section>
@@ -989,7 +994,7 @@
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
   <script src="assets/share.js?v=6"></script>
   <script src="assets/billing.js?v=7"></script>
-  <script src="assets/dlpd.js?v=7"></script>
+  <script src="assets/dlpd.js?v=9"></script>
   <script src="assets/gm.js?v=9"></script>
   <script src="assets/amr.js?v=2"></script>
   <script src="assets/lbkb.js?v=2"></script>

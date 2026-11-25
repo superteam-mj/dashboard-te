@@ -420,7 +420,7 @@
   let pasca = null, pascaErr = '';
   const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400' };
   const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
-  let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {};
+  let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {}, hotCur = [], hotSel = null;
   function toScore(r) {
     const c = (k) => r[col(cols, k)], idle = c('idle'), d = c('daya') || 0;
     const a = idle == null ? 0 : idle >= 6 ? 40 : idle === 5 ? 30 : idle === 4 ? 20 : 10;
@@ -519,6 +519,24 @@
     ctx.beginPath(); ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y); ctx.lineTo(p.x, p.y + r); ctx.lineTo(p.x - r, p.y); ctx.closePath();
     this._fillStroke(ctx, layer);
   } });
+  // daftar pelanggan pada satu titik panas: terbuka saat titik panas diklik (daftar kanan / pin peta), bisa diunduh .xlsx
+  function hotRows(e) {
+    return e.pts.slice().sort((a, b) => b.sc.s - a.sc.s || (b.dy || 0) - (a.dy || 0)).map((p, i) => {
+      const alamat = p.kind === 'pasca' ? p.r[pasca.cols.indexOf('alamat')] : (cols.indexOf('alamat') >= 0 ? p.r[col(cols, 'alamat')] : '');
+      return { p, v: [i + 1, String(p.id == null ? '' : p.id), p.nm || '', alamat || '', p.u || '', p.kind === 'pasca' ? 'Pascabayar' : 'Prabayar', +p.dy || 0, p.sc.s, LV[toLevel(p.sc.s)], p.sub || '', p.la, p.ln] };
+    });
+  }
+  const HOT_HEAD = ['No', 'IDPEL', 'Nama', 'Alamat', 'ULP', 'Jenis', 'Daya (VA)', 'Skor', 'Tingkat potensi', 'Keterangan', 'Lintang', 'Bujur'];
+  function showHot(e) {
+    hotSel = e;
+    const rows = hotRows(e), box = $('dToHotList');
+    $('dToHotTitle').textContent = `Daftar pelanggan · Titik panas #${e.rank}`;
+    $('dToHotHint').textContent = `${fmt(e.n)} pelanggan · ${fmt(e.hi)} potensi sangat tinggi · total skor ${fmt(e.sum)} · klik baris untuk memperbesar peta`;
+    $('dToHotTbl').innerHTML = '<thead><tr>' + HOT_HEAD.slice(0, 10).map((h, i) => `<th${[2, 3, 9].includes(i) ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr></thead><tbody>' +
+      rows.map((r) => `<tr class="to-row" data-la="${r.p.la}" data-ln="${r.p.ln}" tabindex="0"><td>${r.v[0]}</td><td>${esc(r.v[1])}</td><td class="l">${esc(r.v[2])}</td><td class="l">${esc(r.v[3])}</td><td>${esc(r.v[4])}</td><td>${r.v[5]}</td><td>${fmt(r.v[6])}</td><td>${r.v[7]}</td><td><span class="to-badge" style="background:${LVC[toLevel(r.v[7])]}">${r.v[8]}</span></td><td class="l">${esc(r.v[9])}</td></tr>`).join('') + '</tbody>';
+    box.hidden = false;
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
   function drawTo(fit) {
     const c = (k) => col(cols, k), il = c('lat'), ig = c('lng'), iu = c('ulp'), ic = c('ct');
     const pts = [];
@@ -546,10 +564,11 @@
     const cells = new Map();
     pts.forEach((p) => {
       const k = Math.floor(p.la / 0.005) + ':' + Math.floor(p.ln / 0.005);
-      let e = cells.get(k); if (!e) cells.set(k, e = { n: 0, sum: 0, hi: 0, la: 0, ln: 0, u: {} });
-      e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.la; e.ln += p.ln; e.u[p.u] = (e.u[p.u] || 0) + 1;
+      let e = cells.get(k); if (!e) cells.set(k, e = { n: 0, sum: 0, hi: 0, la: 0, ln: 0, u: {}, pts: [] });
+      e.pts.push(p); e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.la; e.ln += p.ln; e.u[p.u] = (e.u[p.u] || 0) + 1;
     });
     const hot = [...cells.values()].filter((e) => e.n >= 3).sort((a, b) => b.sum - a.sum).slice(0, 10);
+    hotCur = hot; hotSel = null; $('dToHotList').hidden = true;
     hot.forEach((e, i) => { e.la /= e.n; e.ln /= e.n; e.rank = i + 1; });
     hot.slice().reverse().forEach((e) => {
       L.circle([e.la, e.ln], { radius: 450, color: '#d6232a', weight: 2, dashArray: '6 5', fillColor: '#d6232a', fillOpacity: 0.12, className: 'to-pulse', interactive: false }).addTo(tlayer);
@@ -562,7 +581,7 @@
         .bindPopup(() => popupFor(p), { maxWidth: 320 }).addTo(tlayer);
     });
     hot.forEach((e) => L.marker([e.la, e.ln], { icon: L.divIcon({ className: '', html: `<div class="to-pin">${e.rank}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }), zIndexOffset: 1000 })
-      .bindPopup(`<div class="d-pop"><b>Titik panas #${e.rank}</b><br>${e.n} pelanggan · ${e.hi} potensi sangat tinggi<br>Total skor ${fmt(e.sum)}</div>`).addTo(tlayer));
+      .bindPopup(`<div class="d-pop"><b>Titik panas #${e.rank}</b><br>${e.n} pelanggan · ${e.hi} potensi sangat tinggi<br>Total skor ${fmt(e.sum)}</div>`).on('click', () => showHot(e)).addTo(tlayer));
     tlayer.addTo(tmap);
     if (fit && pts.length) tmap.fitBounds(L.latLngBounds(pts.map((p) => [p.la, p.ln])), { padding: [30, 30], maxZoom: 15 });
     const cnt = {}; pts.forEach((p) => { cnt[p.u] = (cnt[p.u] || 0) + 1; });
@@ -573,7 +592,7 @@
     const nP = pts.filter((p) => p.kind === 'pasca').length;
     $('dToHint').textContent = `Prabayar ${per().label}: ${fmt(pts.length - nP)} · Pascabayar ${pasca ? pasca.label : '(belum tersedia)'}: ${fmt(nP)} · warna = ULP · ukuran = tingkat potensi`
       + (TO.h === 'tampil' ? '' : ` · ${fmt(hidden)} disembunyikan (sudah diperiksa)`) + (inspErr ? ' · hasil pemeriksaan tidak dapat dimuat' : '');
-    $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
+    $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16" data-h="${e.rank - 1}"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
     const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.dy - a.dy).slice(0, 15);
     $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.la}" data-ln="${p.ln}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.nm || '-')}</b> · skor ${p.sc.s}<small>${esc(p.u)} · ${fmt(p.dy)} VA · ${esc(p.sub)}</small></span></button></li>`).join('');
     $('dToNote').textContent = 'Skor potensi (maks. 90) = lama tidak beli token (≥6 bln 40 · 5 bln 30 · 4 bln 20 · lainnya 10) + daya (≥3.500 VA 25 · ≥2.200 15 · ≥1.300 8 · lainnya 3) + belum ada CT 15 + pernah ada temuan P2TL 10. ' +
@@ -706,7 +725,11 @@
     ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k', 'dToH:h'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
     document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
+      if (b && b.dataset.h != null && hotCur[+b.dataset.h]) showHot(hotCur[+b.dataset.h]);
     });
+    $('dToHotTbl').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-la]'); if (tr && tmap) { tmap.setView([+tr.dataset.la, +tr.dataset.ln], 18); $('dToMap').scrollIntoView({ block: 'center', behavior: 'smooth' }); } });
+    $('dToHotClose').onclick = () => { $('dToHotList').hidden = true; };
+    $('dToHotXls').onclick = () => { if (hotSel) XlsxMini.download(`Titik_panas_${hotSel.rank}_${T.ym}.xlsx`, 'Titik panas ' + hotSel.rank, HOT_HEAD, hotRows(hotSel).map((r) => r.v)); };
     ['subDlpd', 'subP2tl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');
