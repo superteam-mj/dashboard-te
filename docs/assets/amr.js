@@ -153,12 +153,8 @@
     $('aDPrev').disabled = T.pg === 0; $('aDNext').disabled = T.pg >= pages - 1; $('aDCsv').disabled = !rows.length;
   }
   function csvDetail() {
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };   // teks: ID/nomor tidak boleh jadi angka ilmiah di Excel
-    const body = rows.map((r) => CSVCOLS.map((k) => txt(r[k])).join(';'));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + [CSVCOLS.map((k) => txt(LABEL[k])).join(';')].concat(body).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'Pelanggan_AMR.csv';
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const v = (k, x) => (x == null ? '' : k === 'daya' && x !== '' && isFinite(+x) ? +x : String(x));   // ID/nomor tetap teks (tidak jadi angka ilmiah di Excel)
+    XlsxMini.download('Pelanggan_AMR.xlsx', 'Pelanggan AMR', CSVCOLS.map((k) => LABEL[k]), rows.map((r) => CSVCOLS.map((k) => v(k, r[k]))));
   }
   function openList(d) {
     Object.keys(F).forEach((k) => { F[k] = ''; });

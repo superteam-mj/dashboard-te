@@ -318,12 +318,11 @@
   }
   function csvDetail() {
     if (!rows.length) return;
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
-    const lines = [cols.map((k) => LABEL[k] || k).join(';')].concat(rows.map((r) => cols.map((k, i) => { const v = r[i]; return k === 'idpel' || k === 'no_lama' || k === 'no_baru' ? '="' + v + '"' : k === 'tua' ? (v == null ? '' : v ? 'Tua' : 'Tidak') : NUM.has(k) ? (v == null ? '' : String(v)) : txt(v); }).join(';')));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = `Ganti_Meter_${T.ym}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    XlsxMini.download(`Ganti_Meter_${T.ym}.xlsx`, 'Ganti Meter', cols.map((k) => LABEL[k] || k), rows.map((r) => cols.map((k, i) => {
+      const v = r[i];
+      if (v == null) return '';
+      return k === 'tua' ? (v ? 'Tua' : 'Tidak') : k === 'idpel' || k === 'no_lama' || k === 'no_baru' ? String(v) : NUM.has(k) && isFinite(+v) ? +v : String(v);
+    })));
   }
   function openList(o) {
     Object.keys(F).forEach((k) => { F[k] = ''; }); Object.entries(o).forEach(([k, v]) => { F[k] = v; }); T.pg = 0;

@@ -148,13 +148,10 @@
     $('lbPrev').disabled = T.pg === 0; $('lbNext').disabled = T.pg >= pages - 1; $('lbCsv').disabled = !rows.length;
   }
   function csvDetail() {
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
     const head = ['Status', 'ULP', 'ID Pelanggan', 'Nama', 'Tarif', 'Daya (VA)', ...D.months.map(ym), 'Berturut-turut (bulan)'];
-    const body = rows.map((r) => [r.l ? LV[r.l] : 'Pantau', r.ulp, r.idpel, r.nama, r.tarif, r.daya, ...r.codes, r.n].map(txt).join(';'));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + [head.map(txt).join(';')].concat(body).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'LBKB_peringatan_' + T.m + '.csv';
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const t = (v) => (v == null ? '' : String(v));
+    XlsxMini.download('LBKB_peringatan_' + T.m + '.xlsx', 'Peringatan LBKB', head,
+      rows.map((r) => [r.l ? LV[r.l] : 'Pantau', t(r.ulp), t(r.idpel), t(r.nama), t(r.tarif), r.daya !== '' && r.daya != null && isFinite(+r.daya) ? +r.daya : t(r.daya), ...r.codes.map(t), r.n]));
   }
 
   // ---------- tampilan ----------

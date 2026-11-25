@@ -193,17 +193,10 @@
       rows.map((r) => `<tr><td>${esc(r.m.ulp)}</td><td>${r.m.no}</td><td>${tierName(r.m)}</td><td>${fmt(r.nidi)}</td><td>${fmt(r.slo)}</td><td>${fmt(r.rok)}</td><td>${fmt(r.m.len)}</td><td>${fmt(r.cable)}</td><td>${fmt(r.total)}</td></tr>`).join('') + '</tbody>';
   }
 
-  // ---------- unduh CSV ----------
-  function csv(name, head, lines) {
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + [head.map(txt).join(';')].concat(lines.map((r) => r.map((v) => (typeof v === 'number' ? String(v) : txt(v))).join(';'))).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = name;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-  const csvMeters = () => csv('PJU_kWh_meter_rencana.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Kebutuhan VA', 'Tangga daya VA', 'Kabel m'],
+  // ---------- unduh Excel (.xlsx) ----------
+  const csvMeters = () => XlsxMini.download('PJU_kWh_meter_rencana.xlsx', 'kWh meter', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Kebutuhan VA', 'Tangga daya VA', 'Kabel m'],
     selMeters().map((m) => [m.ulp, m.no, m.lat, m.lng, m.n, m.w, Math.round(m.va), m.tier || '>41500', Math.round(m.len)]));
-  const csvRab = () => csv('PJU_RAB_meterisasi.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Tangga daya VA', 'NIDI', 'SLO', 'ROK', 'Kabel m', 'Kabel+aksesoris', 'Total RAB'],
+  const csvRab = () => XlsxMini.download('PJU_RAB_meterisasi.xlsx', 'RAB', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Tangga daya VA', 'NIDI', 'SLO', 'ROK', 'Kabel m', 'Kabel+aksesoris', 'Total RAB'],
     rabRows().map((r) => [r.m.ulp, r.m.no, r.m.lat, r.m.lng, r.m.n, r.m.w, r.m.tier || '>41500', r.nidi, r.slo, Math.round(r.rok), Math.round(r.m.len), Math.round(r.cable), Math.round(r.total)]));
 
   // ---------- halaman ----------

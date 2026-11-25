@@ -423,14 +423,9 @@
   const openX = (k) => openDoc(`bx:${D.analytics.latest}:${k}`, XTITLE[k] || k, D.periods[D.analytics.latest].label, '', false);
   function csvDetail() {
     const d = detCache.get(DOC.id); if (!d || !detRows.length) return;
-    const H = d.cols.map((k) => lab(k));
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
-    const lines = [H.join(';')].concat(detRows.map((r) => r.map((v, i) => { const k = d.cols[i]; return k === 'idpel' ? '="' + v + '"' : isNum(k) ? (v == null ? '' : String(v)) : txt(v); }).join(';')));
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     const sl = (x) => x.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-    a.download = `MonBilling_${DOC.id.split(':')[1]}_${sl(DOC.title)}${B.du ? '_' + sl(B.du) : ''}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    XlsxMini.download(`MonBilling_${DOC.id.split(':')[1]}_${sl(DOC.title)}${B.du ? '_' + sl(B.du) : ''}.xlsx`, 'Daftar', d.cols.map((k) => lab(k)),
+      detRows.map((r) => r.map((v, i) => { const k = d.cols[i]; return v == null ? '' : k === 'idpel' ? String(v) : isNum(k) && isFinite(+v) ? +v : String(v); })));
   }
 
   function bindSeg(id, key, fn) {

@@ -569,19 +569,14 @@
   }
   function exportCsv() {
     const { groups, total } = tableModel();
-    const n = (v) => String(Math.round(v * 1000) / 1000).replace('.', ',');
-    const lines = [['Golongan', ...COLS.map((c) => c.t)].join(';')];
+    const n = (v) => Math.round(v * 1000) / 1000;
+    const rows = [];
     for (const x of groups) {
-      for (const [t, r] of x.items) lines.push([GOL[x.g].name, '"' + t + '"', ...COLS.slice(1).map((c) => n(cell(r, c.k)))].join(';'));
-      lines.push([GOL[x.g].name, '"JUMLAH ' + x.g + '"', ...COLS.slice(1).map((c) => n(cell(x.sum, c.k)))].join(';'));
+      for (const [t, r] of x.items) rows.push([GOL[x.g].name, t, ...COLS.slice(1).map((c) => n(cell(r, c.k)))]);
+      rows.push([GOL[x.g].name, 'JUMLAH ' + x.g, ...COLS.slice(1).map((c) => n(cell(x.sum, c.k)))]);
     }
-    lines.push(['', '"JUMLAH"', ...COLS.slice(1).map((c) => n(cell(total, c.k)))].join(';'));
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `TUL309_${(S.unit || '').replace(/\s+/g, '_')}_${S.ym}_${S.jenis}${S.gol ? '_' + S.gol : ''}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    rows.push(['', 'JUMLAH', ...COLS.slice(1).map((c) => n(cell(total, c.k)))]);
+    XlsxMini.download(`TUL309_${(S.unit || '').replace(/\s+/g, '_')}_${S.ym}_${S.jenis}${S.gol ? '_' + S.gol : ''}.xlsx`, 'TUL309', ['Golongan', ...COLS.map((c) => c.t)], rows);
   }
 
   // ---------- Data Pengusahaan + bagikan WhatsApp ----------

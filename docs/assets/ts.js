@@ -357,12 +357,10 @@
   }
 
   function csv() {
-    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const h = ['Tgl register', 'ULP', 'IDPEL', 'Nama', 'Alamat', 'Golongan', 'Tarif', 'Daya', 'kWh', 'Rp TS', 'Total tagihan', 'Tunai', 'Angsuran', 'Status', 'No agenda', 'No SIP'];
-    const body = view.map((r) => [dmy(r.tgl), r.ulp, r.idpel, r.nama, r.alamat, r.gol, r.tarif, r.daya, r.kwh, r.rp_ts, r.total, r.tunai, r.angsur, r.lunas ? 'Lunas' : 'Angsuran', r.agenda, r.sip].map(q).join(','));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + h.map(q).join(',') + '\n' + body.join('\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'realisasi-tagihan-susulan.csv'; a.click();
+    const t = (v) => (v == null ? '' : String(v)), n = (v) => (v != null && v !== '' && isFinite(+v) ? +v : t(v));
+    XlsxMini.download('realisasi-tagihan-susulan.xlsx', 'Tagihan susulan', h,
+      view.map((r) => [dmy(r.tgl), t(r.ulp), t(r.idpel), t(r.nama), t(r.alamat), t(r.gol), t(r.tarif), n(r.daya), n(r.kwh), n(r.rp_ts), n(r.total), n(r.tunai), n(r.angsur), r.lunas ? 'Lunas' : 'Angsuran', t(r.agenda), t(r.sip)]));
   }
 
   async function show() {

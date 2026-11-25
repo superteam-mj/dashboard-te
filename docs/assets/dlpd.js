@@ -317,12 +317,8 @@
   function csvDetail() {
     if (!rows.length) return;
     const keys = cols.filter((k) => k !== 'status' || per().prev);
-    const txt = (v) => { v = v == null ? '' : String(v).replace(/"/g, '""'); return '"' + (/^[=+\-@]/.test(v) ? "'" + v : v) + '"'; };
-    const lines = [keys.map((k) => LABEL[k] || k).join(';')].concat(rows.map((r) => keys.map((k) => { const v = r[col(cols, k)]; return k === 'idpel' || k === 'meter' ? '="' + v + '"' : NUM.has(k) ? (v == null ? '' : String(v).replace('.', ',')) : txt(v); }).join(';')));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    a.download = `DLPD_Prabayar_${T.ym}${F.u ? '_' + F.u.toLowerCase().replace(/[^a-z0-9]+/g, '_') : ''}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    XlsxMini.download(`DLPD_Prabayar_${T.ym}${F.u ? '_' + F.u.toLowerCase().replace(/[^a-z0-9]+/g, '_') : ''}.xlsx`, 'DLPD Prabayar', keys.map((k) => LABEL[k] || k),
+      rows.map((r) => keys.map((k) => { const v = r[col(cols, k)]; return v == null ? '' : k === 'idpel' || k === 'meter' ? String(v) : NUM.has(k) && isFinite(+v) ? +v : String(v); })));
   }
   function openList(o) {
     Object.keys(F).forEach((k) => { F[k] = k === 'x' ? null : ''; });
@@ -625,9 +621,8 @@
       ['dHsH', 'dHsJ', 'dHsD1', 'dHsD2'].forEach((i) => $(i).addEventListener('change', drawHasil));
       $('dHsQ').addEventListener('input', drawHasil);
       $('dHsCsv').addEventListener('click', () => {
-        const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const csv = '﻿Tanggal,IDPEL,Jenis,Hasil,Catatan,Penginput\n' + hsFiltered().map((r) => [r.tanggal, r.idpel, r.jenis === 'pasca' ? 'Pascabayar' : 'Prabayar', HASIL[r.hasil] || r.hasil, r.catatan, r.created_by].map(q).join(',')).join('\n');
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'hasil-pemeriksaan-to.csv'; a.click();
+        XlsxMini.download('hasil-pemeriksaan-to.xlsx', 'Hasil TO', ['Tanggal', 'IDPEL', 'Jenis', 'Hasil', 'Catatan', 'Penginput'],
+          hsFiltered().map((r) => [r.tanggal, String(r.idpel == null ? '' : r.idpel), r.jenis === 'pasca' ? 'Pascabayar' : 'Prabayar', HASIL[r.hasil] || r.hasil, r.catatan || '', r.created_by || '']));
       });
     }
     msg.hidden = false; msg.textContent = 'Memuat hasil pemeriksaan…';

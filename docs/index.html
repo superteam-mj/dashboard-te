@@ -294,7 +294,7 @@
           <div class="tools">
             <input type="search" id="q" placeholder="Cari tarif…" aria-label="Cari tarif">
             <label class="check"><input type="checkbox" id="hideZero" checked> Sembunyikan kosong</label>
-            <button type="button" class="btn" id="csvBtn">Unduh CSV</button>
+            <button type="button" class="btn" id="csvBtn">Unduh Excel (.xlsx)</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -454,7 +454,7 @@
           <div class="card-head">
             <div><h2 id="bDTitle">Detail pelanggan</h2><p class="hint" id="bDHint"></p></div>
             <div class="tools">
-              <button type="button" class="btn" id="bDCsv">Unduh Excel (CSV)</button>
+              <button type="button" class="btn" id="bDCsv">Unduh Excel (.xlsx)</button>
               <button type="button" class="btn ghost" id="bDClose">Tutup</button>
             </div>
           </div>
@@ -583,7 +583,7 @@
         <section class="grid">
           <article class="card span-2">
             <div class="card-head"><div><h2>Hasil pemeriksaan Target Operasi (TO)</h2><p class="hint" id="dHsHint"></p></div>
-              <div class="tools"><button type="button" class="btn" id="dHsCsv">Unduh Excel (CSV)</button></div></div>
+              <div class="tools"><button type="button" class="btn" id="dHsCsv">Unduh Excel (.xlsx)</button></div></div>
             <div class="b-dfilters">
               <label class="field"><span>Hasil</span><select id="dHsH"></select></label>
               <label class="field"><span>Jenis pelanggan</span><select id="dHsJ"><option value="">Prabayar &amp; pascabayar</option><option value="pra">Prabayar</option><option value="pasca">Pascabayar</option></select></label>
@@ -603,7 +603,7 @@
           <article class="card span-2" id="dDetail">
             <div class="card-head">
               <div><h2>Daftar pelanggan</h2><p class="hint" id="dDHint"></p></div>
-              <div class="tools"><button type="button" class="btn" id="dDCsv">Unduh Excel (CSV)</button></div>
+              <div class="tools"><button type="button" class="btn" id="dDCsv">Unduh Excel (.xlsx)</button></div>
             </div>
             <div class="b-dfilters">
               <label class="field"><span>ULP</span><select id="dFU"></select></label>
@@ -662,7 +662,7 @@
           </div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Per golongan</h2></div></div><div class="table-wrap"><table id="tsGolTbl" class="b-tbl"></table></div></article>
         <article class="card span-2">
-          <div class="card-head"><div><h2>Daftar tagihan susulan</h2><p class="hint" id="tsDHint"></p></div><div class="tools"><button type="button" class="btn" id="tsDCsv">Unduh Excel (CSV)</button></div></div>
+          <div class="card-head"><div><h2>Daftar tagihan susulan</h2><p class="hint" id="tsDHint"></p></div><div class="tools"><button type="button" class="btn" id="tsDCsv">Unduh Excel (.xlsx)</button></div></div>
           <div class="b-dfilters">
             <label class="field"><span>ULP</span><select id="tsFU"></select></label>
             <label class="field"><span>Status</span><select id="tsFS"><option value="">Semua</option><option value="lunas">Lunas</option><option value="angsuran">Angsuran</option></select></label>
@@ -707,7 +707,7 @@
       <section class="b-page" data-p="daftar" hidden>
         <section class="grid b-detailgrid">
           <article class="card span-2">
-            <div class="card-head"><div><h2>Daftar pelanggan AMR</h2><p class="hint" id="aDHint"></p></div><div class="tools"><button type="button" class="btn" id="aDCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="card-head"><div><h2>Daftar pelanggan AMR</h2><p class="hint" id="aDHint"></p></div><div class="tools"><button type="button" class="btn" id="aDCsv">Unduh Excel (.xlsx)</button></div></div>
             <div class="b-dfilters">
               <label class="field"><span>ULP</span><select id="aFU"></select></label>
               <label class="field"><span>Tarif</span><select id="aFT"></select></label>
@@ -749,7 +749,7 @@
       <section class="b-page" data-p="peringatan" hidden>
         <section class="grid b-detailgrid">
           <article class="card span-2">
-            <div class="card-head"><div><h2>Peringatan kode berulang</h2><p class="hint" id="lbHint"></p></div><div class="tools"><button type="button" class="btn" id="lbCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="card-head"><div><h2>Peringatan kode berulang</h2><p class="hint" id="lbHint"></p></div><div class="tools"><button type="button" class="btn" id="lbCsv">Unduh Excel (.xlsx)</button></div></div>
             <div class="b-dfilters">
               <label class="field"><span>ULP</span><select id="lbFU"></select></label>
               <label class="field"><span>Tampilkan</span><select id="lbFL"><option value="2">Peringatan (Hati-hati ke atas)</option><option value="3">Bahaya ke atas</option><option value="x">Kinerja 0</option><option value="1">Semua berkode dipantau</option></select></label>
@@ -837,7 +837,7 @@
       <section class="b-page" data-p="daftar" hidden>
         <section class="grid b-detailgrid">
           <article class="card span-2">
-            <div class="card-head"><div><h2>Daftar pergantian meter</h2><p class="hint" id="gDHint"></p></div><div class="tools"><button type="button" class="btn" id="gDCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="card-head"><div><h2>Daftar pergantian meter</h2><p class="hint" id="gDHint"></p></div><div class="tools"><button type="button" class="btn" id="gDCsv">Unduh Excel (.xlsx)</button></div></div>
             <div class="b-dfilters">
               <label class="field"><span>Tanggal</span><select id="gFD"></select></label>
               <label class="field"><span>ULP</span><select id="gFU"></select></label>
@@ -910,7 +910,7 @@
             <div class="table-wrap"><table id="pjTierTbl" class="b-tbl"></table></div>
           </article>
           <article class="card span-2">
-            <div class="card-head"><div><h2>Daftar titik kWh meter</h2><p class="hint" id="pjMetHint"></p></div><div class="tools"><button type="button" class="btn" id="pjMetCsv">Unduh Excel (CSV)</button></div></div>
+            <div class="card-head"><div><h2>Daftar titik kWh meter</h2><p class="hint" id="pjMetHint"></p></div><div class="tools"><button type="button" class="btn" id="pjMetCsv">Unduh Excel (.xlsx)</button></div></div>
             <div class="table-wrap b-dwrap"><table id="pjMetTbl" class="b-tbl b-det"></table></div>
           </article>
         </section>
@@ -921,7 +921,7 @@
         <section class="kpis b-kpis b-k4" id="pjBKpis" aria-label="Ringkasan RAB"></section>
         <section class="grid">
           <article class="card span-2">
-            <div class="card-head"><div><h2>RAB per ULP</h2><p class="hint">NIDI + SLO + ROK, ditambah biaya kabel penghubung lampu</p></div><div class="tools"><button type="button" class="btn" id="pjRabCsv">Unduh RAB (CSV)</button></div></div>
+            <div class="card-head"><div><h2>RAB per ULP</h2><p class="hint">NIDI + SLO + ROK, ditambah biaya kabel penghubung lampu</p></div><div class="tools"><button type="button" class="btn" id="pjRabCsv">Unduh RAB (.xlsx)</button></div></div>
             <div class="table-wrap"><table id="pjBUlp" class="b-tbl b-wide"></table></div>
           </article>
           <article class="card span-2">
@@ -983,19 +983,19 @@
   <script src="assets/supabase.js?v=6"></script><!-- supabase-js 2.45.4 (MIT) -->
   <script src="assets/config.js?v=6"></script>
   <script src="assets/auth.js?v=6"></script>
+  <script src="assets/xlsx.js?v=1"></script>
   <script src="assets/echarts.min.js"></script><!-- Apache ECharts 5.5.1 (Apache-2.0) -->
-    <script src="assets/app.js?v=6"></script>
+    <script src="assets/app.js?v=7"></script>
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
   <script src="assets/share.js?v=6"></script>
-  <script src="assets/billing.js?v=6"></script>
-  <script src="assets/dlpd.js?v=6"></script>
-  <script src="assets/gm.js?v=8"></script>
-  <script src="assets/amr.js?v=1"></script>
-  <script src="assets/lbkb.js?v=1"></script>
+  <script src="assets/billing.js?v=7"></script>
+  <script src="assets/dlpd.js?v=7"></script>
+  <script src="assets/gm.js?v=9"></script>
+  <script src="assets/amr.js?v=2"></script>
+  <script src="assets/lbkb.js?v=2"></script>
   <script src="assets/pju-plan.js?v=7"></script>
-  <script src="assets/xlsx.js?v=1"></script>
-  <script src="assets/pju.js?v=10"></script>
-  <script src="assets/ts.js?v=20"></script>
+  <script src="assets/pju.js?v=11"></script>
+  <script src="assets/ts.js?v=21"></script>
   <script src="assets/beranda.js?v=6"></script>
   <script src="assets/susut.js?v=6"></script>
   <script src="assets/tblx.js?v=1"></script>
