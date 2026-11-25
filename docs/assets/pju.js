@@ -201,6 +201,45 @@
     a.download = name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
+  // tabel "Per ULP": ekspor CSV + salin sebagai gambar (digambar ke canvas dari isi tabel)
+  const tblData = (id) => [...$(id).rows].map((tr) => [...tr.cells].map((c) => c.textContent.trim()));
+  function tblPng(id, title) {
+    const d = tblData(id), sc = 2, pad = 24, rh = 38, th = title ? 44 : 0, F = 'Segoe UI, Arial, sans-serif';
+    const cv = document.createElement('canvas'), g = cv.getContext('2d');
+    g.font = `600 14px ${F}`;
+    const cw = d[0].map((_, c) => Math.max(...d.map((r) => g.measureText(r[c]).width)) + 36);
+    const W = cw.reduce((a, b) => a + b, 0) + pad * 2, H = th + d.length * rh + pad * 2;
+    cv.width = W * sc; cv.height = H * sc; g.scale(sc, sc);
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.textBaseline = 'middle';
+    if (title) { g.fillStyle = '#1a2433'; g.font = `700 18px ${F}`; g.textAlign = 'left'; g.fillText(title, pad, pad + 14); }
+    d.forEach((r, i) => {
+      const y = pad + th + i * rh, tot = i === d.length - 1, head = i === 0;
+      g.fillStyle = head ? '#eef2f9' : tot ? '#e4eefb' : '#fff'; g.fillRect(pad, y, W - pad * 2, rh);
+      g.strokeStyle = '#dde3ec'; g.beginPath(); g.moveTo(pad, y + rh); g.lineTo(W - pad, y + rh); g.stroke();
+      let x = pad;
+      r.forEach((v, c) => {
+        g.fillStyle = head ? '#5b6778' : '#1a2433'; g.font = `${head || tot || c === 0 ? 700 : 400} ${head ? 12 : 14}px ${F}`;
+        g.textAlign = c === 0 ? 'left' : 'right';
+        g.fillText(head ? v.toUpperCase() : v, c === 0 ? x + 14 : x + cw[c] - 14, y + rh / 2);
+        x += cw[c];
+      });
+    });
+    return new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('png'))), 'image/png'));
+  }
+  function flashBtn(b, msg) { const o = b.dataset.l || b.textContent; b.dataset.l = o; b.textContent = msg; clearTimeout(b._t); b._t = setTimeout(() => { b.textContent = o; }, 2000); }
+  function wireUlpTools() {
+    $('pjUlpCsv').onclick = () => { const d = tblData('pjUlpTbl'); csv('PJU_per_ULP.csv', d[0], d.slice(1)); };
+    $('pjUlpImg').onclick = async (e) => {
+      const b = e.currentTarget;
+      try {
+        if (!(navigator.clipboard && window.ClipboardItem)) throw new Error('clipboard');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': tblPng('pjUlpTbl', 'PJU Non Meter per ULP') })]);
+        flashBtn(b, 'Tersalin ✓ — tempel di PPT');
+      } catch (err) {
+        try { const a = document.createElement('a'); a.href = URL.createObjectURL(await tblPng('pjUlpTbl', 'PJU Non Meter per ULP')); a.download = 'PJU_per_ULP.png'; document.body.appendChild(a); a.click(); a.remove(); flashBtn(b, 'Disalin tidak didukung — gambar diunduh'); } catch (e2) { flashBtn(b, 'Gagal'); }
+      }
+    };
+  }
   const csvMeters = () => csv('PJU_kWh_meter_rencana.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Kebutuhan VA', 'Tangga daya VA', 'Kabel m'],
     selMeters().map((m) => [m.ulp, m.no, m.lat, m.lng, m.n, m.w, Math.round(m.va), m.tier || '>41500', Math.round(m.len)]));
   const csvRab = () => csv('PJU_RAB_meterisasi.csv', ['ULP', 'No', 'Lintang', 'Bujur', 'Titik lampu', 'Watt lampu', 'Tangga daya VA', 'NIDI', 'SLO', 'ROK', 'Kabel m', 'Kabel+aksesoris', 'Total RAB'],
@@ -240,6 +279,7 @@
     $('pjRU').onchange = () => { drawRencana(true); renderMeterTbl(); };
     $('pjRR').onchange = () => drawRencana(false);
     $('pjBU').onchange = renderRabDetail;
+    wireUlpTools();
     $('pjMetCsv').onclick = csvMeters; $('pjRabCsv').onclick = csvRab;
     $('pjTarif').addEventListener('change', (e) => {
       const i = e.target.closest('input[data-k]'); if (!i) return;
