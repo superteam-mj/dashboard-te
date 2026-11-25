@@ -228,7 +228,8 @@
   }
   function flashBtn(b, msg) { const o = b.dataset.l || b.textContent; b.dataset.l = o; b.textContent = msg; clearTimeout(b._t); b._t = setTimeout(() => { b.textContent = o; }, 2000); }
   function wireUlpTools() {
-    $('pjUlpCsv').onclick = () => { const d = tblData('pjUlpTbl'); csv('PJU_per_ULP.csv', d[0], d.slice(1)); };
+    const num = (s) => (/^-?\d{1,3}(\.\d{3})*(,\d+)?$|^-?\d+(,\d+)?$/.test(s) ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : s);
+    $('pjUlpXls').onclick = () => { const d = tblData('pjUlpTbl'); XlsxMini.download('PJU_per_ULP.xlsx', 'Per ULP', d[0], d.slice(1).map((r) => r.map(num))); };
     $('pjUlpImg').onclick = async (e) => {
       const b = e.currentTarget;
       try {
