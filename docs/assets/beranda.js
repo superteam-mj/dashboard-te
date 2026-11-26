@@ -220,6 +220,7 @@
     const d = await load();
     $('hMsg').hidden = true; $('hBody').hidden = false;
     render(d);
+    if (window.DashKinerja) window.DashKinerja.render(d);
     window.scrollTo({ top: 0 });
   }
 

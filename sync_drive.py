@@ -56,6 +56,7 @@ TOP = {
     "pju": ("Pengendalian Susut", "PJU"),
     "amr": ("Pemeliharaan Meter", "AMR"),
     "ts": ("Pengendalian Susut", "P2TL/Laporan Tagihan Susulan"),
+    "lbt": ("Transaksi Energi", "Mon DPM"),             # file target LBKB (nama file memuat "target") di folder Mon DPM
     "gmt": ("Pemeliharaan Meter", "Ganti Meter H+1"),   # file target Ganti Meter (nama file memuat "target") di folder yang sama
 }
 
@@ -403,6 +404,19 @@ def publish_gmt(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_lbt(sb: Supa, src: Path, work: Path):
+    """Target LBKB (% per ULP) -> tul_data id='lbkb_target'. File target = Excel ber-nama memuat "target" di folder Mon DPM."""
+    import build_lbkb as bl
+    targets, info, warns = bl.read_targets(src)
+    for x in info:
+        print(f"    target {x['file']}: {x['rows']} baris")
+    if targets:
+        stamp = now()
+        sb.upsert("tul_data", [{"id": "lbkb_target", "data": {"targets": targets, "files": info, "generated_at": stamp}, "generated_at": stamp}], "id")
+        print(f"    {len(targets)} target LBKB disimpan")
+    return warns
+
+
 def publish_susut(sb: Supa, src: Path, work: Path):
     out = work / "susut.json"
     build_susut.main(src, out)
@@ -450,7 +464,9 @@ def _belongs(name: str, path_str: str) -> bool:
     if name == "koordinat":
         return low.startswith(DIL_DIR)
     if name == "lbkb":
-        return low.startswith(DPM_DIR)
+        return low.startswith(DPM_DIR) and "target" not in low.rsplit("/", 1)[-1]
+    if name == "lbt":
+        return low.startswith(DPM_DIR) and "target" in low.rsplit("/", 1)[-1]
     if name == "pju":
         return low.startswith(PJU_DIR)
     if name == "amr":
@@ -471,7 +487,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "lbkb": publish_lbkb, "koordinat": publish_koordinat}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "lbt": publish_lbt, "lbkb": publish_lbkb, "koordinat": publish_koordinat}
 
 
 def main():
@@ -479,7 +495,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbkb"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbt", "lbkb"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
@@ -524,8 +540,8 @@ def main():
             else:
                 pre = top.strip().lower() + "/"
                 listing = {k: v for k, v in all_remote.items() if k.lower().startswith(pre) and _belongs(name, k)}
-                if not listing and name == "gmt":
-                    print("  Belum ada file target Ganti Meter - dilewati.")
+                if not listing and name in ("gmt", "lbt"):
+                    print("  Belum ada file target - dilewati.")
                     continue
                 if not listing:
                     print(f"  Folder '{top}' kosong / tidak ditemukan di Drive — dilewati.")

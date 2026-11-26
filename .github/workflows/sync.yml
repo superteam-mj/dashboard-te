@@ -28,7 +28,7 @@ on:
       only:
         description: "Hanya satu kumpulan data (kosong = semua)"
         type: choice
-        options: ["", "tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbkb"]
+        options: ["", "tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbt", "lbkb"]
         default: ""
 
 concurrency:

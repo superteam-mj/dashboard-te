@@ -123,3 +123,43 @@ def _finish(months, counts, seq, meta, info, warns):
     return {"months": months, "ulps": ulps, "codes": codes, "watch": WATCH, "counts": counts, "lv": lv,
             "cols": COLS, "rows": rows, "files": info,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}, warns
+
+
+def read_targets(src: Path):
+    """Target LBKB (% pencapaian per ULP) dari Excel ber-nama memuat "target" di folder Mon DPM.
+    Format boleh: ULP | TARGET (satu nilai per ULP, dianggap target sampai 31 Desember tahun ini), atau format panjang/lebar seperti file target lain
+    (ULP | BULAN | TARGET, atau ULP | 2026-01 | 2026-02 ...). -> (daftar {ulp, bln, target}, info per file, peringatan)"""
+    import build_ts as bt
+    tgt, info, warns = {}, [], []
+    year = datetime.now(timezone.utc).year
+    for f in sorted(p for p in src.rglob("*.xlsx") if not p.name.startswith("~$")):
+        wb = openpyxl.load_workbook(f, read_only=True, data_only=True)
+        n = 0
+        try:
+            for ws in wb:
+                it = ws.iter_rows(values_only=True)
+                head = next(it, None)
+                if not head:
+                    continue
+                rows = list(it)
+                tl = bt._targets(ws, head, iter(rows), warns, f.name)
+                if not tl:   # format pendek: ULP | TARGET
+                    idx = {_s(h).upper(): i for i, h in enumerate(head) if _s(h)}
+                    iu = next((i for k, i in idx.items() if k in ("ULP", "UNIT", "UNITUP")), None)
+                    it_ = next((i for k, i in idx.items() if k.startswith("TARGET")), None)
+                    if iu is None or it_ is None:
+                        warns.append(f"{f.name}/{ws.title}: bukan format target LBKB (kolom ULP dan TARGET), dilewati")
+                        continue
+                    tl = []
+                    for r in rows:
+                        u = bt._ulp(r[iu]) if iu < len(r) else None
+                        if u is None:
+                            continue
+                        tl.append({"ulp": u, "bln": f"{year}-12", "target": round(bt._n(r[it_] if it_ < len(r) else None), 2)})
+                for x in tl:
+                    tgt[(x["ulp"], x["bln"])] = x
+                n += len(tl)
+        finally:
+            wb.close()
+        info.append({"file": f.name, "rows": n})
+    return list(tgt.values()), info, warns
