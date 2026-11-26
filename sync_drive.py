@@ -278,7 +278,22 @@ def publish_koordinat(sb: Supa, src: Path, work: Path):
         r = sb.select("tul_data", f"select=data&id=eq.bd:{ym}:{k}")
         if r:
             lists[k] = r[0]["data"]
-    doc = bt.build_pasca(ym, lists, coords)
+    hist = names = None
+    try:  # riwayat jam nyala (aturan TO 2 & 3): vektor sampai 6 bulan terakhir + nama bulan terakhir
+        ho = order[-6:]
+        vecs = {}
+        for m in ho:
+            v = sb.select("tul_data", f"select=data&id=eq.bc:{m}")
+            if v:
+                vecs[m] = bb.decode_vec(v[0]["data"])
+        ho = [m for m in ho if m in vecs]
+        if len(ho) >= 2 and ho[-1] == ym:
+            nr = sb.select("tul_data", f"select=data&id=eq.bn:{ym}")
+            if nr:
+                hist, names = (ho, vecs), nr[0]["data"]
+    except Exception as e:  # riwayat gagal dimuat: peta tetap jalan dengan penanda DLPD saja
+        warns.append(f"riwayat jam nyala TO dilewati ({e})")
+    doc = bt.build_pasca(ym, lists, coords, hist, names)
     doc["files"] = info
     doc["generated_at"] = now()
     print(f"    pascabayar {ym}: {doc['flagged']} ber-penanda, {len(doc['rows'])} di peta, {doc['nocoord']} tanpa koordinat")

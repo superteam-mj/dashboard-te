@@ -561,6 +561,7 @@
               <label class="field"><span>Jenis pelanggan</span><select id="dToK"><option value="">Prabayar &amp; pascabayar</option><option value="pra">Prabayar saja</option><option value="pasca">Pascabayar saja</option></select></label>
               <label class="field"><span>Tingkat potensi</span><select id="dToL"><option value="0">Semua pelanggan</option><option value="1">Tinggi &amp; sangat tinggi</option><option value="2">Sangat tinggi saja</option></select></label>
               <label class="field"><span>Sudah diperiksa</span><select id="dToH"><option value="">Sembunyikan</option><option value="tampil">Tampilkan</option></select></label>
+              <label class="field"><span>Urutan prioritas</span><select id="dToO"><option value="daya">Tidak beli token, daya terbesar</option><option value="skor">Skor potensi tertinggi</option></select></label>
               <label class="field"><span>CT</span><select id="dToC"><option value="">Semua</option><option value="belum">Belum ada CT</option><option value="sudah">Sudah ada CT</option></select></label>
             </div>
             <div class="d-legend" id="dToLegend"></div>
@@ -570,7 +571,7 @@
               <aside class="to-side">
                 <h3>Titik panas terbesar</h3><p class="hint">Area ±500 m dengan total skor potensi tertinggi. Klik untuk memperbesar.</p>
                 <ol id="dToHot" class="to-list"></ol>
-                <h3>Pelanggan potensi tertinggi</h3>
+                <h3 id="dToTopH">Pelanggan potensi tertinggi</h3>
                 <ol id="dToTop" class="to-list"></ol>
               </aside>
             </div>
@@ -994,7 +995,7 @@
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
   <script src="assets/share.js?v=6"></script>
   <script src="assets/billing.js?v=7"></script>
-  <script src="assets/dlpd.js?v=9"></script>
+  <script src="assets/dlpd.js?v=10"></script>
   <script src="assets/gm.js?v=9"></script>
   <script src="assets/amr.js?v=2"></script>
   <script src="assets/lbkb.js?v=2"></script>

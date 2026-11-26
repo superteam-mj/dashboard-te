@@ -416,9 +416,9 @@
 
   // ---------- peta Target Operasi (TO) P2TL ----------
   // Skor potensi (maks. 90) dihitung di peta dari kolom daftar: lama tidak beli token, daya, status CT, riwayat P2TL.
-  const TO = { u: '', l: '0', c: '', k: '', h: '' };
+  const TO = { u: '', l: '0', c: '', k: '', h: '', o: 'daya' };
   let pasca = null, pascaErr = '';
-  const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400' };
+  const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400', jn_turun: 'Jam nyala < 40 (sebelumnya > 40)', jn6080: 'Jam nyala 60–80', jn6080_turun: 'Jam nyala 60–80 & turun ≥ 25%' };
   const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
   let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {}, hotCur = [], hotSel = null;
   function toScore(r) {
@@ -430,6 +430,8 @@
   }
   const toLevel = (s) => (s >= 65 ? 2 : s >= 50 ? 1 : 0);
   const LV = ['Biasa', 'Tinggi', 'Sangat tinggi'], LVC = ['#6a7380', '#eb6834', '#d6232a'];
+  // urutan prioritas: 'daya' = pelanggan tidak beli token (prabayar) dulu, daya terbesar di atas; 'skor' = skor potensi tertinggi
+  const ptCmp = (a, b) => (TO.o === 'daya' ? (a.kind === 'pra' ? 0 : 1) - (b.kind === 'pra' ? 0 : 1) || (b.dy || 0) - (a.dy || 0) || b.sc.s - a.sc.s : b.sc.s - a.sc.s || (b.dy || 0) - (a.dy || 0));
   function toPopup(r, sc) {
     const c = (k) => r[col(cols, k)], lv = toLevel(sc.s);
     return `<div class="d-pop"><b>${esc(c('nama') || '-')}</b><br>${esc(c('idpel'))}<br>${esc(c('alamat') || '')}<br>${esc(c('ulp'))} · ${esc(c('tarif'))} · ${fmt(c('daya'))} VA<br>` +
@@ -521,7 +523,7 @@
   } });
   // daftar pelanggan pada satu titik panas: terbuka saat titik panas diklik (daftar kanan / pin peta), bisa diunduh .xlsx
   function hotRows(e) {
-    return e.pts.slice().sort((a, b) => b.sc.s - a.sc.s || (b.dy || 0) - (a.dy || 0)).map((p, i) => {
+    return e.pts.slice().sort(ptCmp).map((p, i) => {
       const alamat = p.kind === 'pasca' ? p.r[pasca.cols.indexOf('alamat')] : (cols.indexOf('alamat') >= 0 ? p.r[col(cols, 'alamat')] : '');
       return { p, v: [i + 1, String(p.id == null ? '' : p.id), p.nm || '', alamat || '', p.u || '', p.kind === 'pasca' ? 'Pascabayar' : 'Prabayar', +p.dy || 0, p.sc.s, LV[toLevel(p.sc.s)], p.sub || '', p.la, p.ln] };
     });
@@ -593,11 +595,12 @@
     $('dToHint').textContent = `Prabayar ${per().label}: ${fmt(pts.length - nP)} · Pascabayar ${pasca ? pasca.label : '(belum tersedia)'}: ${fmt(nP)} · warna = ULP · ukuran = tingkat potensi`
       + (TO.h === 'tampil' ? '' : ` · ${fmt(hidden)} disembunyikan (sudah diperiksa)`) + (inspErr ? ' · hasil pemeriksaan tidak dapat dimuat' : '');
     $('dToHot').innerHTML = hot.length ? hot.map((e) => `<li><button type="button" data-la="${e.la}" data-ln="${e.ln}" data-z="16" data-h="${e.rank - 1}"><span class="to-rank">${e.rank}</span><span><b>${e.n} pelanggan</b> · ${e.hi} sangat tinggi<small>${esc(Object.entries(e.u).sort((a, b) => b[1] - a[1])[0][0])} · skor ${fmt(e.sum)}</small></span></button></li>`).join('') : '<li class="hint">Belum ada area dengan ≥ 3 pelanggan.</li>';
-    const topc = pts.slice().sort((a, b) => b.sc.s - a.sc.s || b.dy - a.dy).slice(0, 15);
+    const topc = pts.slice().sort(ptCmp).slice(0, 15);
+    document.querySelector('#dToTopH').textContent = TO.o === 'daya' ? 'Prioritas 1: tidak beli token, daya terbesar' : 'Pelanggan potensi tertinggi';
     $('dToTop').innerHTML = topc.map((p, i) => `<li><button type="button" data-la="${p.la}" data-ln="${p.ln}" data-z="18"><span class="to-rank" style="background:${LVC[toLevel(p.sc.s)]}">${i + 1}</span><span><b>${esc(p.nm || '-')}</b> · skor ${p.sc.s}<small>${esc(p.u)} · ${fmt(p.dy)} VA · ${esc(p.sub)}</small></span></button></li>`).join('');
     $('dToNote').textContent = 'Skor potensi (maks. 90) = lama tidak beli token (≥6 bln 40 · 5 bln 30 · 4 bln 20 · lainnya 10) + daya (≥3.500 VA 25 · ≥2.200 15 · ≥1.300 8 · lainnya 3) + belum ada CT 15 + pernah ada temuan P2TL 10. ' +
       'Sangat tinggi ≥ 65, tinggi 50–64. Skor ini alat bantu memilih TO, bukan bukti pelanggaran; verifikasi tetap lewat pemeriksaan lapangan.';
-    $('dToNote').textContent += ' Hasil pemeriksaan Normal, Temuan P2TL, dan Tidak ditemukan/kosong menyembunyikan titik selama 3 bulan (setelah itu muncul lagi bila masih masuk DLPD bulan berjalan); Tidak bisa diakses tetap tampil dengan garis putus-putus.' + (isEditor ? ' Klik titik untuk menginput hasil.' : '') + ' Pascabayar (belah ketupat): skor = penanda DLPD Mon Billing terberat (kWh nol 45 · stand mundur 40 · <40 jam 35 · selisih >50% 25 · kVArh 20 · pecahan 15 · jam nyala >600 15 · >400 10) + 5 per penanda tambahan (maks. 15) + daya (sama seperti prabayar) + 10 bila bulan lalu juga tidak normal. Koordinat dari file DIL' + (pasca ? `; ${fmt(pasca.nocoord)} dari ${fmt(pasca.flagged)} pelanggan ber-penanda tidak punya koordinat` + (pasca.cut ? `; ${fmt(pasca.cut)} skor terendah tidak ditampilkan` : '') : '; data pascabayar belum tersedia (' + pascaErr + ')') + '.';
+    $('dToNote').textContent += ' Hasil pemeriksaan Normal, Temuan P2TL, dan Tidak ditemukan/kosong menyembunyikan titik selama 3 bulan (setelah itu muncul lagi bila masih masuk DLPD bulan berjalan); Tidak bisa diakses tetap tampil dengan garis putus-putus.' + (isEditor ? ' Klik titik untuk menginput hasil.' : '') + ' Pascabayar (belah ketupat): skor = penanda terberat (kWh nol 45 · stand mundur 40 · jam nyala < 40 padahal sebelumnya > 40 = 40 · <40 jam 35 · jam nyala 60–80 & turun ≥ 25% = 35 · jam nyala 60–80 tanpa penurunan 15 · selisih >50% 25 · kVArh 20 · pecahan 15 · jam nyala >600 15 · >400 10) + 5 per penanda tambahan (maks. 15) + daya (sama seperti prabayar) + 10 bila bulan lalu juga tidak normal. Koordinat dari file DIL' + (pasca ? `; ${fmt(pasca.nocoord)} dari ${fmt(pasca.flagged)} pelanggan ber-penanda tidak punya koordinat` + (pasca.cut ? `; ${fmt(pasca.cut)} skor terendah tidak ditampilkan` : '') : '; data pascabayar belum tersedia (' + pascaErr + ')') + '.';
   }
   async function renderTo() {
     const msg = $('dToMsg');
@@ -619,7 +622,7 @@
       const names = new Set(us.map((u) => u.name)); if (pasca) Object.keys(pasca.ulp_total || {}).forEach((n) => names.add(n));
       tUlpIdx = {}; [...names].sort().forEach((n, i) => { tUlpIdx[n] = i; });
       $('dToU').innerHTML = '<option value="">Semua ULP</option>' + Object.keys(tUlpIdx).map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-      TO.u = ''; TO.l = '0'; TO.c = ''; TO.k = ''; TO.h = ''; $('dToL').value = '0'; $('dToC').value = ''; $('dToK').value = ''; $('dToH').value = '';
+      TO.u = ''; TO.l = '0'; TO.c = ''; TO.k = ''; TO.h = ''; TO.o = 'daya'; $('dToO').value = 'daya'; $('dToL').value = '0'; $('dToC').value = ''; $('dToK').value = ''; $('dToH').value = '';
     }
     if (!tmap) {
       tmap = L.map('dToMap', { preferCanvas: true }).setView([-2.7, 118.9], 9);
@@ -722,7 +725,7 @@
     $('dDNext').onclick = () => { T.pg += 1; renderDetail(); };
     $('dDCsv').onclick = csvDetail;
     ['dMU:u', 'dMC:c', 'dMI:i'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { M[k] = e.target.value; if (map) drawMap(true); }; });
-    ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k', 'dToH:h'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
+    ['dToU:u', 'dToL:l', 'dToC:c', 'dToK:k', 'dToH:h', 'dToO:o'].forEach((x) => { const [id, k] = x.split(':'); $(id).onchange = (e) => { TO[k] = e.target.value; if (tmap) drawTo(true); }; });
     document.querySelector('#dBody .to-side').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-la]'); if (b && tmap) tmap.setView([+b.dataset.la, +b.dataset.ln], +b.dataset.z);
       if (b && b.dataset.h != null && hotCur[+b.dataset.h]) showHot(hotCur[+b.dataset.h]);

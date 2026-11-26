@@ -23,7 +23,7 @@ MIN_SCORE = 25
 COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "flags", "status", "status_lalu", "kwh", "jam", "lat", "lng", "s", "sd"]
 
 # bobot penanda DLPD pascabayar (potensi pemakaian tidak tercatat / meter dimanipulasi)
-FLAG_PTS = {"nol": 45, "mundur": 40, "jam40": 35, "dev50": 25, "kvarh": 20, "pecah": 15, "jn600": 15, "jn400": 10}
+FLAG_PTS = {"nol": 45, "mundur": 40, "jn_turun": 40, "jam40": 35, "jn6080_turun": 35, "jn6080": 15, "dev50": 25, "kvarh": 20, "pecah": 15, "jn600": 15, "jn400": 10}
 FLAG_ORDER = list(FLAG_PTS)
 
 
@@ -95,6 +95,41 @@ def load_coords(src: Path):
     return coords, info, warns
 
 
+# ---- penanda dari riwayat jam nyala (butuh vektor beberapa bulan: tul_data bc:<ym>)
+JN_LOW = 40            # aturan 2: jam nyala bulan ini di bawah ini ...
+JN_BASE = 40           # ... padahal pada periode sebelumnya di atas ini
+BASE_MONTHS = 2        # minimal berapa periode sebelumnya yang di atas JN_BASE (bila riwayat lebih pendek: semua periode yang ada)
+JN_BAND = (60, 80)     # aturan 3: rentang jam nyala yang kerap ditemukan menggunakan listrik ilegal
+BAND_MIN_DAYA = 0      # aturan 3 berlaku untuk semua daya: temuan nyata (TS Nov 2026) mayoritas R1 450-1.300 VA. Tanpa penguat (turun >= 25%) bobotnya kecil, jadi hanya daya >= 2.200 VA yang lolos ambang peta
+BAND_DROP = 0.25       # aturan 3 diperkuat bila jam nyala turun >= 25% dari rata-rata periode sebelumnya
+
+
+def history_flags(order, vecs):
+    """-> {idpel(str): {'f': [penanda], 'row': {...}}} untuk pelanggan bulan terakhir yang memenuhi aturan 2 atau 3.
+    order = periode menaik, vecs = {ym: hasil bb.decode_vec}."""
+    cur = vecs[order[-1]]
+    prevs = [vecs[o] for o in order[:-1]][::-1][:5]  # terdekat dulu, maks. 5 periode
+    out = {}
+    for k, i in enumerate(cur["id"]):
+        jn = cur["jn"][k]
+        past = []
+        for pv in prevs:
+            j = pv["pos"].get(i)
+            if j is not None:
+                past.append(pv["jn"][j])
+        fl = []
+        if past and jn < JN_LOW:
+            need = min(BASE_MONTHS, len(past))
+            if sum(1 for v in past if v > JN_BASE) >= need:
+                fl.append("jn_turun")
+        if JN_BAND[0] <= jn <= JN_BAND[1] and cur["d"][k] >= BAND_MIN_DAYA:
+            avg = sum(past) / len(past) if past else None
+            fl.append("jn6080_turun" if avg and jn <= (1 - BAND_DROP) * avg else "jn6080")
+        if fl:
+            out[str(i)] = {"f": fl, "k": k}
+    return out
+
+
 def score(flags, daya, status_lalu):
     pts = sorted((FLAG_PTS[f] for f in flags if f in FLAG_PTS), reverse=True)
     a = pts[0] if pts else 0
@@ -104,8 +139,9 @@ def score(flags, daya, status_lalu):
     return a + b + c + d, [a, b, c, d]
 
 
-def build_pasca(ym: str, lists: dict, coords: dict):
-    """lists = {penanda: {'cols': DETAIL_COLS, 'rows': [...]}} dari tul_data bd:<ym>:<penanda>."""
+def build_pasca(ym: str, lists: dict, coords: dict, hist=None, names=None):
+    """lists = {penanda: {'cols': DETAIL_COLS, 'rows': [...]}} dari tul_data bd:<ym>:<penanda>.
+    hist = (order, vecs) riwayat jam nyala untuk aturan 2 & 3 (opsional); names = tul_data bn:<ym> (nama & alamat bulan terakhir)."""
     cust = {}
     for flag, doc in lists.items():
         cols = doc["cols"]
@@ -115,6 +151,16 @@ def build_pasca(ym: str, lists: dict, coords: dict):
             if e is None:
                 e = cust[r[ix["idpel"]]] = {"r": {c: r[i] for c, i in ix.items()}, "f": []}
             e["f"].append(flag)
+    if hist:
+        order, vecs = hist
+        cur = vecs[order[-1]]
+        for idpel, h in history_flags(order, vecs).items():
+            e = cust.get(idpel)
+            if e is None:  # tidak ber-penanda DLPD: susun dari vektor bulan terakhir
+                k = h["k"]
+                e = cust[idpel] = {"r": {"idpel": idpel, "nama": names["nm"][k] if names else "", "alamat": names["al"][k] if names else "", "ulp": ULP.get(cur["u"][k], f"ULP {cur['u'][k]}"),
+                                         "tarif": cur["t"][k], "daya": cur["d"][k], "status": "", "kwh_pakai": cur["kt"][k], "jamnyala": cur["jn"][k]}, "f": []}
+            e["f"] += h["f"]
     rows, nocoord, total = [], Counter(), Counter()
     for idpel, e in cust.items():
         r = e["r"]
