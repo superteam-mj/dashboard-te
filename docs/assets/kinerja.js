@@ -19,7 +19,7 @@
     susut: 'Capaian = target susut ÷ susut kumulatif (100% bila susut sudah ≤ target; makin rendah susut makin baik).',
     p2tl: 'Target = jumlah target kWh tagihan susulan Januari–Desember; realisasi = kWh tagihan susulan dengan tanggal register tahun ini.',
     gm: 'Target = jumlah target ganti meter Januari–Desember; realisasi = hanya meter kategori tua.',
-    lbkb: 'Realisasi per ULP pada bulan terakhir: tidak ada pelanggan berulang ≥ 3 bulan berturut-turut = 100%; ada yang berulang tepat 3 bulan (dan tidak ada > 3) = jumlah pelanggan itu ÷ pelanggan pascabayar; ada yang berulang > 3 bulan = 0%.',
+    lbkb: 'Realisasi bulan terakhir = 100% − (pelanggan berulang 3 bulan berturut-turut + pelanggan berulang > 3 bulan) ÷ pelanggan pascabayar. Pelanggan berulang < 3 kali dihitung tuntas (100%); berulang tepat 3 kali atau lebih tidak tuntas. Capaian dihitung dari realisasi yang dibulatkan terhadap target (bawaan 100% bila Target LBKB belum diisi).',
   };
 
   async function fetchAll(sb, table, cols) {
@@ -82,12 +82,12 @@
     });
     const T = {};
     ((tdoc && tdoc.targets) || []).filter((x) => String(x.bln).startsWith(String(YEAR))).sort((a, b) => (a.bln < b.bln ? -1 : 1)).forEach((x) => { T[key(x.ulp)] = +x.target; });   // nilai bulan terakhir yang diisi (Desember bila ada)
-    const mk = (n, a3, a4, p, t) => { const r = a4 > 0 ? 0 : a3 > 0 && p > 0 ? a3 / p * 100 : 100; return { u: n, p, a3, a4, r, t: t || null, c: t ? Math.min(100, r / t * 100) : null }; };
+    const mk = (n, a3, a4, p, t) => { const r = p > 0 ? Math.max(0, (p - a3 - a4) / p * 100) : 100, tg = t || 100; return { u: n, p, a3, a4, r, t: tg, tdef: !t, c: Math.min(100, Math.round(r) / tg * 100) }; };   // capaian memakai realisasi yang dibulatkan (99,88% -> 100%); target bawaan 100%
     const rows = ULPS.map((n) => mk(n, n3[key(n)] || 0, n4[key(n)] || 0, P[key(n)] || 0, T[key(n)]));
     const tp = rows.reduce((s, x) => s + x.p, 0), a3 = rows.reduce((s, x) => s + x.a3, 0), a4 = rows.reduce((s, x) => s + x.a4, 0);
     const tt = rows.every((x) => x.t) ? rows.reduce((s, x) => s + x.t, 0) / rows.length : (T[key(UP3)] || null);
     rows.push(mk(UP3, a3, a4, tp, tt));
-    return { rows, sub: `Bulan ${months[li].slice(4)}/${months[li].slice(0, 4)} · ${tdoc ? 'target dari file Excel di Drive' : 'target belum diisi (unggah Target LBKB.xlsx)'}` };
+    return { rows, sub: `Bulan ${months[li].slice(4)}/${months[li].slice(0, 4)} · ${tdoc ? 'target dari file Excel di Drive' : 'target bawaan 100% (unggah Target LBKB.xlsx untuk mengubah)'}` };
   }
 
   // ---------- tampilan ----------
@@ -147,7 +147,7 @@
       G.rows.map((x) => `<tr${trCls(x)}><td>${esc(x.u)}</td><td>${x.t ? fmt(x.t) : '–'}</td><td>${fmt(x.r)}</td><td>${x.t ? fmt(Math.max(0, x.t - x.r)) : '–'}</td><td>${cap(x.c)}</td></tr>`).join('')));
     out.push(L.err ? err('4. Tindak lanjut LBKB', L.err) : wrap('kLbkb', '4. Tindak lanjut LBKB', L.sub, NOTE.lbkb,
       '<th>ULP</th><th>Pelanggan pascabayar</th><th>Berulang 3 bulan</th><th>Berulang &gt; 3 bulan</th><th>Realisasi (%)</th><th>Target (%)</th><th>Capaian</th>',
-      L.rows.map((x) => `<tr${trCls(x)}><td>${esc(x.u)}</td><td>${fmt(x.p)}</td><td>${fmt(x.a3)}</td><td>${fmt(x.a4)}</td><td>${fmt(x.r, 1)}</td><td>${x.t ? fmt(x.t, 1) : '–'}</td><td>${cap(x.c)}</td></tr>`).join('')));
+      L.rows.map((x) => `<tr${trCls(x)}><td>${esc(x.u)}</td><td>${fmt(x.p)}</td><td>${fmt(x.a3)}</td><td>${fmt(x.a4)}</td><td>${fmt(x.r, 2)}</td><td>${fmt(x.t, 1)}${x.tdef ? '<span class="muted"> (bawaan)</span>' : ''}</td><td>${cap(x.c)}</td></tr>`).join('')));
     host.innerHTML = out.join('');
     [['kSusut', S], ['kP2tl', P], ['kGm', G], ['kLbkb', L]].forEach(([id, r]) => { if (r && r.rows) chart(id, r.rows); });
   }
