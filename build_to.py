@@ -23,7 +23,7 @@ MIN_SCORE = 25
 COLS = ["idpel", "nama", "alamat", "ulp", "tarif", "daya", "flags", "status", "status_lalu", "kwh", "jam", "lat", "lng", "s", "sd"]
 
 # bobot penanda DLPD pascabayar (potensi pemakaian tidak tercatat / meter dimanipulasi)
-FLAG_PTS = {"nol": 45, "mundur": 40, "jn_turun": 40, "jam40": 35, "jn6080_turun": 35, "jn6080": 15, "dev50": 25, "kvarh": 20, "pecah": 15, "jn600": 15, "jn400": 10}
+FLAG_PTS = {"nol": 45, "mundur": 40, "jn_turun": 40, "jn_anjlok": 40, "jam40": 35, "jn_datar": 30, "jn6080_turun": 20, "jn6080": 10, "dev50": 25, "kvarh": 20, "pecah": 15, "jn600": 15, "jn400": 10}
 FLAG_ORDER = list(FLAG_PTS)
 
 
@@ -99,8 +99,11 @@ def load_coords(src: Path):
 JN_LOW = 40            # aturan 2: jam nyala bulan ini di bawah ini ...
 JN_BASE = 40           # ... padahal pada periode sebelumnya di atas ini
 BASE_MONTHS = 2        # minimal berapa periode sebelumnya yang di atas JN_BASE (bila riwayat lebih pendek: semua periode yang ada)
+ANJLOK = 0.5           # aturan 2b: jam nyala bulan ini < 50% rata-rata periode sebelumnya (rata-rata >= ANJLOK_MIN)
+ANJLOK_MIN = 100       # (uji ke 20 temuan TS Nov 2026, bulan uji Okt: 6/20 temuan, 0,97% populasi; aturan 2 murni "<40" hanya 2/20)
+DATAR_TOL, DATAR_MIN_DAYA = 0.05, 4400   # aturan 4: jam nyala datar (rentang <= 5%) >= 3 bulan pada daya >= 4.400 VA (4/20 temuan, 1,09% populasi)
 JN_BAND = (60, 80)     # aturan 3: rentang jam nyala yang kerap ditemukan menggunakan listrik ilegal
-BAND_MIN_DAYA = 0      # aturan 3 berlaku untuk semua daya: temuan nyata (TS Nov 2026) mayoritas R1 450-1.300 VA. Tanpa penguat (turun >= 25%) bobotnya kecil, jadi hanya daya >= 2.200 VA yang lolos ambang peta
+BAND_MIN_DAYA = 0      # aturan 3 berlaku untuk semua daya. CATATAN: pada uji 20 temuan TS (Nov 2026) rentang 60-80 kena 0/20 (populasi 8%), jadi bobotnya sengaja kecil
 BAND_DROP = 0.25       # aturan 3 diperkuat bila jam nyala turun >= 25% dari rata-rata periode sebelumnya
 
 
@@ -122,6 +125,11 @@ def history_flags(order, vecs):
             need = min(BASE_MONTHS, len(past))
             if sum(1 for v in past if v > JN_BASE) >= need:
                 fl.append("jn_turun")
+        if len(past) >= 2 and sum(past) / len(past) >= ANJLOK_MIN and jn < ANJLOK * (sum(past) / len(past)):
+            fl.append("jn_anjlok")
+        ser = [jn] + past
+        if len(ser) >= 3 and cur["d"][k] >= DATAR_MIN_DAYA and min(ser) > 0 and max(ser) - min(ser) <= DATAR_TOL * max(ser):
+            fl.append("jn_datar")
         if JN_BAND[0] <= jn <= JN_BAND[1] and cur["d"][k] >= BAND_MIN_DAYA:
             avg = sum(past) / len(past) if past else None
             fl.append("jn6080_turun" if avg and jn <= (1 - BAND_DROP) * avg else "jn6080")
