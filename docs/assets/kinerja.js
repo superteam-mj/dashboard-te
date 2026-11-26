@@ -16,7 +16,7 @@
   let last = null;
 
   const NOTE = {
-    susut: 'Capaian = target susut ÷ susut kumulatif (100% bila susut sudah ≤ target; makin rendah susut makin baik).',
+    susut: 'Capaian = target susut ÷ susut kumulatif (di atas 100% bila susut lebih rendah dari target; makin rendah susut makin baik).',
     p2tl: 'Target = jumlah target kWh tagihan susulan Januari–Desember; realisasi = kWh tagihan susulan dengan tanggal register tahun ini.',
     gm: 'Target = jumlah target ganti meter Januari–Desember; realisasi = hanya meter kategori tua.',
     lbkb: 'Realisasi bulan terakhir = 100% − (pelanggan berulang 3 bulan berturut-turut + pelanggan berulang > 3 bulan) ÷ pelanggan pascabayar. Pelanggan berulang < 3 kali dihitung tuntas (100%); berulang tepat 3 kali atau lebih tidak tuntas. Capaian dihitung dari realisasi yang dibulatkan terhadap target (bawaan 100% bila Target LBKB belum diisi).',
@@ -39,7 +39,7 @@
 
   function calcSusut(sm) {
     if (!sm) throw new Error('data susut belum ada');
-    const mk = (name, x) => { const kum = x.kum != null ? x.kum : x.kumulatif[sm.last], trg = x.trg; return { u: name, t: trg, r: kum, g: kum - trg, c: kum > 0 && trg > 0 ? Math.min(100, trg / kum * 100) : trg > 0 ? 100 : null }; };
+    const mk = (name, x) => { const kum = x.kum != null ? x.kum : x.kumulatif[sm.last], trg = x.trg; return { u: name, t: trg, r: kum, g: kum - trg, c: kum > 0 && trg > 0 ? trg / kum * 100 : trg > 0 ? 100 : null }; };
     const by = {}; sm.units.forEach((u) => { by[key(u.name)] = u; });
     return { rows: ULPS.map((n) => (by[key(n)] ? mk(n, by[key(n)]) : { u: n, t: null, r: null, g: null, c: null })).concat([mk(UP3, sm.up3)]), sub: `Kumulatif Januari–${sm.monthsFull[sm.last]} ${sm.year || YEAR} dibanding target` };
   }
@@ -82,7 +82,7 @@
     });
     const T = {};
     ((tdoc && tdoc.targets) || []).filter((x) => String(x.bln).startsWith(String(YEAR))).sort((a, b) => (a.bln < b.bln ? -1 : 1)).forEach((x) => { T[key(x.ulp)] = +x.target; });   // nilai bulan terakhir yang diisi (Desember bila ada)
-    const mk = (n, a3, a4, p, t) => { const r = p > 0 ? Math.max(0, (p - a3 - a4) / p * 100) : 100, tg = t || 100; return { u: n, p, a3, a4, r, t: tg, tdef: !t, c: Math.min(100, Math.round(r) / tg * 100) }; };   // capaian memakai realisasi yang dibulatkan (99,88% -> 100%); target bawaan 100%
+    const mk = (n, a3, a4, p, t) => { const r = p > 0 ? Math.max(0, (p - a3 - a4) / p * 100) : 100, tg = t || 100; return { u: n, p, a3, a4, r, t: tg, tdef: !t, c: Math.round(r) / tg * 100 }; };   // capaian memakai realisasi yang dibulatkan (99,88% -> 100%); target bawaan 100%
     const rows = ULPS.map((n) => mk(n, n3[key(n)] || 0, n4[key(n)] || 0, P[key(n)] || 0, T[key(n)]));
     const tp = rows.reduce((s, x) => s + x.p, 0), a3 = rows.reduce((s, x) => s + x.a3, 0), a4 = rows.reduce((s, x) => s + x.a4, 0);
     const tt = rows.every((x) => x.t) ? rows.reduce((s, x) => s + x.t, 0) / rows.length : (T[key(UP3)] || null);
