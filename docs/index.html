@@ -556,7 +556,7 @@
       <section class="b-page" data-p="to" hidden>
         <section class="grid">
           <article class="card span-2">
-            <div class="card-head"><div><h2>Peta potensi Target Operasi (TO) P2TL</h2><p class="hint" id="dToHint"></p></div></div>
+            <div class="card-head"><div><h2>Peta potensi Target Operasi (TO) P2TL</h2><p class="hint" id="dToHint"></p></div><div class="tools"><button type="button" class="btn" id="dToListBtn">Lihat data detail</button><button type="button" class="btn" id="dToListXls">Unduh Excel (.xlsx)</button></div></div>
             <div class="b-dfilters">
               <label class="field"><span>ULP</span><select id="dToU"></select></label>
               <label class="field"><span>Jenis pelanggan</span><select id="dToK"><option value="">Prabayar &amp; pascabayar</option><option value="pra">Prabayar saja</option><option value="pasca">Pascabayar saja</option></select></label>
@@ -578,7 +578,7 @@
             </div>
             <div id="dToHotList" class="to-hotlist" hidden>
               <div class="card-head"><div><h3 id="dToHotTitle"></h3><p class="hint" id="dToHotHint"></p></div>
-                <div class="tools"><button type="button" class="btn" id="dToHotXls">Unduh Excel (.xlsx)</button><button type="button" class="btn ghost" id="dToHotClose">Tutup</button></div></div>
+                <div class="tools"><label class="field" style="margin:0"><span>Urutan</span><select id="dToHotOrd"><option value="lokasi">Menurut lokasi</option><option value="prio">Menurut prioritas</option></select></label><button type="button" class="btn" id="dToHotXls">Unduh Excel (.xlsx)</button><button type="button" class="btn ghost" id="dToHotClose">Tutup</button></div></div>
               <div class="table-wrap b-dwrap"><table id="dToHotTbl" class="b-tbl b-det"></table></div>
             </div>
             <p class="hint to-note" id="dToNote"></p>
@@ -996,7 +996,7 @@
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
   <script src="assets/share.js?v=6"></script>
   <script src="assets/billing.js?v=7"></script>
-  <script src="assets/dlpd.js?v=12"></script>
+  <script src="assets/dlpd.js?v=13"></script>
   <script src="assets/gm.js?v=9"></script>
   <script src="assets/amr.js?v=2"></script>
   <script src="assets/lbkb.js?v=2"></script>

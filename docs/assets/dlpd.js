@@ -420,7 +420,7 @@
   let pasca = null, pascaErr = '';
   const FLAG_LBL = { nol: 'kWh nol', mundur: 'Stand meter mundur', jam40: '< 40 jam nyala', dev50: 'Selisih > 50%', kvarh: 'kVArh bermasalah', pecah: 'Rekening pecahan', jn600: 'Jam nyala > 600', jn400: 'Jam nyala > 400', jn_turun: 'Jam nyala < 40 (sebelumnya > 40)', jn_anjlok: 'Jam nyala anjlok > 50%', jn_datar: 'Jam nyala datar ≥ 3 bulan (daya besar)', jn6080: 'Jam nyala 60–80', jn6080_turun: 'Jam nyala 60–80 & turun ≥ 25%' };
   const ULP_COL = ['#2a78d6', '#e34948', '#1baf7a', '#eda100', '#7a1fa2', '#0aa5b8', '#e87ba4', '#6a7380'];
-  let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {}, hotCur = [], hotSel = null;
+  let tmap = null, tlayer = null, tPeriod = '', tUlpIdx = {}, hotCur = [], hotSel = null, toPts = [];
   function toScore(r) {
     const c = (k) => r[col(cols, k)], idle = c('idle'), d = c('daya') || 0;
     const a = idle == null ? 0 : idle >= 6 ? 40 : idle === 5 ? 30 : idle === 4 ? 20 : 10;
@@ -521,24 +521,50 @@
     ctx.beginPath(); ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y); ctx.lineTo(p.x, p.y + r); ctx.lineTo(p.x - r, p.y); ctx.closePath();
     this._fillStroke(ctx, layer);
   } });
-  // daftar pelanggan pada satu titik panas: terbuka saat titik panas diklik (daftar kanan / pin peta), bisa diunduh .xlsx
-  function hotRows(e) {
-    return e.pts.slice().sort(ptCmp).map((p, i) => {
+  // daftar pelanggan TO (semua yang lolos filter, atau satu titik panas): tabel + unduh .xlsx, urut menurut lokasi (kurva Hilbert = titik berdekatan berurutan)
+  function hilbert(x, y) {   // x,y 0..65535 -> posisi di sepanjang kurva Hilbert
+    let d = 0;
+    for (let s = 32768; s > 0; s >>= 1) {
+      const rx = (x & s) > 0 ? 1 : 0, ry = (y & s) > 0 ? 1 : 0;
+      d += s * s * ((3 * rx) ^ ry);
+      if (ry === 0) { if (rx === 1) { x = 65535 - x; y = 65535 - y; } const t = x; x = y; y = t; }
+    }
+    return d;
+  }
+  function byLocation(arr) {
+    if (!arr.length) return [];
+    let a0 = Infinity, a1 = -Infinity, n0 = Infinity, n1 = -Infinity;
+    arr.forEach((p) => { a0 = Math.min(a0, p.la); a1 = Math.max(a1, p.la); n0 = Math.min(n0, p.ln); n1 = Math.max(n1, p.ln); });
+    const sc = (v, lo, hi) => (hi > lo ? Math.round((v - lo) / (hi - lo) * 65535) : 0);
+    return arr.map((p) => ({ p, h: hilbert(sc(p.ln, n0, n1), sc(p.la, a0, a1)) })).sort((x, y) => x.h - y.h).map((x) => x.p);
+  }
+  function hotRows(arr, mode) {
+    const ord = mode === 'prio' ? arr.slice().sort(ptCmp) : byLocation(arr);
+    return ord.map((p, i) => {
       const alamat = p.kind === 'pasca' ? p.r[pasca.cols.indexOf('alamat')] : (cols.indexOf('alamat') >= 0 ? p.r[col(cols, 'alamat')] : '');
-      return { p, v: [i + 1, String(p.id == null ? '' : p.id), p.nm || '', alamat || '', p.u || '', p.kind === 'pasca' ? 'Pascabayar' : 'Prabayar', +p.dy || 0, p.sc.s, LV[toLevel(p.sc.s)], p.sub || '', p.la, p.ln] };
+      return { p, v: [i + 1, String(p.id == null ? '' : p.id), p.nm || '', alamat || '', p.u || '', p.kind === 'pasca' ? 'Pascabayar' : 'Prabayar', +p.dy || 0, p.sc.s, LV[toLevel(p.sc.s)], p.sub || '', p.la, p.ln,
+        `https://www.google.com/maps?q=${p.la},${p.ln}`, '', ''] };
     });
   }
-  const HOT_HEAD = ['No', 'IDPEL', 'Nama', 'Alamat', 'ULP', 'Jenis', 'Daya (VA)', 'Skor', 'Tingkat potensi', 'Keterangan', 'Lintang', 'Bujur'];
-  function showHot(e) {
-    hotSel = e;
-    const rows = hotRows(e), box = $('dToHotList');
-    $('dToHotTitle').textContent = `Daftar pelanggan · Titik panas #${e.rank}`;
-    $('dToHotHint').textContent = `${fmt(e.n)} pelanggan · ${fmt(e.hi)} potensi sangat tinggi · total skor ${fmt(e.sum)} · klik baris untuk memperbesar peta`;
+  const HOT_HEAD = ['No', 'IDPEL', 'Nama', 'Alamat', 'ULP', 'Jenis', 'Daya (VA)', 'Skor', 'Tingkat potensi', 'Keterangan', 'Lintang', 'Bujur', 'Peta (Google Maps)', 'Hasil pemeriksaan', 'Catatan'];
+  const HOT_MAX = 1500;   // baris yang digambar di layar; Excel selalu berisi semua
+  function listXls(sel) {
+    const mode = $('dToHotOrd').value;
+    XlsxMini.download(`${sel.file}_${T.ym}_${mode === 'prio' ? 'prioritas' : 'urut_lokasi'}.xlsx`, sel.sheet, HOT_HEAD, hotRows(sel.pts, mode).map((r) => r.v));
+  }
+  function showList(sel) {
+    hotSel = sel;
+    const rows = hotRows(sel.pts, $('dToHotOrd').value), box = $('dToHotList'), shown = rows.slice(0, HOT_MAX);
+    $('dToHotTitle').textContent = sel.title;
+    $('dToHotHint').textContent = sel.hint + (rows.length > HOT_MAX ? ` · ditampilkan ${fmt(HOT_MAX)} baris pertama, Excel berisi semua ${fmt(rows.length)}` : ' · klik baris untuk memperbesar peta');
     $('dToHotTbl').innerHTML = '<thead><tr>' + HOT_HEAD.slice(0, 10).map((h, i) => `<th${[2, 3, 9].includes(i) ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr></thead><tbody>' +
-      rows.map((r) => `<tr class="to-row" data-la="${r.p.la}" data-ln="${r.p.ln}" tabindex="0"><td>${r.v[0]}</td><td>${esc(r.v[1])}</td><td class="l">${esc(r.v[2])}</td><td class="l">${esc(r.v[3])}</td><td>${esc(r.v[4])}</td><td>${r.v[5]}</td><td>${fmt(r.v[6])}</td><td>${r.v[7]}</td><td><span class="to-badge" style="background:${LVC[toLevel(r.v[7])]}">${r.v[8]}</span></td><td class="l">${esc(r.v[9])}</td></tr>`).join('') + '</tbody>';
+      shown.map((r) => `<tr class="to-row" data-la="${r.p.la}" data-ln="${r.p.ln}" tabindex="0"><td>${r.v[0]}</td><td>${esc(r.v[1])}</td><td class="l">${esc(r.v[2])}</td><td class="l">${esc(r.v[3])}</td><td>${esc(r.v[4])}</td><td>${r.v[5]}</td><td>${fmt(r.v[6])}</td><td>${r.v[7]}</td><td><span class="to-badge" style="background:${LVC[toLevel(r.v[7])]}">${r.v[8]}</span></td><td class="l">${esc(r.v[9])}</td></tr>`).join('') + '</tbody>';
     box.hidden = false;
     box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
+  const hotSelOf = (e) => ({ title: `Daftar pelanggan · Titik panas #${e.rank}`, hint: `${fmt(e.n)} pelanggan · ${fmt(e.hi)} potensi sangat tinggi · total skor ${fmt(e.sum)}`, pts: e.pts, file: `Titik_panas_${e.rank}`, sheet: 'Titik panas ' + e.rank });
+  const showHot = (e) => showList(hotSelOf(e));
+  const toSel = () => ({ title: `Daftar pelanggan Target Operasi${TO.u ? ' · ' + TO.u : ''}`, hint: `${fmt(toPts.length)} pelanggan sesuai filter peta, ${$('dToHotOrd').value === 'prio' ? 'urut prioritas' : 'diurutkan menurut lokasi (titik berdekatan berurutan)'}`, pts: toPts, file: 'Daftar_TO' + (TO.u ? '_' + TO.u.replace(/\s+/g, '_') : ''), sheet: 'Daftar TO' });
   function drawTo(fit) {
     const c = (k) => col(cols, k), il = c('lat'), ig = c('lng'), iu = c('ulp'), ic = c('ct');
     const pts = [];
@@ -570,7 +596,8 @@
       e.pts.push(p); e.n++; e.sum += p.sc.s; e.hi += toLevel(p.sc.s) === 2 ? 1 : 0; e.la += p.la; e.ln += p.ln; e.u[p.u] = (e.u[p.u] || 0) + 1;
     });
     const hot = [...cells.values()].filter((e) => e.n >= 3).sort((a, b) => b.sum - a.sum).slice(0, 10);
-    hotCur = hot; hotSel = null; $('dToHotList').hidden = true;
+    hotCur = hot; hotSel = null; toPts = pts; $('dToHotList').hidden = true;
+    $('dToListBtn').textContent = `Lihat data detail (${fmt(pts.length)})`;
     hot.forEach((e, i) => { e.la /= e.n; e.ln /= e.n; e.rank = i + 1; });
     hot.slice().reverse().forEach((e) => {
       L.circle([e.la, e.ln], { radius: 450, color: '#d6232a', weight: 2, dashArray: '6 5', fillColor: '#d6232a', fillOpacity: 0.12, className: 'to-pulse', interactive: false }).addTo(tlayer);
@@ -732,7 +759,10 @@
     });
     $('dToHotTbl').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-la]'); if (tr && tmap) { tmap.setView([+tr.dataset.la, +tr.dataset.ln], 18); $('dToMap').scrollIntoView({ block: 'center', behavior: 'smooth' }); } });
     $('dToHotClose').onclick = () => { $('dToHotList').hidden = true; };
-    $('dToHotXls').onclick = () => { if (hotSel) XlsxMini.download(`Titik_panas_${hotSel.rank}_${T.ym}.xlsx`, 'Titik panas ' + hotSel.rank, HOT_HEAD, hotRows(hotSel).map((r) => r.v)); };
+    $('dToHotXls').onclick = () => { if (hotSel) listXls(hotSel); };
+    $('dToHotOrd').onchange = () => { if (hotSel && !$('dToHotList').hidden) showList(hotSel); };
+    $('dToListBtn').onclick = () => { if (toPts.length) showList(toSel()); };
+    $('dToListXls').onclick = () => { if (toPts.length) listXls(toSel()); };
     ['subDlpd', 'subP2tl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');
