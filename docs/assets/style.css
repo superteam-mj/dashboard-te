@@ -667,7 +667,7 @@ body:not([data-view="beranda"]) #berandaApp { display: none; }
 .to-insp .ti-m { font-size: 12px; color: var(--muted); }
 
 /* Beranda: pencapaian kinerja per ULP dan UP3 */
-.k-wrap { margin-top: 18px; display: grid; gap: 14px; }
+.k-wrap { margin: 14px 0 18px; display: grid; gap: 14px; }
 .k-head { padding: 0 2px; }
 .k-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
 .k-note { margin: 10px 2px 0; }
