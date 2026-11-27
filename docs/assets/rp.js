@@ -35,7 +35,7 @@
     INS = []; insErr = '';
     try {
       for (let from = 0; ; from += 1000) {
-        const { data: d, error: e } = await sb.from('to_inspections').select('idpel,jenis,hasil,tanggal').order('id', { ascending: true }).range(from, from + 999);
+        const { data: d, error: e } = await sb.from('to_inspections').select('idpel,jenis,hasil,tanggal,catatan').order('id', { ascending: true }).range(from, from + 999);
         if (e) throw new Error(e.message);
         d.forEach((r) => { r.idpel = String(r.idpel || ''); r.ulp = UNIT[r.idpel.slice(0, 5)] || 'Tanpa unit'; r.bln = (r.tanggal || '').slice(0, 7); INS.push(r); });
         if (d.length < 1000) break;
@@ -71,6 +71,32 @@
   }
 
   let R = null;
+  const HASIL = { normal: 'Normal', temuan: 'Temuan P2TL', kosong: 'Tidak ditemukan / kosong', akses: 'Tidak bisa diakses' };
+  const dayAge = (d) => Math.max(0, Math.floor((Date.now() - new Date(d + 'T00:00:00').getTime()) / 864e5));
+  const dmy = (d) => (d ? d.slice(8) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '');
+  const ST = { ulang: 'Perlu kunjungan ulang', tunggu: 'Temuan, menunggu tagihan susulan', telat: 'Temuan, tagihan susulan terlambat (> 14 hari)', selesai: 'Temuan selesai (tagihan susulan terbit)', normal: 'Selesai, normal', kosong: 'Selesai, tidak ditemukan / kosong' };
+  const ORDER = ['ulang', 'telat', 'tunggu', 'selesai', 'normal', 'kosong'];
+  let BOARD = [], bF = { u: '', s: '' };
+  // papan tindak lanjut: status terakhir tiap IDPEL dari hasil pemeriksaan TO + kecocokan dengan tagihan susulan
+  function buildBoard() {
+    const last = new Map();
+    INS.forEach((r) => { const o = last.get(r.idpel); if (!o || r.tanggal >= o.tanggal) last.set(r.idpel, r); });
+    const tsBy = new Map(); TS.forEach((r) => { const o = tsBy.get(r.idpel); if (!o || (r.tgl || '') > (o.tgl || '')) tsBy.set(r.idpel, r); });
+    BOARD = [...last.values()].map((r) => {
+      const t = tsBy.get(r.idpel), age = dayAge(r.tanggal);
+      const st = r.hasil === 'akses' ? 'ulang' : r.hasil === 'normal' ? 'normal' : r.hasil === 'kosong' ? 'kosong' : t ? 'selesai' : age > 14 ? 'telat' : 'tunggu';
+      return { idpel: r.idpel, nama: t ? t.nama : '', ulp: r.ulp, tgl: r.tanggal, age, hasil: HASIL[r.hasil] || r.hasil, st, ts: t ? t.tgl : '', rp: t ? t.total : 0, kat: t ? t.kat : '', cat: r.catatan || '' };
+    }).sort((a, b) => ORDER.indexOf(a.st) - ORDER.indexOf(b.st) || b.age - a.age);
+  }
+  const boardRows = () => BOARD.filter((x) => (!bF.u || x.ulp === bF.u) && (!bF.s || x.st === bF.s));
+  function renderBoard() {
+    const cnt = {}; BOARD.filter((x) => !bF.u || x.ulp === bF.u).forEach((x) => { cnt[x.st] = (cnt[x.st] || 0) + 1; });
+    $('rpBoardSum').innerHTML = ORDER.map((k) => `<button type="button" class="btn${bF.s === k ? '' : ' ghost'}" data-s="${k}">${ST[k]}: <b>${fmt(cnt[k] || 0)}</b></button>`).join(' ');
+    const rows = boardRows(), shown = rows.slice(0, 300);
+    $('rpBoardTbl').innerHTML = th(['IDPEL', 'Nama', 'ULP', 'Tgl periksa', 'Hari', 'Hasil', 'Status', 'Tgl tagihan susulan', 'Total tagihan (Rp)', 'Catatan']) + '<tbody>' +
+      (shown.map((x) => tr([esc(x.idpel), esc(x.nama), esc(x.ulp), dmy(x.tgl), fmt(x.age), esc(x.hasil), `<b style="color:${x.st === 'ulang' || x.st === 'telat' ? '#e34948' : x.st === 'tunggu' ? '#eda100' : '#1baf7a'}">${esc(ST[x.st])}</b>`, dmy(x.ts), x.rp ? fmt(x.rp) : '', esc(x.cat)])).join('') || '<tr><td colspan="10">Belum ada data. Hasil pemeriksaan diinput di Peta Target Operasi.</td></tr>') + '</tbody>';
+    $('rpBoardHint').textContent = `${fmt(rows.length)} pelanggan${rows.length > shown.length ? `, ditampilkan ${fmt(shown.length)} pertama (Excel berisi semua)` : ''} · status dari hasil pemeriksaan terakhir tiap IDPEL; tagihan susulan dicocokkan lewat IDPEL`;
+  }
   const th = (a) => '<thead><tr>' + a.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${h}</th>`).join('') + '</tr></thead>';
   const tr = (a, bold) => '<tr' + (bold ? ' style="font-weight:700"' : '') + '>' + a.map((v, i) => `<td${i === 0 ? ' class="l"' : ''}>${v}</td>`).join('') + '</tr>';
 
@@ -92,6 +118,7 @@
     $('rpUlpTbl').innerHTML = th(['ULP', 'Temuan P2TL', 'Total tagihan (Rp)', 'Pemeriksaan TO', 'Selesai', 'Temuan', 'Normal', 'Kosong', 'Tidak bisa diakses', 'Hitrate TO']) +
       '<tbody>' + rowsU.map((x) => tr([esc(x.u), fmt(x.ts), fmt(x.rp), fmt(x.n), fmt(x.done), fmt(x.hit), fmt(x.normal), fmt(x.kosong), fmt(x.akses), pct(x.hr)])).join('') +
       tr([esc(tot.u), fmt(tot.ts), fmt(tot.rp), fmt(tot.n), fmt(tot.done), fmt(tot.hit), fmt(tot.normal), fmt(tot.kosong), fmt(tot.akses), pct(tot.hr)], true) + '</tbody>';
+    buildBoard(); renderBoard();
     chart();
   }
 
@@ -138,6 +165,7 @@
     const bl = [...new Set(TS.map((r) => r.bln).filter(Boolean))].sort().reverse();
     $('rpFB').innerHTML = '<option value="">Semua periode</option>' + bl.map((b) => `<option value="${b}">${BLN[+b.slice(5) - 1]} ${b.slice(0, 4)}</option>`).join('');
     $('rpFB').value = cur;
+    $('rpBoardU').innerHTML = '<option value="">Semua ULP</option>' + ULPS.map((u) => `<option>${u}</option>`).join(''); $('rpBoardU').value = bF.u;
     $('rpFoot').textContent = 'Sumber: Laporan P2TL Tagihan Susulan (kolom GOLONGAN = kategori pelanggaran) dan hasil pemeriksaan TO · diperbarui ' + new Date(TS.gen).toLocaleString('id-ID');
     render();
     window.scrollTo({ top: 0 });
@@ -146,6 +174,10 @@
   function init() {
     $('rpFB').onchange = (e) => { cur = e.target.value; render(); };
     $('rpXls').onclick = xlsx;
+    $('rpBoardU').onchange = (e) => { bF.u = e.target.value; renderBoard(); };
+    $('rpBoardSum').onclick = (e) => { const b = e.target.closest('button[data-s]'); if (b) { bF.s = bF.s === b.dataset.s ? '' : b.dataset.s; renderBoard(); } };
+    $('rpBoardXls').onclick = () => XlsxMini.download('papan-tindak-lanjut-to.xlsx', 'Tindak lanjut TO', ['IDPEL', 'Nama', 'ULP', 'Tgl periksa', 'Hari sejak periksa', 'Hasil', 'Status', 'Tgl tagihan susulan', 'Golongan', 'Total tagihan (Rp)', 'Catatan'],
+      boardRows().map((x) => [x.idpel, x.nama, x.ulp, x.tgl, x.age, x.hasil, ST[x.st], x.ts || '', x.kat, x.rp || '', x.cat]));
     window.addEventListener('resize', () => { [ch1, ch2].forEach((c) => { if (c && c.getDom() && c.getDom().isConnected) c.resize(); }); });
     new MutationObserver(() => { if (R) chart(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('hashchange', () => { if (location.hash === '#rp2tl' && document.body.dataset.view !== 'rp') show(); });

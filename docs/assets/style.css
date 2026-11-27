@@ -674,3 +674,13 @@ body:not([data-view="beranda"]) #berandaApp { display: none; }
 .k-note { margin: 10px 2px 0; }
 .k-card.miss { opacity: .8; }
 @media (max-width: 900px) { .k-grid { grid-template-columns: 1fr; } }
+
+/* pencarian pelanggan global */
+.gsearch { position: relative; }
+.gsearch input { width: 220px; max-width: 34vw; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.gs-panel { position: absolute; right: 0; top: calc(100% + 8px); width: min(560px, 92vw); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 8px; z-index: 60; }
+.gs-h { font-size: 12px; color: var(--muted); padding: 4px 6px 8px; }
+.gs-item { padding: 8px 10px; border-top: 1px solid var(--border); font-size: 13px; }
+.gs-t span, .gs-a { color: var(--muted); font-size: 12px; }
+.gs-l { margin-top: 4px; line-height: 1.45; }
+@media (max-width: 720px) { .gsearch input { width: 130px; } }

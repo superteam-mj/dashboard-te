@@ -106,6 +106,14 @@
     const rank = { bad: 0, warn: 1, info: 2 };
     return A.sort((a, b) => rank[a.lv] - rank[b.lv]);
   }
+  // peringatan tambahan dari modul lain (mis. kinerja); bagian lama dengan sumber yang sama diganti
+  function addAlerts(list, ...srcs) {
+    S.alerts = S.alerts.filter((a) => !srcs.includes(a.src)).concat(list);
+    const rank = { bad: 0, warn: 1, info: 2 };
+    S.alerts.sort((a, b) => rank[a.lv] - rank[b.lv]);
+    paintBell();
+    if ($('hAlerts')) renderAlerts();
+  }
   const alertCount = () => S.alerts.filter((a) => a.lv !== 'info').length;
   function paintBell() {
     const n = alertCount(), b = $('alertBtn'), c = $('alertN');
@@ -231,6 +239,6 @@
     load().catch(() => {});   // lonceng terisi sejak awal, walau halaman lain yang dibuka
   }
 
-  window.DashBeranda = { show };
+  window.DashBeranda = { show, addAlerts };
   init();
 })();

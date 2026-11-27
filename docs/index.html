@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=10">
+  <link rel="stylesheet" href="assets/style.css?v=11">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -154,6 +154,7 @@
         <p class="sub" id="subtitle">Laporan TUL III-09</p>
       </div>
       <div class="top-actions">
+        <div class="gsearch" id="gSearch"><input type="search" id="gsInput" placeholder="Cari IDPEL / nama pelanggan…" aria-label="Cari pelanggan" autocomplete="off"><div class="gs-panel" id="gsPanel" hidden></div></div>
         <button class="icon-btn bell" id="alertBtn" type="button" aria-label="Peringatan" title="Peringatan">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
           <span class="bell-n" id="alertN" hidden>0</span>
@@ -316,7 +317,9 @@
         <ul class="h-alerts" id="hAlerts"></ul>
         <details class="s-help"><summary>Aturan peringatan yang dipakai</summary><ul id="hRules"></ul></details>
       </article>
+      <article class="card" id="hShare" style="margin-bottom:14px"></article>
       <section class="k-wrap" id="hKinerja" aria-label="Pencapaian kinerja per ULP dan UP3"></section>
+      <section class="k-wrap" id="hInsight" aria-label="Proyeksi dan tren"></section>
       <section class="h-grid" id="hCards" aria-label="Angka kunci per menu"></section>
     </div>
   </main>
@@ -692,6 +695,8 @@
       <p class="hint" id="rpHint" style="padding:0 4px"></p>
       <section class="kpis b-kpis b-k4" id="rpKpis" aria-label="Ringkasan realisasi P2TL"></section>
       <section class="grid">
+        <article class="card span-2"><div class="card-head"><div><h2>Papan tindak lanjut TO</h2><p class="hint" id="rpBoardHint"></p></div><div class="tools"><label class="field" style="margin:0"><span>ULP</span><select id="rpBoardU"></select></label><button type="button" class="btn" id="rpBoardXls">Unduh Excel (.xlsx)</button></div></div>
+          <div id="rpBoardSum" class="tools" style="padding:4px 4px 10px;flex-wrap:wrap"></div><div class="table-wrap b-dwrap"><table id="rpBoardTbl" class="b-tbl b-det"></table></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Temuan per kategori pelanggaran dan ULP</h2><p class="hint">Jumlah tagihan susulan menurut golongan pelanggaran (P1–P4, K1, K2)</p></div></div><div class="chart" id="rpCh1" style="height:320px"></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Rincian kategori pelanggaran</h2><p class="hint">"Dari TO" = IDPEL temuan yang tercatat di hasil pemeriksaan TO</p></div><div class="tools"><button type="button" class="btn" id="rpXls">Unduh Excel (.xlsx)</button></div></div><div class="table-wrap"><table id="rpKatTbl" class="b-tbl"></table></div></article>
         <article class="card span-2"><div class="card-head"><div><h2>Hitrate Target Operasi per ULP</h2><p class="hint">Hitrate = pemeriksaan TO berhasil temuan P2TL ÷ pemeriksaan TO selesai (Normal, Temuan, Kosong; "Tidak bisa diakses" tidak dihitung). ULP dari 5 digit pertama IDPEL</p></div></div><div class="chart" id="rpCh2" style="height:320px"></div></article>
@@ -1021,10 +1026,12 @@
   <script src="assets/pju-plan.js?v=7"></script>
   <script src="assets/pju.js?v=11"></script>
   <script src="assets/ts.js?v=21"></script>
-  <script src="assets/rp.js?v=1"></script>
-  <script src="assets/beranda.js?v=7"></script>
-  <script src="assets/kinerja.js?v=3"></script>
+  <script src="assets/rp.js?v=2"></script>
+  <script src="assets/beranda.js?v=8"></script>
+  <script src="assets/insight.js?v=1"></script>
+  <script src="assets/kinerja.js?v=4"></script>
   <script src="assets/susut.js?v=7"></script>
+  <script src="assets/search.js?v=1"></script>
   <script src="assets/tblx.js?v=1"></script>
 </body>
 </html>

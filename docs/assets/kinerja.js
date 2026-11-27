@@ -46,13 +46,13 @@
 
   async function calcP2tl(sb) {
     const [tg, doc] = await Promise.all([fetchAll(sb, 'ts_targets', 'ulp,bln,target'), tul(sb, 'p2tl_ts')]);
-    const T = {}, R = {}, iu = doc.cols.indexOf('ulp'), ik = doc.cols.indexOf('kwh'), ig = doc.cols.indexOf('tgl');
-    tg.filter((x) => String(x.bln).startsWith(String(YEAR))).forEach((x) => { T[key(x.ulp)] = (T[key(x.ulp)] || 0) + +x.target; });
-    doc.rows.filter((r) => String(r[ig] || '').startsWith(String(YEAR))).forEach((r) => { R[key(r[iu])] = (R[key(r[iu])] || 0) + (+r[ik] || 0); });
+    const T = {}, R = {}, iu = doc.cols.indexOf('ulp'), ik = doc.cols.indexOf('kwh'), ig = doc.cols.indexOf('tgl'), mon = { real: Array(12).fill(0), targ: Array(12).fill(0) };
+    tg.filter((x) => String(x.bln).startsWith(String(YEAR))).forEach((x) => { T[key(x.ulp)] = (T[key(x.ulp)] || 0) + +x.target; mon.targ[+String(x.bln).slice(5, 7) - 1] += +x.target; });
+    doc.rows.filter((r) => String(r[ig] || '').startsWith(String(YEAR))).forEach((r) => { R[key(r[iu])] = (R[key(r[iu])] || 0) + (+r[ik] || 0); mon.real[+String(r[ig]).slice(5, 7) - 1] += +r[ik] || 0; });
     const mk = (n, t, r) => ({ u: n, t, r, c: pct(r, t) });
     const rows = ULPS.map((n) => mk(n, T[key(n)] || 0, R[key(n)] || 0));
     rows.push(mk(UP3, rows.reduce((s, x) => s + x.t, 0), rows.reduce((s, x) => s + x.r, 0)));
-    return { rows, sub: `kWh tagihan susulan tahun ${YEAR} dibanding target` };
+    return { rows, mon, gen: doc.generated_at, sub: `kWh tagihan susulan tahun ${YEAR} dibanding target` };
   }
 
   async function calcGm(sb, gm) {
@@ -87,7 +87,7 @@
     const tp = rows.reduce((s, x) => s + x.p, 0), a3 = rows.reduce((s, x) => s + x.a3, 0), a4 = rows.reduce((s, x) => s + x.a4, 0);
     const tt = rows.every((x) => x.t) ? rows.reduce((s, x) => s + x.t, 0) / rows.length : (T[key(UP3)] || null);
     rows.push(mk(UP3, a3, a4, tp, tt));
-    return { rows, sub: `Bulan ${months[li].slice(4)}/${months[li].slice(0, 4)} · ${tdoc ? 'target dari file Excel di Drive' : 'target bawaan 100% (unggah Target LBKB.xlsx untuk mengubah)'}` };
+    return { rows, gen: doc.generated_at, sub: `Bulan ${months[li].slice(4)}/${months[li].slice(0, 4)} · ${tdoc ? 'target dari file Excel di Drive' : 'target bawaan 100% (unggah Target LBKB.xlsx untuk mengubah)'}` };
   }
 
   // ---------- tampilan ----------
@@ -149,6 +149,7 @@
       '<th>ULP</th><th>Pelanggan pascabayar</th><th>Berulang 3 bulan</th><th>Berulang &gt; 3 bulan</th><th>Realisasi (%)</th><th>Target (%)</th><th>Capaian</th>',
       L.rows.map((x) => `<tr${trCls(x)}><td>${esc(x.u)}</td><td>${fmt(x.p)}</td><td>${fmt(x.a3)}</td><td>${fmt(x.a4)}</td><td>${fmt(x.r, 2)}</td><td>${fmt(x.t, 1)}${x.tdef ? '<span class="muted"> (bawaan)</span>' : ''}</td><td>${cap(x.c)}</td></tr>`).join('')));
     host.innerHTML = out.join('');
+    if (window.DashInsight) { try { window.DashInsight.render(R, d); } catch (e) { console.error(e); } }
     [['kSusut', S], ['kP2tl', P], ['kGm', G], ['kLbkb', L]].forEach(([id, r]) => { if (r && r.rows) chart(id, r.rows); });
   }
 
