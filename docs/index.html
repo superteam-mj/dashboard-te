@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=9">
+  <link rel="stylesheet" href="assets/style.css?v=10">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -134,6 +134,7 @@
               <button type="button" data-p="to">Peta Target Operasi P2TL</button>
               <button type="button" data-p="hasil">Hasil pemeriksaan TO</button>
               <button type="button" data-p="ts">Realisasi Tagihan Susulan</button>
+              <button type="button" data-p="rp">Realisasi P2TL (kategori &amp; hitrate TO)</button>
             </div>
           </div>
         </div>
@@ -683,6 +684,23 @@
     <footer class="foot" id="tsFoot"></footer>
   </main>
 
+  <main class="wrap billing gm" id="rpApp" aria-label="Realisasi P2TL">
+    <div class="s-head"><div class="crumb"><span>Pengendalian Susut</span><i>›</i><span>P2TL</span><i>›</i><b>Realisasi P2TL</b></div>
+      <select id="rpFB" aria-label="Pilih periode"></select></div>
+    <div class="s-msg" id="rpMsg" hidden></div>
+    <div id="rpBody" hidden>
+      <p class="hint" id="rpHint" style="padding:0 4px"></p>
+      <section class="kpis b-kpis b-k4" id="rpKpis" aria-label="Ringkasan realisasi P2TL"></section>
+      <section class="grid">
+        <article class="card span-2"><div class="card-head"><div><h2>Temuan per kategori pelanggaran dan ULP</h2><p class="hint">Jumlah tagihan susulan menurut golongan pelanggaran (P1–P4, K1, K2)</p></div></div><div class="chart" id="rpCh1" style="height:320px"></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Rincian kategori pelanggaran</h2><p class="hint">"Dari TO" = IDPEL temuan yang tercatat di hasil pemeriksaan TO</p></div><div class="tools"><button type="button" class="btn" id="rpXls">Unduh Excel (.xlsx)</button></div></div><div class="table-wrap"><table id="rpKatTbl" class="b-tbl"></table></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Hitrate Target Operasi per ULP</h2><p class="hint">Hitrate = pemeriksaan TO berhasil temuan P2TL ÷ pemeriksaan TO selesai (Normal, Temuan, Kosong; "Tidak bisa diakses" tidak dihitung). ULP dari 5 digit pertama IDPEL</p></div></div><div class="chart" id="rpCh2" style="height:320px"></div></article>
+        <article class="card span-2"><div class="card-head"><div><h2>Rincian hitrate per ULP</h2></div></div><div class="table-wrap"><table id="rpUlpTbl" class="b-tbl b-wide"></table></div></article>
+      </section>
+    </div>
+    <footer class="foot" id="rpFoot"></footer>
+  </main>
+
   <main class="wrap billing gm" id="amrApp" aria-label="Automatic Meter Reading">
     <div class="s-head"><div class="crumb" id="aCrumb"></div></div>
     <div class="s-msg" id="aMsg" hidden></div>
@@ -996,16 +1014,17 @@
   <script src="assets/leaflet.js"></script><!-- Leaflet 1.9.4 (BSD-2-Clause) -->
   <script src="assets/share.js?v=6"></script>
   <script src="assets/billing.js?v=7"></script>
-  <script src="assets/dlpd.js?v=13"></script>
+  <script src="assets/dlpd.js?v=14"></script>
   <script src="assets/gm.js?v=9"></script>
   <script src="assets/amr.js?v=2"></script>
   <script src="assets/lbkb.js?v=2"></script>
   <script src="assets/pju-plan.js?v=7"></script>
   <script src="assets/pju.js?v=11"></script>
   <script src="assets/ts.js?v=21"></script>
+  <script src="assets/rp.js?v=1"></script>
   <script src="assets/beranda.js?v=7"></script>
   <script src="assets/kinerja.js?v=3"></script>
-  <script src="assets/susut.js?v=6"></script>
+  <script src="assets/susut.js?v=7"></script>
   <script src="assets/tblx.js?v=1"></script>
 </body>
 </html>

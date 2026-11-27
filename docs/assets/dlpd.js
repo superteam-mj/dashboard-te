@@ -766,7 +766,7 @@
     ['subDlpd', 'subP2tl'].forEach((id) => $(id).addEventListener('click', (e) => {
       const b = e.target.closest('button[data-p]'); if (!b) return;
       document.body.classList.remove('nav-open');
-      if (b.dataset.p === 'ts') window.DashTs.show(); else show(b.dataset.p);
+      if (b.dataset.p === 'ts') window.DashTs.show(); else if (b.dataset.p === 'rp') window.DashRp.show(); else show(b.dataset.p);
     }));
     window.addEventListener('resize', () => Object.values(charts).forEach((c) => c.getDom() && c.getDom().isConnected && c.resize()));
     new MutationObserver(() => { if (D && document.body.dataset.view === 'dlpd') renderAll(); })
