@@ -12,7 +12,7 @@
     document.body.dataset.view = v;
     const nv = (v === 'dlpd' && (page === 'to' || page === 'hasil')) || v === 'ts' || v === 'rp' ? 'p2tl' : v; // P2TL = halaman DLPD yang ditampilkan di menu Pengendalian Susut
     // menu induk: transaksi = Penjualan + Mon Billing + DLPD; susut = Susut Distribusi + PJU Non Meter
-    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', p2tl: 'susut', ts: 'susut', rp: 'susut', lbkb: 'transaksi', gm: 'gm', amr: 'gm', beranda: 'beranda' };
+    const TOP = { transaksi: 'transaksi', billing: 'transaksi', dlpd: 'transaksi', susut: 'susut', pju: 'susut', p2tl: 'susut', ts: 'susut', rp: 'susut', dpm: 'transaksi', lbkb: 'transaksi', gm: 'gm', amr: 'gm', beranda: 'beranda' };
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.classList.contains('sg-h') ? b.dataset.v === nv : b.dataset.v === TOP[nv] && !b.closest('.sub-groups')));
     });
@@ -23,6 +23,7 @@
       billing: ['Transaksi Energi · Mon Billing', 'Mon Billing — Dashboard TE'],
       dlpd: ['Transaksi Energi · DLPD Prabayar', 'DLPD Prabayar — Dashboard TE'],
       lbkb: ['Transaksi Energi · LBKB', 'LBKB — Dashboard TE'],
+      dpm: ['Transaksi Energi · Mon DPM', 'Mon DPM — Dashboard TE'],
       pju: ['Pengendalian Susut · PJU Non Meter', 'PJU Non Meter — Dashboard TE'],
       gm: ['Pemeliharaan Meter · Ganti Meter', 'Ganti Meter — Dashboard TE'],
       amr: ['Pemeliharaan Meter · Automatic Meter Reading', 'Automatic Meter Reading — Dashboard TE'],
@@ -585,7 +586,7 @@
 
   function init() {
     document.querySelectorAll('#sections button[data-v]').forEach((b) => {
-      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'p2tl' ? window.DashDlpd.show('to') : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'lbkb' ? window.DashLbkb.show() : b.dataset.v === 'amr' ? window.DashAmr.show() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
+      b.onclick = () => (b.dataset.v === 'susut' ? show() : b.dataset.v === 'billing' ? window.DashBilling.show() : b.dataset.v === 'dlpd' ? window.DashDlpd.show() : b.dataset.v === 'p2tl' ? window.DashDlpd.show('to') : b.dataset.v === 'beranda' ? window.DashBeranda.show() : b.dataset.v === 'gm' ? window.DashGm.show() : b.dataset.v === 'lbkb' ? window.DashLbkb.show() : b.dataset.v === 'dpm' ? window.DashDpm.show() : b.dataset.v === 'amr' ? window.DashAmr.show() : b.dataset.v === 'pju' ? window.DashPju.show() : showTransaksi());
     });
     initSubnav();
     // menu induk: hanya buka/tutup submenunya sendiri (tanpa pindah halaman, tanpa membuka menu lain)
@@ -640,7 +641,7 @@
     $('sidebar').addEventListener('focusin', () => peek(true));
     $('navToggle').setAttribute('aria-label', root.classList.contains('side-hidden') ? 'Tampilkan menu' : 'Sembunyikan menu');
     $('navScrim').onclick = () => document.body.classList.remove('nav-open');
-    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#lbkb')) window.DashLbkb.show(); else if (location.hash.startsWith('#amr')) window.DashAmr.show(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash.startsWith('#ts')) window.DashTs.show(); else if (location.hash.startsWith('#rp2tl')) window.DashRp.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
+    if (location.hash.startsWith('#susut')) show(); else if (location.hash.startsWith('#billing')) window.DashBilling.show(); else if (location.hash.startsWith('#dlpd')) window.DashDlpd.show(); else if (location.hash.startsWith('#lbkb')) window.DashLbkb.show(); else if (location.hash === '#dpm') window.DashDpm.show(); else if (location.hash.startsWith('#amr')) window.DashAmr.show(); else if (location.hash.startsWith('#gm')) window.DashGm.show(); else if (location.hash.startsWith('#pju')) window.DashPju.show(); else if (location.hash.startsWith('#ts')) window.DashTs.show(); else if (location.hash.startsWith('#rp2tl')) window.DashRp.show(); else if (location.hash === '' || location.hash.startsWith('#beranda')) window.DashBeranda.show(); else setView('transaksi');
   }
 
   init();

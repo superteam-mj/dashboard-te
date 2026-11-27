@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/style.css?v=11">
+  <link rel="stylesheet" href="assets/style.css?v=12">
   <link rel="stylesheet" href="assets/leaflet.css">
   <script>
     try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -80,6 +80,10 @@
               <button type="button" data-p="ringkasan">Ringkasan kode pesan</button>
               <button type="button" data-p="peringatan">Peringatan kode berulang</button>
             </div>
+          </div>
+          <div class="sub-group" data-sg="dpm">
+            <button type="button" class="sg-h" data-v="dpm" aria-pressed="false"><span>Mon DPM</span><i class="chev" aria-hidden="true"></i></button>
+            <div class="sub-nav" id="subDpm" role="group" aria-label="Halaman Mon DPM"></div>
           </div>
         </div>
       </div>
@@ -706,6 +710,33 @@
     <footer class="foot" id="rpFoot"></footer>
   </main>
 
+  <main class="wrap billing gm" id="dpApp" aria-label="Mon DPM">
+    <div class="s-head"><div class="crumb"><span>Transaksi Energi</span><i>›</i><b>Mon DPM</b></div></div>
+    <div class="s-msg" id="dpMsg" hidden></div>
+    <div id="dpBody" hidden>
+      <section class="kpis b-kpis b-k4" id="dpKpis" aria-label="Ringkasan kode RBM"></section>
+      <section class="grid">
+        <article class="card span-2">
+          <div class="card-head"><div><h2>Kode RBM di Mon DPM yang tidak ada di rekap pelanggan per RBM</h2><p class="hint" id="dpHint"></p></div>
+            <div class="tools"><button type="button" class="btn" id="dpXls">Unduh daftar RBM (.xlsx)</button><button type="button" class="btn" id="dpAllXls">Unduh semua pelanggan (.xlsx)</button></div></div>
+          <p class="hint" id="dpNoFile" style="padding:0 4px" hidden></p>
+          <div class="b-dfilters"><label class="field"><span>ULP</span><select id="dpU"></select></label>
+            <label class="field b-dq"><span>Cari kode RBM</span><input type="search" id="dpQ" placeholder="mis. IBAAMRJ" aria-label="Cari kode RBM"></label></div>
+          <div class="table-wrap b-dwrap"><table id="dpTbl" class="b-tbl"></table></div>
+        </article>
+        <article class="card span-2" id="dpCust" hidden>
+          <div class="card-head"><div><h2 id="dpCTitle"></h2></div><div class="tools"><button type="button" class="btn" id="dpCXls">Unduh Excel (.xlsx)</button><button type="button" class="btn ghost" id="dpCClose">Tutup</button></div></div>
+          <div class="table-wrap b-dwrap"><table id="dpCTbl" class="b-tbl b-det"></table></div>
+        </article>
+        <article class="card span-2">
+          <div class="card-head"><div><h2>Jumlah pelanggan berbeda antara Mon DPM dan rekap</h2><p class="hint" id="dpDHint"></p></div></div>
+          <div class="table-wrap b-dwrap"><table id="dpDTbl" class="b-tbl"></table></div>
+        </article>
+      </section>
+    </div>
+    <footer class="foot" id="dpFoot"></footer>
+  </main>
+
   <main class="wrap billing gm" id="amrApp" aria-label="Automatic Meter Reading">
     <div class="s-head"><div class="crumb" id="aCrumb"></div></div>
     <div class="s-msg" id="aMsg" hidden></div>
@@ -1027,10 +1058,11 @@
   <script src="assets/pju.js?v=11"></script>
   <script src="assets/ts.js?v=21"></script>
   <script src="assets/rp.js?v=2"></script>
+  <script src="assets/dpm.js?v=1"></script>
   <script src="assets/beranda.js?v=8"></script>
   <script src="assets/insight.js?v=1"></script>
   <script src="assets/kinerja.js?v=4"></script>
-  <script src="assets/susut.js?v=7"></script>
+  <script src="assets/susut.js?v=8"></script>
   <script src="assets/search.js?v=1"></script>
   <script src="assets/tblx.js?v=1"></script>
 </body>

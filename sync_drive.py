@@ -56,6 +56,7 @@ TOP = {
     "pju": ("Pengendalian Susut", "PJU"),
     "amr": ("Pemeliharaan Meter", "AMR"),
     "ts": ("Pengendalian Susut", "P2TL/Laporan Tagihan Susulan"),
+    "dpm": ("Transaksi Energi", "Mon DPM"),             # rekap pelanggan per RBM vs kode RBM di Monitoring DPM
     "lbt": ("Transaksi Energi", "Mon DPM"),             # file target LBKB (nama file memuat "target") di folder Mon DPM
     "gmt": ("Pemeliharaan Meter", "Ganti Meter H+1"),   # file target Ganti Meter (nama file memuat "target") di folder yang sama
 }
@@ -371,6 +372,17 @@ def publish_lbkb(sb: Supa, src: Path, work: Path):
     return warns
 
 
+def publish_dpm(sb: Supa, src: Path, work: Path):
+    import build_dpm as bd
+    doc, warns = bd.build(src)
+    for x in doc["files"]:
+        print(f"    {x['file']}: {x['rows']} baris")
+    miss = sum(1 for r in doc["rows"] if r[3] and not r[5])
+    print(f"    periode {doc['period']}: {len(doc['rows'])} kode RBM, {miss} tidak ada di rekap ({len(doc['cust'])} pelanggan)")
+    sb.upsert("tul_data", [{"id": "dpm_rbm", "data": doc, "generated_at": doc["generated_at"]}], "id")
+    return warns
+
+
 def publish_ts(sb: Supa, src: Path, work: Path):
     import build_ts as bt
     doc, warns = bt.build(src)
@@ -464,6 +476,8 @@ def _belongs(name: str, path_str: str) -> bool:
     if name == "koordinat":
         return low.startswith(DIL_DIR)
     if name == "lbkb":
+        return low.startswith(DPM_DIR) and "target" not in low.rsplit("/", 1)[-1] and "rekap" not in low.rsplit("/", 1)[-1]
+    if name == "dpm":
         return low.startswith(DPM_DIR) and "target" not in low.rsplit("/", 1)[-1]
     if name == "lbt":
         return low.startswith(DPM_DIR) and "target" in low.rsplit("/", 1)[-1]
@@ -487,7 +501,7 @@ def _ci_dir(parent: Path, name: str) -> Path:
     return parent / name
 
 
-PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "lbt": publish_lbt, "lbkb": publish_lbkb, "koordinat": publish_koordinat}
+PUBLISH = {"tul": publish_tul, "susut": publish_susut, "billing": publish_billing, "dlpd": publish_dlpd, "gm": publish_gm, "pju": publish_pju, "amr": publish_amr, "ts": publish_ts, "gmt": publish_gmt, "lbt": publish_lbt, "dpm": publish_dpm, "lbkb": publish_lbkb, "koordinat": publish_koordinat}
 
 
 def main():
@@ -495,7 +509,7 @@ def main():
     ap.add_argument("--local-root", type=Path, help="pakai folder lokal sebagai pengganti Drive (uji)")
     ap.add_argument("--dry-run", action="store_true", help="jangan menulis ke Supabase")
     ap.add_argument("--force", action="store_true", help="proses ulang walau tidak ada perubahan")
-    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbt", "lbkb"], help="hanya satu kumpulan data")
+    ap.add_argument("--only", choices=["tul", "susut", "billing", "dlpd", "gm", "koordinat", "pju", "amr", "ts", "gmt", "lbt", "dpm", "lbkb"], help="hanya satu kumpulan data")
     a = ap.parse_args()
 
     sb = Supa(os.environ.get("SUPABASE_URL", "http://dry.invalid"), os.environ.get("SUPABASE_SERVICE_KEY", "dry"), a.dry_run)
